@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import DB, require_roles
+from app.core.config import get_settings
 from app.core.security import hash_password
 from app.models import Empresa, Rol, Usuario
 from app.schemas.empresa import EmpresaCreate, EmpresaOut, EmpresaUpdate
@@ -34,7 +35,8 @@ async def crear(data: EmpresaCreate, db: DB) -> Empresa:
     if await db.scalar(select(func.count()).where(func.lower(Usuario.email) == email)):
         raise HTTPException(status.HTTP_409_CONFLICT, "Ya existe un usuario con ese correo")
 
-    empresa = Empresa(**data.model_dump(exclude={"admin"}))
+    empresa = Empresa(**data.model_dump(exclude={"admin", "max_empleados"}))
+    empresa.max_empleados = data.max_empleados or get_settings().licencia_max_empleados_default
     db.add(empresa)
     try:
         await db.flush()
@@ -62,7 +64,10 @@ async def obtener(empresa_id: uuid.UUID, db: DB) -> Empresa:
 @router.patch("/{empresa_id}", response_model=EmpresaOut)
 async def actualizar(empresa_id: uuid.UUID, data: EmpresaUpdate, db: DB) -> Empresa:
     empresa = await _get(db, empresa_id)
-    for campo, valor in data.model_dump(exclude_unset=True).items():
+    cambios = data.model_dump(exclude_unset=True)
+    if cambios.get("max_empleados", 0) is None:
+        cambios.pop("max_empleados")
+    for campo, valor in cambios.items():
         setattr(empresa, campo, valor)
     try:
         await db.commit()

@@ -42,7 +42,28 @@ export interface Empresa {
   razon_social: string | null;
   rfc: string | null;
   activa: boolean;
+  max_empleados: number;
+  licencia_vence: string | null;
   created_at: string;
+}
+
+export interface Licencia {
+  max_empleados: number;
+  activos: number;
+  disponibles: number;
+  vence: string | null;
+  vencida: boolean;
+  url_compra: string;
+}
+
+/** Detalle que manda la API cuando se rebasa o venció la licencia. */
+export interface LimiteLicencia {
+  codigo: "limite_licencia" | "licencia_vencida";
+  mensaje: string;
+  max_empleados: number;
+  activos: number;
+  disponibles: number;
+  url_compra: string;
 }
 
 interface Tokens {
@@ -57,10 +78,18 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    public detalle?: unknown,
   ) {
     super(message);
   }
+
+  get licencia(): LimiteLicencia | null {
+    const d = this.detalle as LimiteLicencia | undefined;
+    return d?.codigo === "limite_licencia" || d?.codigo === "licencia_vencida" ? d : null;
+  }
 }
+
+export const errorLicencia = (err: unknown) => (err instanceof ApiError ? err.licencia : null);
 
 export const session = {
   get(): Tokens | null {
@@ -103,6 +132,7 @@ async function refresh(): Promise<boolean> {
 function errorMessage(body: unknown, status: number): string {
   const detail = (body as { detail?: unknown })?.detail;
   if (typeof detail === "string") return detail;
+  if (detail && typeof detail === "object" && "mensaje" in detail) return String(detail.mensaje);
   if (Array.isArray(detail) && detail[0]?.msg) {
     const d = detail[0] as { type: string; msg: string; loc?: string[]; ctx?: Record<string, unknown> };
     const campo = d.loc?.[d.loc.length - 1];
@@ -140,7 +170,7 @@ export async function api<T>(path: string, init: RequestInit = {}, retry = true)
 
   if (r.status === 204) return undefined as T;
   const body = await r.json().catch(() => null);
-  if (!r.ok) throw new ApiError(r.status, errorMessage(body, r.status));
+  if (!r.ok) throw new ApiError(r.status, errorMessage(body, r.status), (body as { detail?: unknown })?.detail);
   return body as T;
 }
 

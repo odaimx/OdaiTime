@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     access_token_minutes: int = 15
     refresh_token_days: int = 7
 
+    # Licencia de prueba mientras no exista el panel central de licencias de Odai.
+    licencia_max_empleados_default: int = 15
+    licencia_url_compra: str = "https://odai.lat"
+
     # Intentos de login fallidos permitidos por correo+IP en la ventana.
     login_max_attempts: int = 5
     login_window_seconds: int = 900

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { PageHeader } from "../components/ui";
-import { ROLES } from "../lib/api";
+import { PageHeader, UsoLicencia } from "../components/ui";
+import { get, ROLES, type Licencia } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 type Ready = { status: string; checks: Record<string, string> };
@@ -8,6 +8,12 @@ type Ready = { status: string; checks: Record<string, string> };
 export default function Inicio() {
   const { usuario } = useAuth();
   const [ready, setReady] = useState<Ready | null>(null);
+  const [lic, setLic] = useState<Licencia | null>(null);
+  const verLicencia = usuario?.rol === "admin_empresa" || usuario?.rol === "gerente_sucursal";
+
+  useEffect(() => {
+    if (verLicencia) get<Licencia>("/licencia").then(setLic).catch(() => {});
+  }, [verLicencia]);
 
   useEffect(() => {
     fetch("/api/health/ready")
@@ -23,6 +29,13 @@ export default function Inicio() {
       <PageHeader title={`Hola, ${usuario.nombre.split(" ")[0]}`} subtitle={`${ROLES[usuario.rol]}${usuario.empresa ? ` · ${usuario.empresa.nombre}` : ""}`} />
 
       <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
+        {lic && (
+          <div className="card p-6">
+            <h2 className="mb-3 text-sm font-medium text-slate-500">Tu licencia</h2>
+            <UsoLicencia lic={lic} />
+            {lic.vence && <p className="mt-2 text-xs text-slate-500">Vigente hasta {new Date(lic.vence + "T12:00").toLocaleDateString("es-MX", { dateStyle: "long" })}</p>}
+          </div>
+        )}
         {usuario.sucursales.length > 0 && (
           <div className="card p-6">
             <h2 className="text-sm font-medium text-slate-500">Tus sucursales</h2>

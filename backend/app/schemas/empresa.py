@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from app.schemas.common import RFC, Nombre, Password
 
@@ -20,6 +20,8 @@ class AdminInicial(BaseModel):
 
 class EmpresaCreate(EmpresaBase):
     admin: AdminInicial
+    max_empleados: int | None = Field(default=None, ge=1, le=100000)
+    licencia_vence: date | None = None
 
 
 class EmpresaUpdate(BaseModel):
@@ -27,6 +29,8 @@ class EmpresaUpdate(BaseModel):
     razon_social: str | None = None
     rfc: RFC | None = None
     activa: bool | None = None
+    max_empleados: int | None = Field(default=None, ge=1, le=100000)
+    licencia_vence: date | None = None
 
 
 class EmpresaOut(EmpresaBase):
@@ -34,4 +38,6 @@ class EmpresaOut(EmpresaBase):
 
     id: uuid.UUID
     activa: bool
+    max_empleados: int
+    licencia_vence: date | None
     created_at: datetime
