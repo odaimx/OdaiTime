@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
 
     secret_key: str = "cambia-esto-en-produccion"
+    access_token_minutes: int = 15
+    refresh_token_days: int = 7
+
+    # Intentos de login fallidos permitidos por correo+IP en la ventana.
+    login_max_attempts: int = 5
+    login_window_seconds: int = 900
     cors_origins: list[str] = ["http://localhost:5173"]
 
 
