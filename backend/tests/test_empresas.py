@@ -11,7 +11,10 @@ async def test_superadmin_crea_empresa_con_admin(client, superadmin):
 
 
 async def test_rfc_invalido_y_duplicado(client, superadmin):
-    base = {"nombre": "X", "admin": {"nombre": "A B", "email": "a@x.mx", "password": PASSWORD}}
+    base = {
+        "nombre": "Empresa X",
+        "admin": {"nombre": "Ana Beltrán", "email": "a@x.mx", "password": PASSWORD},
+    }
     r = await client.post("/api/empresas", headers=superadmin, json={**base, "rfc": "NOPE"})
     assert r.status_code == 422
 

@@ -1,1 +1,35 @@
 @import "tailwindcss";
+
+/* Colores corporativos ODAI */
+@theme {
+  --color-brand-50: #f4f0fc;
+  --color-brand-100: #e9e1f9;
+  --color-brand-200: #d3c3f3;
+  --color-brand-500: #8a64de; /* morado del logo */
+  --color-brand-600: #7650cf;
+  --color-brand-700: #6340b3;
+  --color-accent-500: #54aaf6; /* azul del logo */
+  --color-navy-900: #1a2c4f; /* azul marino corporativo */
+  --color-navy-800: #243a63;
+  --color-navy-700: #2f4878;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 bg-brand-500 text-white hover:bg-brand-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 border border-slate-300 bg-white text-navy-900 hover:bg-slate-50;
+  }
+  .input {
+    @apply block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-navy-900 placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none;
+  }
+  .label {
+    @apply mb-1 block text-sm font-medium text-navy-900;
+  }
+  .card {
+    @apply rounded-xl bg-white shadow-sm ring-1 ring-slate-200;
+  }
+}

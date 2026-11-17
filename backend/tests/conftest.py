@@ -66,7 +66,7 @@ async def crear_empresa(client, sa_headers, nombre: str, admin_email: str) -> di
         "/api/empresas",
         headers=sa_headers,
         json={
-            "nombre": nombre,
+            "nombre": f"Empresa {nombre}",
             "admin": {"nombre": f"Admin {nombre}", "email": admin_email, "password": PASSWORD},
         },
     )
