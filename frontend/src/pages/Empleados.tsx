@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
-import { Badge, ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
+import { AvisoLicencia, Badge, ErrorBox, Modal, PageHeader, UsoLicencia, useEmpresaScope } from "../components/ui";
 import {
   descargar,
+  errorLicencia,
   fechaCorta,
   get,
   hoyISO,
@@ -10,6 +11,8 @@ import {
   subir,
   type Empleado,
   type EmpleadoDetalle,
+  type Licencia,
+  type LimiteLicencia,
   type Sucursal,
   type Turno,
 } from "../lib/api";
@@ -61,6 +64,13 @@ export default function Empleados() {
   const [extra, setExtra] = useState({ turno_id: "", fecha: hoyISO(), motivo: "", email: "", password: "" });
   const [error, setError] = useState<string | null>(null);
   const [importando, setImportando] = useState(false);
+  const [lic, setLic] = useState<Licencia | null>(null);
+  const [aviso, setAviso] = useState<LimiteLicencia | null>(null);
+
+  const cargarLicencia = useCallback(() => {
+    if (listo) get<Licencia>(`/licencia${query}`).then(setLic);
+  }, [listo, query]);
+  useEffect(cargarLicencia, [cargarLicencia]);
 
   const cargar = useCallback(() => {
     if (!listo) return;
@@ -68,7 +78,8 @@ export default function Empleados() {
     if (filtros.q.trim()) p.set("q", filtros.q.trim());
     if (filtros.sucursal_id) p.set("sucursal_id", filtros.sucursal_id);
     get<Empleado[]>(`/empleados${query}${sep}${p}`).then(setEmpleados);
-  }, [listo, query, sep, filtros]);
+    cargarLicencia();
+  }, [listo, query, sep, filtros, cargarLicencia]);
 
   useEffect(() => {
     const t = setTimeout(cargar, 250); // espera a que termine de escribir
@@ -91,6 +102,17 @@ export default function Empleados() {
   }
 
   function abrirNuevo() {
+    // Si ya no hay lugares, avisa antes de capturar todo el formulario.
+    if (lic && (lic.disponibles === 0 || lic.vencida)) {
+      setAviso({
+        codigo: lic.vencida ? "licencia_vencida" : "limite_licencia",
+        mensaje: lic.vencida
+          ? "Tu licencia está vencida. Renuévala para registrar empleados."
+          : `Tu licencia permite ${lic.max_empleados} empleados activos y ya los tienes todos registrados.`,
+        ...lic,
+      });
+      return;
+    }
     setError(null);
     setForm(vacio(sucursalesActivas.length === 1 ? sucursalesActivas[0].id : ""));
     setNuevo(true);
@@ -122,7 +144,9 @@ export default function Empleados() {
       setVista("detalle");
       cargar();
     } catch (err) {
-      setError((err as Error).message);
+      const l = errorLicencia(err);
+      if (l) setAviso(l);
+      else setError((err as Error).message);
     }
   }
 
@@ -137,7 +161,11 @@ export default function Empleados() {
       setSel(creado);
       setVista("detalle");
     } catch (err) {
-      setError((err as Error).message);
+      const l = errorLicencia(err);
+      if (l) {
+        setNuevo(false);
+        setAviso(l);
+      } else setError((err as Error).message);
     }
   }
 
@@ -217,7 +245,8 @@ export default function Empleados() {
         title="Empleados"
         subtitle="Expediente, sucursal y turno de cada colaborador"
         action={
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            {lic && <UsoLicencia lic={lic} compacto />}
             {selector}
             {esAdmin && listo && (
               <button className="btn-secondary" onClick={() => setImportando(true)}>
@@ -462,14 +491,35 @@ export default function Empleados() {
         </Modal>
       )}
 
-      {importando && <Importar query={query} onClose={() => setImportando(false)} onListo={cargar} />}
+      {importando && (
+        <Importar
+          query={query}
+          onClose={() => setImportando(false)}
+          onListo={cargar}
+          onLicencia={(l) => {
+            setImportando(false);
+            setAviso(l);
+          }}
+        />
+      )}
+      {aviso && <AvisoLicencia info={aviso} onClose={() => setAviso(null)} />}
     </>
   );
 }
 
 type ImportRes = { creados: number; errores: { fila: number; error: string }[] };
 
-function Importar({ query, onClose, onListo }: { query: string; onClose: () => void; onListo: () => void }) {
+function Importar({
+  query,
+  onClose,
+  onListo,
+  onLicencia,
+}: {
+  query: string;
+  onClose: () => void;
+  onListo: () => void;
+  onLicencia: (l: LimiteLicencia) => void;
+}) {
   const [archivo, setArchivo] = useState<File | null>(null);
   const [resultado, setResultado] = useState<ImportRes | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -485,7 +535,9 @@ function Importar({ query, onClose, onListo }: { query: string; onClose: () => v
       setResultado(r);
       if (r.creados) onListo();
     } catch (err) {
-      setError((err as Error).message);
+      const l = errorLicencia(err);
+      if (l) onLicencia(l);
+      else setError((err as Error).message);
     } finally {
       setEnviando(false);
     }

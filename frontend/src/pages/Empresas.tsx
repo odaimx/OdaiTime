@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } fr
 import { Badge, ErrorBox, Modal, PageHeader } from "../components/ui";
 import { get, patch, post, type Empresa } from "../lib/api";
 
-type Form = { nombre: string; razon_social: string; rfc: string; admin_nombre: string; admin_email: string; admin_password: string };
-const VACIO: Form = { nombre: "", razon_social: "", rfc: "", admin_nombre: "", admin_email: "", admin_password: "" };
+type Form = { nombre: string; razon_social: string; rfc: string; max_empleados: string; licencia_vence: string; admin_nombre: string; admin_email: string; admin_password: string };
+const VACIO: Form = { nombre: "", razon_social: "", rfc: "", max_empleados: "15", licencia_vence: "", admin_nombre: "", admin_email: "", admin_password: "" };
 
 export default function Empresas() {
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
@@ -16,14 +16,24 @@ export default function Empresas() {
 
   function abrir(e: Empresa | "nueva") {
     setError(null);
-    setForm(e === "nueva" ? VACIO : { ...VACIO, nombre: e.nombre, razon_social: e.razon_social ?? "", rfc: e.rfc ?? "" });
+    setForm(
+      e === "nueva"
+        ? VACIO
+        : { ...VACIO, nombre: e.nombre, razon_social: e.razon_social ?? "", rfc: e.rfc ?? "", max_empleados: String(e.max_empleados), licencia_vence: e.licencia_vence ?? "" },
+    );
     setEditando(e);
   }
 
   async function guardar(ev: FormEvent) {
     ev.preventDefault();
     setError(null);
-    const datos = { nombre: form.nombre, razon_social: form.razon_social || null, rfc: form.rfc || null };
+    const datos = {
+      nombre: form.nombre,
+      razon_social: form.razon_social || null,
+      rfc: form.rfc || null,
+      max_empleados: Number(form.max_empleados) || 15,
+      licencia_vence: form.licencia_vence || null,
+    };
     try {
       if (editando === "nueva") {
         await post("/empresas", {
@@ -61,6 +71,7 @@ export default function Empresas() {
             <tr>
               <th className="px-4 py-3">Nombre</th>
               <th className="hidden px-4 py-3 sm:table-cell">RFC</th>
+              <th className="px-4 py-3">Licencia</th>
               <th className="px-4 py-3">Estado</th>
               <th className="px-4 py-3" />
             </tr>
@@ -73,6 +84,10 @@ export default function Empresas() {
                   {e.razon_social && <p className="text-xs text-slate-500">{e.razon_social}</p>}
                 </td>
                 <td className="hidden px-4 py-3 font-mono text-xs sm:table-cell">{e.rfc ?? "—"}</td>
+                <td className="px-4 py-3 text-slate-600">
+                  {e.max_empleados} empleados
+                  {e.licencia_vence && <p className="text-xs text-slate-400">vence {e.licencia_vence}</p>}
+                </td>
                 <td className="px-4 py-3"><Badge ok={e.activa}>{e.activa ? "Activa" : "Inactiva"}</Badge></td>
                 <td className="space-x-3 px-4 py-3 text-right">
                   <button className="text-brand-600 hover:underline" onClick={() => abrir(e)}>Editar</button>
@@ -81,7 +96,7 @@ export default function Empresas() {
               </tr>
             ))}
             {empresas.length === 0 && (
-              <tr><td colSpan={4} className="px-4 py-10 text-center text-slate-500">Aún no hay empresas.</td></tr>
+              <tr><td colSpan={5} className="px-4 py-10 text-center text-slate-500">Aún no hay empresas.</td></tr>
             )}
           </tbody>
         </table>
@@ -104,6 +119,18 @@ export default function Empresas() {
                 <input className="input uppercase" maxLength={13} value={form.rfc} onChange={set("rfc")} />
               </div>
             </div>
+
+            <fieldset className="grid grid-cols-1 gap-4 rounded-lg bg-slate-50 p-4 sm:grid-cols-2">
+              <legend className="px-1 text-xs font-medium uppercase tracking-wide text-slate-500">Licencia</legend>
+              <div>
+                <label className="label">Empleados activos permitidos</label>
+                <input className="input" type="number" min={1} required value={form.max_empleados} onChange={set("max_empleados")} />
+              </div>
+              <div>
+                <label className="label">Vence (opcional)</label>
+                <input className="input" type="date" value={form.licencia_vence} onChange={set("licencia_vence")} />
+              </div>
+            </fieldset>
 
             {editando === "nueva" && (
               <fieldset className="space-y-4 rounded-lg bg-brand-50 p-4">

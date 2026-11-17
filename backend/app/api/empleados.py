@@ -21,7 +21,7 @@ from app.schemas.empleado import (
     ImportResultado,
 )
 from app.schemas.turno import AsignarTurnoIn
-from app.services import importar
+from app.services import importar, licencia
 
 _ADMIN = (Rol.SUPERADMIN, Rol.ADMIN_EMPRESA)
 _GESTION = (*_ADMIN, Rol.GERENTE_SUCURSAL)
@@ -179,6 +179,7 @@ async def importar_excel(
     filas, errores = importar.leer(datos, sucursales, turnos, numeros, curps)
     if errores:
         return ImportResultado(creados=0, errores=errores)
+    await licencia.verificar_cupo(db, emp, nuevos=len(filas))
 
     for data, turno in filas:
         empleado = Empleado(empresa_id=emp, **data.model_dump(exclude={"turno_id"}))
@@ -203,6 +204,7 @@ async def crear(
 ) -> EmpleadoDetalle:
     emp = empresa_scope(user, empresa_id)
     await _validar_sucursal(db, user, emp, data.sucursal_id)
+    await licencia.verificar_cupo(db, emp)
     empleado = Empleado(empresa_id=emp, **data.model_dump(exclude={"turno_id"}))
     empleado.asignaciones = []
     db.add(empleado)
@@ -311,7 +313,11 @@ async def dar_de_baja(
 async def reactivar(
     empleado_id: uuid.UUID, user: CurrentUser, db: DB, empresa_id: uuid.UUID | None = None
 ) -> EmpleadoDetalle:
-    empleado = await _get(db, user, empleado_id, empresa_scope(user, empresa_id))
+    emp = empresa_scope(user, empresa_id)
+    empleado = await _get(db, user, empleado_id, emp)
+    if empleado.activo:
+        raise HTTPException(status.HTTP_409_CONFLICT, "El empleado ya está activo")
+    await licencia.verificar_cupo(db, emp)
     empleado.activo = True
     empleado.fecha_baja = None
     empleado.motivo_baja = None

@@ -1,4 +1,6 @@
-from sqlalchemy import String
+from datetime import date
+
+from sqlalchemy import Date, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
@@ -13,3 +15,7 @@ class Empresa(UUIDPkMixin, TimestampMixin, Base):
     razon_social: Mapped[str | None] = mapped_column(String(250))
     rfc: Mapped[str | None] = mapped_column(String(13), unique=True)
     activa: Mapped[bool] = mapped_column(default=True)
+
+    # Licencia: máximo de empleados activos y vigencia (None = sin vencimiento).
+    max_empleados: Mapped[int] = mapped_column(default=15)
+    licencia_vence: Mapped[date | None] = mapped_column(Date)

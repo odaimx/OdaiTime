@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { get, type Empresa } from "../lib/api";
+import { get, type Empresa, type Licencia, type LimiteLicencia } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 export function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
@@ -95,4 +95,61 @@ export function useEmpresaScope() {
   const query = esSuper && empresaId ? `?empresa_id=${empresaId}` : "";
   const listo = !esSuper || empresaId !== null;
   return { query, listo, selector, empresaId };
+}
+
+/** Aviso cuando se llega al límite de la licencia, con liga para comprar más. */
+export function AvisoLicencia({ info, onClose }: { info: LimiteLicencia; onClose: () => void }) {
+  const vencida = info.codigo === "licencia_vencida";
+  return (
+    <Modal title={vencida ? "Tu licencia está vencida" : "Ya no hay lugares disponibles"} onClose={onClose}>
+      <div className="space-y-4">
+        <div className="flex items-center gap-4 rounded-lg bg-brand-50 p-4">
+          <div className="text-center">
+            <p className="text-3xl font-semibold text-brand-600">
+              {info.activos}/{info.max_empleados}
+            </p>
+            <p className="text-xs text-slate-500">empleados activos</p>
+          </div>
+          <p className="text-sm text-navy-900">{info.mensaje}</p>
+        </div>
+        {!vencida && (
+          <p className="text-sm text-slate-600">
+            Para registrar más empleados amplía tu licencia. También puedes liberar un lugar dando de baja a alguien que ya no labore contigo.
+          </p>
+        )}
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button className="btn-secondary" onClick={onClose}>
+            Ahora no
+          </button>
+          <a href={info.url_compra} target="_blank" rel="noopener noreferrer" className="btn-primary">
+            {vencida ? "Renovar licencia" : "Comprar más licencias"}
+          </a>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/** Barra de uso de la licencia. */
+export function UsoLicencia({ lic, compacto = false }: { lic: Licencia; compacto?: boolean }) {
+  const pct = Math.min(100, Math.round((lic.activos / lic.max_empleados) * 100));
+  const color = lic.vencida || pct >= 100 ? "bg-red-500" : pct >= 80 ? "bg-amber-500" : "bg-brand-500";
+  return (
+    <div className={compacto ? "w-full sm:w-56" : ""}>
+      <div className="flex items-baseline justify-between text-xs">
+        <span className="text-slate-500">Licencia{lic.vencida && <span className="ml-1 font-medium text-red-600">vencida</span>}</span>
+        <span className="font-medium text-navy-900">
+          {lic.activos} de {lic.max_empleados} empleados
+        </span>
+      </div>
+      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200">
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      {!compacto && lic.disponibles <= Math.max(1, Math.ceil(lic.max_empleados * 0.2)) && (
+        <a href={lic.url_compra} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-xs font-medium text-brand-600 hover:underline">
+          {lic.disponibles === 0 ? "Sin lugares disponibles · Comprar más" : `Quedan ${lic.disponibles} · Comprar más`}
+        </a>
+      )}
+    </div>
+  );
 }
