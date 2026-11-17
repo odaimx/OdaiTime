@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { session, setOnSessionExpired, type Usuario } from "./api";
+import { ApiError, session, setOnSessionExpired, type Usuario } from "./api";
 
 interface AuthState {
   usuario: Usuario | null;
@@ -22,9 +22,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const body = await r.json().catch(() => null);
     if (!r.ok) {
-      throw new Error(
-        typeof body?.detail === "string" ? body.detail : "No se pudo iniciar sesión",
-      );
+      const d = body?.detail;
+      const msg = typeof d === "string" ? d : d?.mensaje ?? "No se pudo iniciar sesión";
+      throw new ApiError(r.status, msg, d);
     }
     session.set(body);
     setUsuario(body.usuario);

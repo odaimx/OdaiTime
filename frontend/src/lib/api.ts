@@ -44,7 +44,15 @@ export interface Empresa {
   activa: boolean;
   max_empleados: number;
   licencia_vence: string | null;
+  slug: string;
+  url: string | null;
   created_at: string;
+}
+
+export interface TenantInfo {
+  modo: "base" | "tenant" | "libre";
+  nombre?: string | null;
+  slug?: string | null;
 }
 
 export interface Licencia {

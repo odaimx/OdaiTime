@@ -1,7 +1,17 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, empleados, empresas, health, licencia, sucursales, turnos, usuarios
+from app.api import (
+    auth,
+    empleados,
+    empresas,
+    health,
+    licencia,
+    sucursales,
+    tenant,
+    turnos,
+    usuarios,
+)
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -30,5 +40,6 @@ for r in (
     turnos.router,
     empleados.router,
     licencia.router,
+    tenant.router,
 ):
     app.include_router(r, prefix="/api")

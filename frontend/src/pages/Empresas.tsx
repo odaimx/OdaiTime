@@ -2,8 +2,11 @@ import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } fr
 import { Badge, ErrorBox, Modal, PageHeader } from "../components/ui";
 import { get, patch, post, type Empresa } from "../lib/api";
 
-type Form = { nombre: string; razon_social: string; rfc: string; max_empleados: string; licencia_vence: string; admin_nombre: string; admin_email: string; admin_password: string };
-const VACIO: Form = { nombre: "", razon_social: "", rfc: "", max_empleados: "15", licencia_vence: "", admin_nombre: "", admin_email: "", admin_password: "" };
+type Form = { nombre: string; slug: string; razon_social: string; rfc: string; max_empleados: string; licencia_vence: string; admin_nombre: string; admin_email: string; admin_password: string };
+const VACIO: Form = { nombre: "", slug: "", razon_social: "", rfc: "", max_empleados: "15", licencia_vence: "", admin_nombre: "", admin_email: "", admin_password: "" };
+
+// El superadmin trabaja desde el dominio base (p. ej. time.odai.lat). Por IP no hay sufijo.
+const SUFIJO = /^[\d.]+$/.test(location.hostname) || location.hostname === "localhost" ? null : location.hostname;
 
 export default function Empresas() {
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
@@ -19,7 +22,7 @@ export default function Empresas() {
     setForm(
       e === "nueva"
         ? VACIO
-        : { ...VACIO, nombre: e.nombre, razon_social: e.razon_social ?? "", rfc: e.rfc ?? "", max_empleados: String(e.max_empleados), licencia_vence: e.licencia_vence ?? "" },
+        : { ...VACIO, nombre: e.nombre, slug: e.slug, razon_social: e.razon_social ?? "", rfc: e.rfc ?? "", max_empleados: String(e.max_empleados), licencia_vence: e.licencia_vence ?? "" },
     );
     setEditando(e);
   }
@@ -29,6 +32,7 @@ export default function Empresas() {
     setError(null);
     const datos = {
       nombre: form.nombre,
+      ...(form.slug.trim() ? { slug: form.slug.trim().toLowerCase() } : {}),
       razon_social: form.razon_social || null,
       rfc: form.rfc || null,
       max_empleados: Number(form.max_empleados) || 15,
@@ -82,6 +86,13 @@ export default function Empresas() {
                 <td className="px-4 py-3">
                   <p className="font-medium text-navy-900">{e.nombre}</p>
                   {e.razon_social && <p className="text-xs text-slate-500">{e.razon_social}</p>}
+                  {e.url ? (
+                    <a href={e.url} target="_blank" rel="noopener noreferrer" className="font-mono text-xs text-brand-600 hover:underline">
+                      {e.url.replace("https://", "")}
+                    </a>
+                  ) : (
+                    <p className="font-mono text-xs text-slate-400">{e.slug}</p>
+                  )}
                 </td>
                 <td className="hidden px-4 py-3 font-mono text-xs sm:table-cell">{e.rfc ?? "—"}</td>
                 <td className="px-4 py-3 text-slate-600">
@@ -108,6 +119,23 @@ export default function Empresas() {
             <div>
               <label className="label">Nombre comercial</label>
               <input className="input" required value={form.nombre} onChange={set("nombre")} />
+            </div>
+            <div>
+              <label className="label">Subdominio</label>
+              <div className="flex items-center">
+                <input
+                  className={`input font-mono lowercase ${SUFIJO ? "rounded-r-none" : ""}`}
+                  placeholder={editando === "nueva" ? "se genera del nombre" : ""}
+                  pattern="[a-z0-9][a-z0-9\-]{1,38}[a-z0-9]"
+                  title="De 3 a 40 caracteres: letras minúsculas, números y guiones"
+                  value={form.slug}
+                  onChange={set("slug")}
+                />
+                {SUFIJO && (
+                  <span className="rounded-r-lg border border-l-0 border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-500">.{SUFIJO}</span>
+                )}
+              </div>
+              {editando !== "nueva" && <p className="mt-1 text-xs text-amber-700">Si lo cambias, la dirección anterior deja de funcionar.</p>}
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>

@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from app.api.deps import DB, require_roles
 from app.core.config import get_settings
 from app.core.security import hash_password
+from app.core.tenant import slugify
 from app.models import Empresa, Rol, Usuario
 from app.schemas.empresa import EmpresaCreate, EmpresaOut, EmpresaUpdate
 
@@ -14,6 +15,17 @@ from app.schemas.empresa import EmpresaCreate, EmpresaOut, EmpresaUpdate
 router = APIRouter(
     prefix="/empresas", tags=["empresas"], dependencies=[Depends(require_roles(Rol.SUPERADMIN))]
 )
+
+
+async def _slug_libre(db: DB, base: str) -> str:
+    """Primer slug disponible: base, base-2, base-3…"""
+    existentes = set(await db.scalars(select(Empresa.slug).where(Empresa.slug.like(f"{base}%"))))
+    if base not in existentes:
+        return base
+    n = 2
+    while f"{base[:36]}-{n}" in existentes:
+        n += 1
+    return f"{base[:36]}-{n}"
 
 
 async def _get(db: DB, empresa_id: uuid.UUID) -> Empresa:
@@ -35,7 +47,14 @@ async def crear(data: EmpresaCreate, db: DB) -> Empresa:
     if await db.scalar(select(func.count()).where(func.lower(Usuario.email) == email)):
         raise HTTPException(status.HTTP_409_CONFLICT, "Ya existe un usuario con ese correo")
 
-    empresa = Empresa(**data.model_dump(exclude={"admin", "max_empleados"}))
+    if data.slug:
+        if await db.scalar(select(func.count()).where(Empresa.slug == data.slug)):
+            raise HTTPException(status.HTTP_409_CONFLICT, "Ese subdominio ya está en uso")
+        slug = data.slug
+    else:
+        slug = await _slug_libre(db, slugify(data.nombre))
+
+    empresa = Empresa(**data.model_dump(exclude={"admin", "max_empleados", "slug"}), slug=slug)
     empresa.max_empleados = data.max_empleados or get_settings().licencia_max_empleados_default
     db.add(empresa)
     try:
@@ -52,7 +71,9 @@ async def crear(data: EmpresaCreate, db: DB) -> Empresa:
         await db.commit()
     except IntegrityError:
         await db.rollback()
-        raise HTTPException(status.HTTP_409_CONFLICT, "Ya existe una empresa con ese RFC") from None
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Ya existe una empresa con ese RFC o subdominio"
+        ) from None
     return empresa
 
 
@@ -73,5 +94,7 @@ async def actualizar(empresa_id: uuid.UUID, data: EmpresaUpdate, db: DB) -> Empr
         await db.commit()
     except IntegrityError:
         await db.rollback()
-        raise HTTPException(status.HTTP_409_CONFLICT, "Ya existe una empresa con ese RFC") from None
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Ya existe una empresa con ese RFC o subdominio"
+        ) from None
     return empresa

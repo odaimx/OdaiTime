@@ -1,9 +1,27 @@
 import uuid
 from datetime import date, datetime
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, EmailStr, Field, computed_field
 
+from app.core.tenant import RESERVADOS, SLUG_RE, url_empresa
 from app.schemas.common import RFC, Nombre, Password
+
+
+def _slug(v: str | None) -> str | None:
+    if v is None:
+        return v
+    v = v.strip().lower()
+    if not SLUG_RE.match(v):
+        raise ValueError(
+            "El subdominio debe tener de 3 a 40 caracteres: letras minúsculas, números y guiones"
+        )
+    if v in RESERVADOS:
+        raise ValueError("Ese subdominio está reservado")
+    return v
+
+
+Slug = Annotated[str, AfterValidator(_slug)]
 
 
 class EmpresaBase(BaseModel):
@@ -20,12 +38,14 @@ class AdminInicial(BaseModel):
 
 class EmpresaCreate(EmpresaBase):
     admin: AdminInicial
+    slug: Slug | None = None  # si no se indica, se genera del nombre
     max_empleados: int | None = Field(default=None, ge=1, le=100000)
     licencia_vence: date | None = None
 
 
 class EmpresaUpdate(BaseModel):
     nombre: Nombre | None = None
+    slug: Slug | None = None
     razon_social: str | None = None
     rfc: RFC | None = None
     activa: bool | None = None
@@ -37,7 +57,13 @@ class EmpresaOut(EmpresaBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    slug: str
     activa: bool
     max_empleados: int
     licencia_vence: date | None
     created_at: datetime
+
+    @computed_field
+    @property
+    def url(self) -> str | None:
+        return url_empresa(self.slug)

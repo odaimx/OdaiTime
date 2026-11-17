@@ -1,7 +1,21 @@
-# DOMAIN viene de .env. Con un dominio real, Caddy obtiene el certificado
-# de Let's Encrypt automáticamente. Usa ":80" para probar solo por IP.
-{$DOMAIN::80} {
+# DOMAIN viene de .env (p. ej. time.odai.lat).
+#   https://DOMAIN              → panel de Odai (superadmin)
+#   https://<empresa>.DOMAIN    → cada cliente; el certificado se emite al primer acceso
+#   http://IP                   → acceso directo por IP para pruebas, sin subdominios
+{
+	on_demand_tls {
+		# Solo emite certificados para el dominio base y empresas registradas.
+		ask http://api:8000/api/tenant/permitido
+	}
+}
+
+(app) {
 	encode zstd gzip
+
+	# El "ask" de los certificados es solo para Caddy (red interna).
+	handle /api/tenant/permitido {
+		respond 404
+	}
 
 	handle /api/* {
 		reverse_proxy api:8000
@@ -14,10 +28,26 @@
 	}
 
 	header {
-		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options "nosniff"
 		X-Frame-Options "DENY"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		-Server
 	}
+}
+
+{$DOMAIN:localhost} {
+	import app
+}
+
+*.{$DOMAIN:localhost} {
+	tls {
+		on_demand
+	}
+	import app
+}
+
+# Acceso por IP (sin HTTPS). Los nombres de arriba tienen prioridad y redirigen a HTTPS.
+:80 {
+	import app
 }

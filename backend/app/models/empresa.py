@@ -12,6 +12,8 @@ class Empresa(UUIDPkMixin, TimestampMixin, Base):
     __tablename__ = "empresas"
 
     nombre: Mapped[str] = mapped_column(String(150))
+    # Subdominio: <slug>.time.odai.lat
+    slug: Mapped[str] = mapped_column(String(40), unique=True)
     razon_social: Mapped[str | None] = mapped_column(String(250))
     rfc: Mapped[str | None] = mapped_column(String(13), unique=True)
     activa: Mapped[bool] = mapped_column(default=True)
