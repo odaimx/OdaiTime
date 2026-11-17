@@ -75,21 +75,21 @@ export default function Sucursales() {
         title="Sucursales"
         subtitle="Cada sucursal tiene su zona horaria y su geocerca para validar checadas"
         action={
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             {selector}
             {puedeEditar && listo && <button className="btn-primary" onClick={() => abrir("nueva")}>Nueva sucursal</button>}
           </div>
         }
       />
 
-      <div className="card overflow-hidden">
+      <div className="card overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-3">Clave</th>
               <th className="px-4 py-3">Nombre</th>
-              <th className="px-4 py-3">Zona horaria</th>
-              <th className="px-4 py-3">Geocerca</th>
+              <th className="hidden px-4 py-3 md:table-cell">Zona horaria</th>
+              <th className="hidden px-4 py-3 lg:table-cell">Geocerca</th>
               <th className="px-4 py-3">Estado</th>
               {puedeEditar && <th className="px-4 py-3" />}
             </tr>
@@ -102,8 +102,8 @@ export default function Sucursales() {
                   <p className="font-medium text-navy-900">{s.nombre}</p>
                   {s.direccion && <p className="text-xs text-slate-500">{s.direccion}</p>}
                 </td>
-                <td className="px-4 py-3 text-slate-600">{zonaLabel(s.zona_horaria)}</td>
-                <td className="px-4 py-3 text-slate-600">
+                <td className="hidden px-4 py-3 text-slate-600 md:table-cell">{zonaLabel(s.zona_horaria)}</td>
+                <td className="hidden px-4 py-3 text-slate-600 lg:table-cell">
                   {s.latitud != null && s.longitud != null ? `${s.radio_metros} m` : <span className="text-slate-400">Sin ubicación</span>}
                 </td>
                 <td className="px-4 py-3"><Badge ok={s.activa}>{s.activa ? "Activa" : "Inactiva"}</Badge></td>
@@ -125,12 +125,12 @@ export default function Sucursales() {
       {editando && (
         <Modal title={editando === "nueva" ? "Nueva sucursal" : "Editar sucursal"} onClose={() => setEditando(null)}>
           <form onSubmit={guardar} className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
                 <label className="label">Clave</label>
                 <input className="input uppercase" required maxLength={20} pattern="[A-Za-z0-9_\-]+" title="Letras, números, guion o guion bajo" value={form.clave} onChange={set("clave")} />
               </div>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <label className="label">Nombre</label>
                 <input className="input" required value={form.nombre} onChange={set("nombre")} />
               </div>
@@ -147,7 +147,7 @@ export default function Sucursales() {
               <label className="label">Dirección</label>
               <input className="input" value={form.direccion} onChange={set("direccion")} />
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
                 <label className="label">Latitud</label>
                 <input className="input" type="number" step="any" min={-90} max={90} placeholder="21.1619" value={form.latitud} onChange={set("latitud")} />

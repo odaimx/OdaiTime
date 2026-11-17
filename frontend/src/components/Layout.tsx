@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from "react-router";
+import { useEffect, useState } from "react";
+import { NavLink, Outlet, useLocation } from "react-router";
 import { ROLES, type Rol } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -19,17 +20,42 @@ function Icon({ d }: { d: string }) {
 
 export default function Layout() {
   const { usuario, logout } = useAuth();
+  const [abierto, setAbierto] = useState(false);
+  const { pathname } = useLocation();
+
+  // En móvil, el menú se cierra al navegar.
+  useEffect(() => setAbierto(false), [pathname]);
+
   if (!usuario) return null;
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
-      <aside className="flex w-64 shrink-0 flex-col bg-navy-900 text-slate-300">
-        <div className="px-6 py-6">
-          <img src="/logo.png" alt="ODAI" className="h-8 w-auto" />
-          <p className="mt-2 text-xs font-medium tracking-[0.2em] text-accent-500">TIME</p>
+    <div className="min-h-screen bg-slate-50 lg:flex">
+      {/* Barra superior (solo móvil/tablet) */}
+      <header className="sticky top-0 z-30 flex items-center justify-between bg-navy-900 px-4 py-3 lg:hidden">
+        <img src="/logo.png" alt="ODAI" className="h-6 w-auto" />
+        <button onClick={() => setAbierto(true)} className="rounded-lg p-2 text-white hover:bg-navy-800" aria-label="Abrir menú">
+          <Icon d="M4 6h16M4 12h16M4 18h16" />
+        </button>
+      </header>
+
+      {abierto && <div className="fixed inset-0 z-40 bg-navy-900/50 lg:hidden" onClick={() => setAbierto(false)} />}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-navy-900 text-slate-300 transition-transform duration-200 lg:sticky lg:top-0 lg:h-screen lg:shrink-0 lg:translate-x-0 ${
+          abierto ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="flex items-start justify-between px-6 py-6">
+          <div>
+            <img src="/logo.png" alt="ODAI" className="h-8 w-auto" />
+            <p className="mt-2 text-xs font-medium tracking-[0.2em] text-accent-500">TIME</p>
+          </div>
+          <button onClick={() => setAbierto(false)} className="text-slate-400 hover:text-white lg:hidden" aria-label="Cerrar menú">
+            ✕
+          </button>
         </div>
 
-        <nav className="flex-1 space-y-1 px-3">
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3">
           {NAV.filter((n) => n.roles.includes(usuario.rol)).map((n) => (
             <NavLink
               key={n.to}
@@ -59,7 +85,7 @@ export default function Layout() {
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 p-8">
+      <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
         <Outlet />
       </main>
     </div>

@@ -4,7 +4,7 @@ import { useAuth } from "../lib/auth";
 
 export function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
       <div>
         <h1 className="text-2xl font-semibold text-navy-900">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
@@ -22,8 +22,8 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-navy-900/40 p-4 pt-16" onMouseDown={onClose}>
-      <div className="card w-full max-w-lg p-6" onMouseDown={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-navy-900/40 p-3 pt-6 sm:p-4 sm:pt-16" onMouseDown={onClose}>
+      <div className="card w-full max-w-lg p-5 sm:p-6" onMouseDown={(e) => e.stopPropagation()}>
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-navy-900">{title}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-navy-900" aria-label="Cerrar">
@@ -72,7 +72,7 @@ export function useEmpresaScope() {
   }, [esSuper]);
 
   const selector = esSuper ? (
-    <select className="input w-64" value={empresaId ?? ""} onChange={(e) => setEmpresaId(e.target.value)}>
+    <select className="input w-full sm:w-64" value={empresaId ?? ""} onChange={(e) => setEmpresaId(e.target.value)}>
       {empresas.length === 0 && <option value="">Sin empresas</option>}
       {empresas.map((e) => (
         <option key={e.id} value={e.id}>

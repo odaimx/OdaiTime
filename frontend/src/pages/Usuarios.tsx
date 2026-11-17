@@ -75,21 +75,21 @@ export default function Usuarios() {
         title="Usuarios"
         subtitle="Quién entra a ODAITIME y qué puede ver"
         action={
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             {selector}
             {listo && <button className="btn-primary" onClick={() => abrir("nuevo")}>Nuevo usuario</button>}
           </div>
         }
       />
 
-      <div className="card overflow-hidden">
+      <div className="card overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-3">Usuario</th>
               <th className="px-4 py-3">Rol</th>
-              <th className="px-4 py-3">Sucursales</th>
-              <th className="px-4 py-3">Último acceso</th>
+              <th className="hidden px-4 py-3 md:table-cell">Sucursales</th>
+              <th className="hidden px-4 py-3 lg:table-cell">Último acceso</th>
               <th className="px-4 py-3">Estado</th>
               <th className="px-4 py-3" />
             </tr>
@@ -102,10 +102,10 @@ export default function Usuarios() {
                   <p className="text-xs text-slate-500">{u.email}</p>
                 </td>
                 <td className="px-4 py-3 text-slate-600">{ROLES[u.rol]}</td>
-                <td className="px-4 py-3 text-slate-600">
+                <td className="hidden px-4 py-3 text-slate-600 md:table-cell">
                   {u.rol === "admin_empresa" ? <span className="text-slate-400">Todas</span> : u.sucursales.map((s) => s.clave).join(", ") || "—"}
                 </td>
-                <td className="px-4 py-3 text-slate-600">{fecha(u.ultimo_acceso)}</td>
+                <td className="hidden px-4 py-3 text-slate-600 lg:table-cell">{fecha(u.ultimo_acceso)}</td>
                 <td className="px-4 py-3"><Badge ok={u.activo}>{u.activo ? "Activo" : "Inactivo"}</Badge></td>
                 <td className="space-x-3 whitespace-nowrap px-4 py-3 text-right">
                   <button className="text-brand-600 hover:underline" onClick={() => abrir(u)}>Editar</button>

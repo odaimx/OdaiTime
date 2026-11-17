@@ -55,12 +55,12 @@ export default function Empresas() {
         action={<button className="btn-primary" onClick={() => abrir("nueva")}>Nueva empresa</button>}
       />
 
-      <div className="card overflow-hidden">
+      <div className="card overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-3">Nombre</th>
-              <th className="px-4 py-3">RFC</th>
+              <th className="hidden px-4 py-3 sm:table-cell">RFC</th>
               <th className="px-4 py-3">Estado</th>
               <th className="px-4 py-3" />
             </tr>
@@ -72,7 +72,7 @@ export default function Empresas() {
                   <p className="font-medium text-navy-900">{e.nombre}</p>
                   {e.razon_social && <p className="text-xs text-slate-500">{e.razon_social}</p>}
                 </td>
-                <td className="px-4 py-3 font-mono text-xs">{e.rfc ?? "—"}</td>
+                <td className="hidden px-4 py-3 font-mono text-xs sm:table-cell">{e.rfc ?? "—"}</td>
                 <td className="px-4 py-3"><Badge ok={e.activa}>{e.activa ? "Activa" : "Inactiva"}</Badge></td>
                 <td className="space-x-3 px-4 py-3 text-right">
                   <button className="text-brand-600 hover:underline" onClick={() => abrir(e)}>Editar</button>
@@ -94,7 +94,7 @@ export default function Empresas() {
               <label className="label">Nombre comercial</label>
               <input className="input" required value={form.nombre} onChange={set("nombre")} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="label">Razón social</label>
                 <input className="input" value={form.razon_social} onChange={set("razon_social")} />

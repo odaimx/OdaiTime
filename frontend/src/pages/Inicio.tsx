@@ -22,7 +22,7 @@ export default function Inicio() {
     <>
       <PageHeader title={`Hola, ${usuario.nombre.split(" ")[0]}`} subtitle={`${ROLES[usuario.rol]}${usuario.empresa ? ` · ${usuario.empresa.nombre}` : ""}`} />
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
         {usuario.sucursales.length > 0 && (
           <div className="card p-6">
             <h2 className="text-sm font-medium text-slate-500">Tus sucursales</h2>
