@@ -1,6 +1,7 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
 import { ErrorBox } from "../components/ui";
+import { ApiError, type TenantInfo } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 export default function Login() {
@@ -10,16 +11,32 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [tenant, setTenant] = useState<TenantInfo | null>(null);
+  const [noExiste, setNoExiste] = useState(false);
+  const [redirigir, setRedirigir] = useState<{ mensaje: string; url: string } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/tenant")
+      .then((r) => {
+        if (r.status === 404) setNoExiste(true);
+        return r.ok ? r.json() : null;
+      })
+      .then((t) => t && setTenant(t))
+      .catch(() => {});
+  }, []);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setRedirigir(null);
     setEnviando(true);
     try {
       await login(email, password);
       navigate("/", { replace: true });
     } catch (err) {
-      setError((err as Error).message);
+      const d = err instanceof ApiError ? (err.detalle as { codigo?: string; mensaje: string; url?: string }) : null;
+      if (d?.codigo === "usar_subdominio" && d.url) setRedirigir({ mensaje: d.mensaje, url: d.url });
+      else setError((err as Error).message);
     } finally {
       setEnviando(false);
     }
@@ -47,8 +64,28 @@ export default function Login() {
           <div>
             <img src="/logo.png" alt="ODAI" className="mb-6 h-8 w-auto lg:hidden" />
             <h1 className="text-xl font-semibold text-navy-900">Iniciar sesión</h1>
-            <p className="mt-1 text-sm text-slate-500">ODAITIME</p>
+            {tenant?.modo === "tenant" ? (
+              <p className="mt-1 text-sm font-medium text-brand-600">{tenant.nombre}</p>
+            ) : (
+              <p className="mt-1 text-sm text-slate-500">{tenant?.modo === "base" ? "Panel de administración Odai" : "ODAITIME"}</p>
+            )}
           </div>
+
+          {noExiste && (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-200">
+              Esta dirección no corresponde a ninguna empresa registrada. Revisa el enlace que te compartieron.
+            </p>
+          )}
+
+          {redirigir && (
+            <div className="space-y-3 rounded-lg bg-brand-50 p-4 ring-1 ring-brand-200">
+              <p className="text-sm text-navy-900">{redirigir.mensaje} Inicia sesión desde:</p>
+              <p className="break-all font-mono text-sm font-semibold text-brand-700">{redirigir.url.replace("https://", "")}</p>
+              <a href={redirigir.url} className="btn-primary w-full">
+                Ir a mi empresa
+              </a>
+            </div>
+          )}
 
           <div>
             <label className="label" htmlFor="email">Correo</label>

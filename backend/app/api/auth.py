@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from redis.asyncio import Redis
 from sqlalchemy import func, select, update
 
-from app.api.deps import DB, CurrentUser
+from app.api.deps import DB, CurrentUser, pertenece
 from app.core.config import get_settings
 from app.core.security import (
     DUMMY_HASH,
@@ -17,7 +17,8 @@ from app.core.security import (
     refresh_expiry,
     verify_password,
 )
-from app.models import Sesion, Usuario
+from app.core.tenant import tenant_de, url_empresa
+from app.models import Empresa, Sesion, Usuario
 from app.schemas.auth import LoginIn, RefreshIn, TokenOut
 from app.schemas.usuario import UsuarioOut
 
@@ -84,6 +85,11 @@ async def _emitir(db: DB, user: Usuario) -> TokenOut:
 @router.post("/login", response_model=TokenOut)
 async def login(data: LoginIn, request: Request, db: DB) -> TokenOut:
     email = data.email.lower()
+    tenant = tenant_de(request)
+    if tenant.modo == "tenant" and not await db.scalar(
+        select(func.count()).where(Empresa.slug == tenant.slug)
+    ):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Empresa no encontrada")
     key = _rl_key(email, request)
     if await _intentos_excedidos(key):
         raise HTTPException(
@@ -102,12 +108,27 @@ async def login(data: LoginIn, request: Request, db: DB) -> TokenOut:
     if not user.activo or (user.empresa and not user.empresa.activa):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Usuario o empresa desactivados")
 
+    if not pertenece(user, tenant):
+        if tenant.modo == "base" and user.empresa:
+            # Credenciales correctas pero entró por el dominio de Odai: se le indica su dirección.
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                {
+                    "codigo": "usar_subdominio",
+                    "mensaje": f"{user.empresa.nombre} tiene su propia dirección de acceso.",
+                    "url": url_empresa(user.empresa.slug),
+                },
+            )
+        # En el subdominio de otra empresa se comporta como credenciales incorrectas.
+        await _registrar_fallo(key)
+        raise _CREDENCIALES
+
     await _limpiar_fallos(key)
     return await _emitir(db, user)
 
 
 @router.post("/refresh", response_model=TokenOut)
-async def refresh(data: RefreshIn, db: DB) -> TokenOut:
+async def refresh(data: RefreshIn, request: Request, db: DB) -> TokenOut:
     """Rota el refresh token: el anterior queda revocado."""
     try:
         payload = decode_token(data.refresh_token, "refresh")
@@ -120,6 +141,8 @@ async def refresh(data: RefreshIn, db: DB) -> TokenOut:
         raise _SESION_INVALIDA
     user = await db.get(Usuario, sesion.usuario_id)
     if user is None or not user.activo or (user.empresa and not user.empresa.activa):
+        raise _SESION_INVALIDA
+    if not pertenece(user, tenant_de(request)):
         raise _SESION_INVALIDA
 
     sesion.revocada_en = datetime.now(UTC)

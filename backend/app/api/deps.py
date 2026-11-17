@@ -3,11 +3,12 @@ from collections.abc import Callable
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import decode_token
+from app.core.tenant import Tenant, tenant_de
 from app.db.session import get_db
 from app.models import Rol, Usuario
 
@@ -22,8 +23,22 @@ _NO_AUTH = HTTPException(
 )
 
 
+def pertenece(user: Usuario, tenant: Tenant) -> bool:
+    """¿Puede este usuario operar desde este subdominio?
+
+    El superadmin entra por cualquiera (soporte). Los usuarios de una empresa solo por el suyo.
+    """
+    if tenant.modo == "libre" or user.rol == Rol.SUPERADMIN:
+        return True
+    if tenant.modo == "base":
+        return False
+    return user.empresa is not None and user.empresa.slug == tenant.slug
+
+
 async def get_current_user(
-    db: DB, creds: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)]
+    request: Request,
+    db: DB,
+    creds: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
 ) -> Usuario:
     if creds is None:
         raise _NO_AUTH
@@ -35,6 +50,9 @@ async def get_current_user(
 
     user = await db.get(Usuario, user_id)
     if user is None or not user.activo or (user.empresa and not user.empresa.activa):
+        raise _NO_AUTH
+    # Un token emitido en una empresa no sirve en el subdominio de otra.
+    if not pertenece(user, tenant_de(request)):
         raise _NO_AUTH
     return user
 
