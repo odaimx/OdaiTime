@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, empresas, health, sucursales, usuarios
+from app.api import auth, empleados, empresas, health, sucursales, turnos, usuarios
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -21,5 +21,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-for r in (health.router, auth.router, empresas.router, sucursales.router, usuarios.router):
+for r in (
+    health.router,
+    auth.router,
+    empresas.router,
+    sucursales.router,
+    usuarios.router,
+    turnos.router,
+    empleados.router,
+):
     app.include_router(r, prefix="/api")

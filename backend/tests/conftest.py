@@ -19,7 +19,10 @@ PASSWORD = "Secreta123!"
 async def limpiar_bd():
     async with SessionLocal() as db:
         await db.execute(
-            text("TRUNCATE sesiones, usuario_sucursales, usuarios, sucursales, empresas CASCADE")
+            text(
+                "TRUNCATE asignaciones_turno, empleados, turno_dias, turnos, sesiones, "
+                "usuario_sucursales, usuarios, sucursales, empresas CASCADE"
+            )
         )
         await db.commit()
     async with Redis.from_url(get_settings().redis_url) as r:
