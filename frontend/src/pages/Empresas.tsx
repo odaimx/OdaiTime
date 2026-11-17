@@ -1,12 +1,9 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { Badge, ErrorBox, Modal, PageHeader } from "../components/ui";
-import { get, patch, post, type Empresa } from "../lib/api";
+import { get, patch, post, type Empresa, type TenantInfo } from "../lib/api";
 
 type Form = { nombre: string; slug: string; razon_social: string; rfc: string; max_empleados: string; licencia_vence: string; admin_nombre: string; admin_email: string; admin_password: string };
 const VACIO: Form = { nombre: "", slug: "", razon_social: "", rfc: "", max_empleados: "15", licencia_vence: "", admin_nombre: "", admin_email: "", admin_password: "" };
-
-// El superadmin trabaja desde el dominio base (p. ej. time.odai.lat). Por IP no hay sufijo.
-const SUFIJO = /^[\d.]+$/.test(location.hostname) || location.hostname === "localhost" ? null : location.hostname;
 
 export default function Empresas() {
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
@@ -14,7 +11,12 @@ export default function Empresas() {
   const [form, setForm] = useState<Form>(VACIO);
   const [error, setError] = useState<string | null>(null);
 
+  const [SUFIJO, setSufijo] = useState<string | null>(null); // dominio de los clientes, p. ej. odai.lat
+
   const cargar = useCallback(() => get<Empresa[]>("/empresas").then(setEmpresas), []);
+  useEffect(() => {
+    get<TenantInfo>("/tenant").then((t) => setSufijo(t.dominio ?? null)).catch(() => {});
+  }, []);
   useEffect(() => void cargar(), [cargar]);
 
   function abrir(e: Empresa | "nueva") {

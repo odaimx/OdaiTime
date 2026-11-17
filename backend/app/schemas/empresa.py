@@ -4,7 +4,7 @@ from typing import Annotated
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, EmailStr, Field, computed_field
 
-from app.core.tenant import RESERVADOS, SLUG_RE, url_empresa
+from app.core.tenant import SLUG_RE, reservados, url_empresa
 from app.schemas.common import RFC, Nombre, Password
 
 
@@ -16,7 +16,7 @@ def _slug(v: str | None) -> str | None:
         raise ValueError(
             "El subdominio debe tener de 3 a 40 caracteres: letras minúsculas, números y guiones"
         )
-    if v in RESERVADOS:
+    if v in reservados():
         raise ValueError("Ese subdominio está reservado")
     return v
 

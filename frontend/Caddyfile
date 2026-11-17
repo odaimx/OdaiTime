@@ -1,7 +1,8 @@
-# DOMAIN viene de .env (p. ej. time.odai.lat).
-#   https://DOMAIN              → panel de Odai (superadmin)
-#   https://<empresa>.DOMAIN    → cada cliente; el certificado se emite al primer acceso
+# Variables de .env:
+#   https://ADMIN_HOST          → panel de Odai (superadmin), p. ej. time.odai.lat
+#   https://<empresa>.DOMAIN    → cada cliente, p. ej. hotel.odai.lat; certificado al primer acceso
 #   http://IP                   → acceso directo por IP para pruebas, sin subdominios
+# El dominio raíz (odai.lat) no se sirve aquí: es el sitio web de Odai.
 {
 	on_demand_tls {
 		# Solo emite certificados para el dominio base y empresas registradas.
@@ -36,7 +37,7 @@
 	}
 }
 
-{$DOMAIN:localhost} {
+{$ADMIN_HOST:localhost} {
 	import app
 }
 

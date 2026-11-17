@@ -53,6 +53,7 @@ export interface TenantInfo {
   modo: "base" | "tenant" | "libre";
   nombre?: string | null;
   slug?: string | null;
+  dominio?: string | null;
 }
 
 export interface Licencia {

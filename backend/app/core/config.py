@@ -16,9 +16,13 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://odaitime:odaitime@localhost:5432/odaitime"
     redis_url: str = "redis://localhost:6379/0"
 
-    # Dominio base para los subdominios de cada empresa (p. ej. time.odai.lat).
+    # Dominio de los clientes: cada empresa entra por <slug>.BASE_DOMAIN (p. ej. hotel.odai.lat).
     # Vacío o ":80" = sin subdominios (acceso por IP).
     base_domain: str = ""
+    # Dirección del panel de Odai (superadmin), p. ej. time.odai.lat. Vacío = el propio BASE_DOMAIN.
+    admin_host: str = ""
+    # Subdominios extra que ningún cliente puede usar, separados por coma ("tienda,intranet").
+    subdominios_reservados: str = ""
 
     secret_key: str = "cambia-esto-en-produccion"
     access_token_minutes: int = 15

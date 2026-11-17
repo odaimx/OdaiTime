@@ -15,18 +15,20 @@ class TenantOut(BaseModel):
     modo: str  # base | tenant | libre
     nombre: str | None = None
     slug: str | None = None
+    dominio: str | None = None  # dominio de los clientes, p. ej. odai.lat
 
 
 @router.get("", response_model=TenantOut)
 async def actual(request: Request, db: DB) -> TenantOut:
     """La pantalla de login lo usa para mostrar el nombre de la empresa."""
     t = tenant_de(request)
+    dominio = base_domain() or None
     if t.modo != "tenant":
-        return TenantOut(modo=t.modo)
+        return TenantOut(modo=t.modo, dominio=dominio)
     empresa = await db.scalar(select(Empresa).where(Empresa.slug == t.slug, Empresa.activa))
     if empresa is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Empresa no encontrada")
-    return TenantOut(modo="tenant", nombre=empresa.nombre, slug=empresa.slug)
+    return TenantOut(modo="tenant", nombre=empresa.nombre, slug=empresa.slug, dominio=dominio)
 
 
 @router.get("/permitido", include_in_schema=False)
