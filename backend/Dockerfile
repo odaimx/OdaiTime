@@ -11,7 +11,9 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
-RUN useradd --create-home --uid 1000 odai && chown -R odai /app
+# /app/data guarda las fotos de checadas (volumen); se crea con dueño odai para que
+# el volumen nuevo herede los permisos.
+RUN useradd --create-home --uid 1000 odai && mkdir -p /app/data/fotos && chown -R odai /app
 USER odai
 
 EXPOSE 8000

@@ -57,6 +57,7 @@ Telefono = Annotated[Annotated[str, StringConstraints(max_length=20)] | None, Op
 NumeroEmpleado = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=20, pattern=r"^[\w-]+$")
 ]
+PIN = Annotated[Annotated[str, StringConstraints(pattern=r"^\d{4,6}$")] | None, Opt]
 Salario = Annotated[
     Annotated[Decimal, Field(ge=0, le=Decimal("99999999.99"), decimal_places=2)] | None, Opt
 ]
@@ -79,6 +80,7 @@ class EmpleadoCreate(BaseModel):
     sucursal_id: uuid.UUID
     # Turno inicial (vigente desde la fecha de ingreso).
     turno_id: uuid.UUID | None = None
+    pin: PIN = None
 
 
 class EmpleadoUpdate(BaseModel):
@@ -96,6 +98,7 @@ class EmpleadoUpdate(BaseModel):
     email: EmailOpt = None
     telefono: Telefono = None
     sucursal_id: uuid.UUID | None = None
+    pin: PIN = None  # "" o null quita el PIN
 
 
 class EmpleadoOut(BaseModel):
@@ -117,6 +120,7 @@ class EmpleadoOut(BaseModel):
     sucursal: SucursalRef
     turno_actual: TurnoRef | None
     tiene_acceso: bool
+    tiene_pin: bool
     activo: bool
     fecha_baja: date | None
     motivo_baja: str | None
@@ -129,6 +133,7 @@ class EmpleadoOut(BaseModel):
             sucursal=SucursalRef.model_validate(e.sucursal),
             turno_actual=TurnoRef.model_validate(actual.turno) if actual else None,
             tiene_acceso=e.usuario_id is not None,
+            tiene_pin=e.pin_hash is not None,
         )
 
 

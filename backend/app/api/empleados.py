@@ -21,7 +21,7 @@ from app.schemas.empleado import (
     ImportResultado,
 )
 from app.schemas.turno import AsignarTurnoIn
-from app.services import importar, licencia
+from app.services import bitacora, importar, licencia
 
 _ADMIN = (Rol.SUPERADMIN, Rol.ADMIN_EMPRESA)
 _GESTION = (*_ADMIN, Rol.GERENTE_SUCURSAL)
@@ -34,6 +34,42 @@ router = APIRouter(
 _DUPLICADO = HTTPException(
     status.HTTP_409_CONFLICT, "Ya existe un empleado con ese número o CURP en la empresa"
 )
+
+
+CAMPOS_BITACORA = (
+    "numero",
+    "nombre",
+    "apellido_paterno",
+    "apellido_materno",
+    "curp",
+    "rfc",
+    "nss",
+    "fecha_ingreso",
+    "puesto",
+    "departamento",
+    "salario_diario",
+    "email",
+    "telefono",
+)
+
+
+def _snap(e: Empleado) -> dict:
+    return bitacora.snapshot(
+        e, CAMPOS_BITACORA, {"sucursal": e.sucursal.clave if e.sucursal else None}
+    )
+
+
+async def _log(db: DB, user: Usuario, e: Empleado, tipo: str, mensaje: str | None = None, **kw):
+    await bitacora.registrar(
+        db,
+        empresa_id=e.empresa_id,
+        modelo="empleado",
+        registro_id=e.id,
+        usuario=user,
+        tipo=tipo,
+        mensaje=mensaje,
+        **kw,
+    )
 
 
 def _sucursales_permitidas(user: Usuario) -> set[uuid.UUID] | None:
@@ -182,11 +218,17 @@ async def importar_excel(
     await licencia.verificar_cupo(db, emp, nuevos=len(filas))
 
     for data, turno in filas:
-        empleado = Empleado(empresa_id=emp, **data.model_dump(exclude={"turno_id"}))
+        empleado = Empleado(empresa_id=emp, **data.model_dump(exclude={"turno_id", "pin"}))
         empleado.asignaciones = []
         db.add(empleado)
         if turno:
             await _asignar(db, empleado, turno, empleado.fecha_ingreso)
+        try:
+            await db.flush()
+        except IntegrityError:
+            await db.rollback()
+            raise _DUPLICADO from None
+        await _log(db, user, empleado, "creacion", f"Importado desde Excel ({archivo.filename})")
     try:
         await db.commit()
     except IntegrityError:
@@ -205,7 +247,9 @@ async def crear(
     emp = empresa_scope(user, empresa_id)
     await _validar_sucursal(db, user, emp, data.sucursal_id)
     await licencia.verificar_cupo(db, emp)
-    empleado = Empleado(empresa_id=emp, **data.model_dump(exclude={"turno_id"}))
+    empleado = Empleado(empresa_id=emp, **data.model_dump(exclude={"turno_id", "pin"}))
+    if data.pin:
+        empleado.pin_hash = hash_password(data.pin)
     empleado.asignaciones = []
     db.add(empleado)
     if data.turno_id:
@@ -213,10 +257,12 @@ async def crear(
             db, empleado, await obtener_turno(db, data.turno_id, emp), data.fecha_ingreso
         )
     try:
-        await db.commit()
+        await db.flush()
     except IntegrityError:
         await db.rollback()
         raise _DUPLICADO from None
+    await _log(db, user, empleado, "creacion", "Empleado dado de alta")
+    await db.commit()
     return EmpleadoDetalle.de(await _recargar(db, empleado))
 
 
@@ -237,7 +283,13 @@ async def actualizar(
 ) -> EmpleadoDetalle:
     emp = empresa_scope(user, empresa_id)
     empleado = await _get(db, user, empleado_id, emp)
+    antes = _snap(empleado)
     cambios = data.model_dump(exclude_unset=True)
+    pin_cambio = None
+    if "pin" in cambios:
+        nuevo_pin = cambios.pop("pin")
+        empleado.pin_hash = hash_password(nuevo_pin) if nuevo_pin else None
+        pin_cambio = "PIN del kiosco asignado" if nuevo_pin else "PIN del kiosco eliminado"
     for requerido in ("numero", "nombre", "apellido_paterno", "fecha_ingreso", "sucursal_id"):
         if requerido in cambios and cambios[requerido] is None:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"{requerido} es obligatorio")
@@ -256,7 +308,19 @@ async def actualizar(
     except IntegrityError:
         await db.rollback()
         raise _DUPLICADO from None
-    return EmpleadoDetalle.de(await _recargar(db, empleado))
+    await _recargar(db, empleado)
+    await bitacora.cambios(
+        db,
+        empresa_id=emp,
+        modelo="empleado",
+        registro_id=empleado.id,
+        usuario=user,
+        antes=antes,
+        despues=_snap(empleado),
+        mensaje=pin_cambio,
+    )
+    await db.commit()
+    return EmpleadoDetalle.de(empleado)
 
 
 @router.post("/{empleado_id}/turno", response_model=EmpleadoDetalle)
@@ -269,7 +333,24 @@ async def asignar_turno(
 ) -> EmpleadoDetalle:
     emp = empresa_scope(user, empresa_id)
     empleado = await _get(db, user, empleado_id, emp)
-    await _asignar(db, empleado, await obtener_turno(db, data.turno_id, emp), data.fecha_inicio)
+    turno = await obtener_turno(db, data.turno_id, emp)
+    previo = empleado.turno_en(data.fecha_inicio)
+    await _asignar(db, empleado, turno, data.fecha_inicio)
+    await _log(
+        db,
+        user,
+        empleado,
+        "cambio",
+        f"Turno a partir del {data.fecha_inicio:%d/%m/%Y}",
+        cambios=[
+            {
+                "campo": "turno",
+                "etiqueta": "Turno",
+                "antes": previo.turno.nombre if previo else None,
+                "despues": turno.nombre,
+            }
+        ],
+    )
     await db.commit()
     return EmpleadoDetalle.de(await _recargar(db, empleado))
 
@@ -305,6 +386,7 @@ async def dar_de_baja(
     empleado.fecha_baja = data.fecha_baja
     empleado.motivo_baja = data.motivo
     await _cerrar_acceso(db, empleado.usuario_id, activo=False)
+    await _log(db, user, empleado, "cambio", f"Baja al {data.fecha_baja:%d/%m/%Y}: {data.motivo}")
     await db.commit()
     return EmpleadoDetalle.de(await _recargar(db, empleado))
 
@@ -322,6 +404,7 @@ async def reactivar(
     empleado.fecha_baja = None
     empleado.motivo_baja = None
     await _cerrar_acceso(db, empleado.usuario_id, activo=True)
+    await _log(db, user, empleado, "cambio", "Empleado reactivado")
     await db.commit()
     return EmpleadoDetalle.de(await _recargar(db, empleado))
 
@@ -358,5 +441,6 @@ async def crear_acceso(
     db.add(usuario)
     await db.flush()
     empleado.usuario_id = usuario.id
+    await _log(db, user, empleado, "cambio", f"Acceso a la app creado ({email})")
     await db.commit()
     return EmpleadoDetalle.de(await _recargar(db, empleado))

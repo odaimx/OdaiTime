@@ -1,6 +1,8 @@
 """Las pruebas usan la base de datos real de DATABASE_URL (en CI, el servicio de Postgres
 con las migraciones aplicadas). Cada prueba empieza con las tablas vacías."""
 
+import tempfile
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 from redis.asyncio import Redis
@@ -14,13 +16,17 @@ from app.models import Rol, Usuario
 
 PASSWORD = "Secreta123!"
 
+# Las fotos de las pruebas van a una carpeta temporal.
+get_settings().fotos_dir = tempfile.mkdtemp(prefix="odaitime-fotos-")
+
 
 @pytest.fixture(autouse=True)
 async def limpiar_bd():
     async with SessionLocal() as db:
         await db.execute(
             text(
-                "TRUNCATE asignaciones_turno, empleados, turno_dias, turnos, sesiones, "
+                "TRUNCATE actividades, checadas, dispositivos, config_checadas, "
+                "asignaciones_turno, empleados, turno_dias, turnos, sesiones, "
                 "usuario_sucursales, usuarios, sucursales, empresas CASCADE"
             )
         )

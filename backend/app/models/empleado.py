@@ -42,6 +42,9 @@ class Empleado(UUIDPkMixin, TimestampMixin, Base):
         ForeignKey("usuarios.id", ondelete="SET NULL"), unique=True
     )
 
+    # PIN para checar en el kiosco (hash Argon2).
+    pin_hash: Mapped[str | None] = mapped_column(String(255))
+
     activo: Mapped[bool] = mapped_column(default=True)
     fecha_baja: Mapped[date | None] = mapped_column(Date)
     motivo_baja: Mapped[str | None] = mapped_column(String(300))

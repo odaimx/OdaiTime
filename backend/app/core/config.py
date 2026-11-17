@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     # Subdominios extra que ningún cliente puede usar, separados por coma ("tienda,intranet").
     subdominios_reservados: str = ""
 
+    # Carpeta de fotos de checadas (volumen persistente en Docker).
+    fotos_dir: str = "/app/data/fotos"
+
     secret_key: str = "cambia-esto-en-produccion"
     access_token_minutes: int = 15
     refresh_token_days: int = 7
