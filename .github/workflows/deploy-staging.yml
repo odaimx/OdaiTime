@@ -16,7 +16,6 @@ jobs:
   deploy:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    environment: staging
     steps:
       - name: Desplegar por SSH
         uses: appleboy/ssh-action@v1

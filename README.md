@@ -62,7 +62,7 @@ Revisa que todo responda en `http://IP-DEL-SERVIDOR/api/health/ready`.
 
 ### Despliegue automático
 
-Cada push a `main` que pasa el CI se despliega solo en staging. Configura esto en **GitHub → Settings → Environments → `staging`**:
+Cada push a `main` que pasa el CI se despliega solo en staging. Configura estos secretos en **GitHub → Settings → Secrets and variables → Actions → New repository secret**:
 
 | Secreto | Valor |
 |---|---|
