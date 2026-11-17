@@ -56,7 +56,12 @@ async def test_login_ligado_al_subdominio(client, superadmin, con_dominio):
 
     async with en(f"{a['slug']}.{BASE}") as c:
         info = (await c.get("/api/tenant")).json()
-        assert info == {"modo": "tenant", "nombre": "Empresa Caribe", "slug": a["slug"]}
+        assert info == {
+            "modo": "tenant",
+            "nombre": "Empresa Caribe",
+            "slug": a["slug"],
+            "dominio": BASE,
+        }
         r = await c.post("/api/auth/login", json=cred)
         assert r.status_code == 200
         token = r.json()["access_token"]
