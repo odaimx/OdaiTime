@@ -91,6 +91,21 @@ Cada push a `main` que pasa el CI se despliega solo en staging. Configura esto e
 
 Todas las consultas se filtran por empresa en el servidor. Un recurso de otra empresa responde 404.
 
+## Checadas
+
+| Forma | Cómo |
+|---|---|
+| Celular | El empleado (con acceso a la app) entra a su subdominio → **Checar**. Se valida GPS, foto o QR según la configuración. |
+| Kiosco | En **Config. checadas › Dispositivos › Agregar** se obtiene un código de 6 dígitos; en la tablet se abre `https://<empresa>.odai.lat/kiosco` y se escribe el código. El kiosco muestra un QR que cambia cada 30 s y un teclado para número + PIN. |
+| QR | El empleado apunta la cámara normal de su teléfono al QR del kiosco; se abre `/checar?qr=…` y registra en la sucursal del kiosco. |
+| Biométrico | `POST /api/biometrico/registros` con el token del dispositivo (tipo `biometrico`). Preparado; la conexión con cada modelo se configura al final. |
+| Manual | Un administrador o gerente la registra en **Checadas**, con motivo obligatorio. |
+
+- GPS y cámara requieren **HTTPS** (no funcionan por `http://IP`).
+- Sin internet, el celular guarda la checada con su hora y la envía al reconectar (si la empresa lo permite).
+- Las fotos se guardan en el volumen `fotos` (`/app/data/fotos`).
+- Cada cambio queda en el **historial** (bitácora tipo Odoo) del registro, con quién, cuándo, valor anterior y nuevo.
+
 ## Convenciones
 
 - Todas las fechas se guardan en UTC (`timestamptz`). La zona horaria se aplica por sucursal.
