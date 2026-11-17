@@ -4,11 +4,10 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy.ext.asyncio import create_async_engine
 
+# Importa aquí los módulos de modelos para que autogenerate los detecte.
+import app.models  # noqa: F401
 from app.core.config import get_settings
 from app.db.base import Base
-
-# Importa aquí los módulos de modelos para que autogenerate los detecte.
-# from app.models import *  # noqa: F401,F403
 
 config = context.config
 if config.config_file_name is not None:

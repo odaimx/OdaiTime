@@ -1,40 +1,61 @@
-import { useEffect, useState } from "react";
+import type { ReactElement } from "react";
+import { Navigate, Route, Routes } from "react-router";
+import Layout from "./components/Layout";
+import { useAuth } from "./lib/auth";
+import type { Rol } from "./lib/api";
+import Empresas from "./pages/Empresas";
+import Inicio from "./pages/Inicio";
+import Login from "./pages/Login";
+import Sucursales from "./pages/Sucursales";
+import Usuarios from "./pages/Usuarios";
 
-type Ready = { status: string; checks: Record<string, string> };
+function Requiere({ roles, children }: { roles: Rol[]; children: ReactElement }) {
+  const { usuario } = useAuth();
+  return usuario && roles.includes(usuario.rol) ? children : <Navigate to="/" replace />;
+}
 
 export default function App() {
-  const [ready, setReady] = useState<Ready | null>(null);
-  const [error, setError] = useState(false);
+  const { usuario } = useAuth();
 
-  useEffect(() => {
-    fetch("/api/health/ready")
-      .then((r) => r.json())
-      .then(setReady)
-      .catch(() => setError(true));
-  }, []);
+  if (!usuario) {
+    return (
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
+  }
 
   return (
-    <main className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
-        <h1 className="text-2xl font-semibold text-slate-900">ODAITIME</h1>
-        <p className="mt-1 text-sm text-slate-500">Control de asistencia</p>
-
-        <h2 className="mt-6 text-sm font-medium text-slate-700">Estado del sistema</h2>
-        {error && <p className="mt-2 text-sm text-red-600">No se pudo contactar la API.</p>}
-        {!ready && !error && <p className="mt-2 text-sm text-slate-500">Verificando…</p>}
-        {ready && (
-          <ul className="mt-2 space-y-1 text-sm">
-            {Object.entries(ready.checks).map(([name, value]) => (
-              <li key={name} className="flex justify-between">
-                <span className="text-slate-600">{name}</span>
-                <span className={value === "ok" ? "text-emerald-600" : "text-red-600"}>
-                  {value}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </main>
+    <Routes>
+      <Route element={<Layout />}>
+        <Route index element={<Inicio />} />
+        <Route
+          path="empresas"
+          element={
+            <Requiere roles={["superadmin"]}>
+              <Empresas />
+            </Requiere>
+          }
+        />
+        <Route
+          path="sucursales"
+          element={
+            <Requiere roles={["superadmin", "admin_empresa", "gerente_sucursal"]}>
+              <Sucursales />
+            </Requiere>
+          }
+        />
+        <Route
+          path="usuarios"
+          element={
+            <Requiere roles={["superadmin", "admin_empresa"]}>
+              <Usuarios />
+            </Requiere>
+          }
+        />
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
