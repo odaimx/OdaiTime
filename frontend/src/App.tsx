@@ -1,12 +1,17 @@
 import type { ReactElement } from "react";
-import { Navigate, Route, Routes } from "react-router";
+import { Navigate, Route, Routes, useLocation } from "react-router";
 import Layout from "./components/Layout";
 import { useAuth } from "./lib/auth";
 import type { Rol } from "./lib/api";
+import Checadas from "./pages/Checadas";
+import Checar from "./pages/Checar";
+import ConfigChecadas from "./pages/ConfigChecadas";
 import Empleados from "./pages/Empleados";
 import Empresas from "./pages/Empresas";
 import Inicio from "./pages/Inicio";
+import Kiosco from "./pages/Kiosco";
 import Login from "./pages/Login";
+import MisRegistros from "./pages/MisRegistros";
 import Sucursales from "./pages/Sucursales";
 import Turnos from "./pages/Turnos";
 import Usuarios from "./pages/Usuarios";
@@ -16,22 +21,64 @@ function Requiere({ roles, children }: { roles: Rol[]; children: ReactElement })
   return usuario && roles.includes(usuario.rol) ? children : <Navigate to="/" replace />;
 }
 
+const GESTION: Rol[] = ["superadmin", "admin_empresa", "gerente_sucursal"];
+
+function AlLogin() {
+  // Conserva a dónde iba (p. ej. /checar?qr=… desde el QR del kiosco) para volver tras iniciar sesión.
+  const loc = useLocation();
+  return <Navigate to="/login" replace state={{ desde: loc.pathname + loc.search }} />;
+}
+
 export default function App() {
   const { usuario } = useAuth();
 
   if (!usuario) {
     return (
       <Routes>
+        <Route path="/kiosco" element={<Kiosco />} />
         <Route path="/login" element={<Login />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<AlLogin />} />
       </Routes>
     );
   }
 
   return (
     <Routes>
+      <Route path="/kiosco" element={<Kiosco />} />
       <Route element={<Layout />}>
-        <Route index element={<Inicio />} />
+        <Route index element={usuario.rol === "empleado" ? <Navigate to="/checar" replace /> : <Inicio />} />
+        <Route
+          path="checar"
+          element={
+            <Requiere roles={["empleado"]}>
+              <Checar />
+            </Requiere>
+          }
+        />
+        <Route
+          path="mis-registros"
+          element={
+            <Requiere roles={["empleado"]}>
+              <MisRegistros />
+            </Requiere>
+          }
+        />
+        <Route
+          path="checadas"
+          element={
+            <Requiere roles={GESTION}>
+              <Checadas />
+            </Requiere>
+          }
+        />
+        <Route
+          path="checadas/configuracion"
+          element={
+            <Requiere roles={GESTION}>
+              <ConfigChecadas />
+            </Requiere>
+          }
+        />
         <Route
           path="empresas"
           element={

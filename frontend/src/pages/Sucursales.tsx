@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import Bitacora from "../components/Bitacora";
 import { Badge, ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
 import { get, patch, post, ZONAS_MX, type Sucursal } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -163,6 +164,14 @@ export default function Sucursales() {
             </div>
             <p className="text-xs text-slate-500">Tip: en Google Maps, clic derecho sobre la sucursal para copiar las coordenadas.</p>
 
+            {editando !== "nueva" && (
+              <details className="rounded-lg border border-slate-200 p-3">
+                <summary className="cursor-pointer text-sm font-medium text-navy-900">Historial de cambios</summary>
+                <div className="mt-3">
+                  <Bitacora modelo="sucursal" registroId={editando.id} query={query} />
+                </div>
+              </details>
+            )}
             <ErrorBox message={error} />
             <div className="flex justify-end gap-3">
               <button type="button" className="btn-secondary" onClick={() => setEditando(null)}>Cancelar</button>

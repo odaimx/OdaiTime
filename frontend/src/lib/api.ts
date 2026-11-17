@@ -258,6 +258,7 @@ export interface Empleado {
   sucursal: SucursalRef;
   turno_actual: Ref | null;
   tiene_acceso: boolean;
+  tiene_pin: boolean;
   activo: boolean;
   fecha_baja: string | null;
   motivo_baja: string | null;
@@ -308,4 +309,113 @@ export async function subir<T>(path: string, campo: string, archivo: File): Prom
   const body = new FormData();
   body.append(campo, archivo);
   return api<T>(path, { method: "POST", body });
+}
+
+// --- Etapa 4: checadas, dispositivos y bitácora ---
+
+export interface Checada {
+  id: string;
+  tipo: "entrada" | "salida";
+  momento: string;
+  origen: "movil" | "kiosco" | "biometrico" | "manual";
+  offline: boolean;
+  distancia_m: number | null;
+  retardo_minutos: number | null;
+  estado: "valida" | "anulada";
+  corregida: boolean;
+  tiene_foto: boolean;
+  empleado: { id: string; numero: string; nombre_completo: string };
+  sucursal: SucursalRef;
+}
+
+export const ORIGENES: Record<Checada["origen"], string> = {
+  movil: "Celular",
+  kiosco: "Kiosco",
+  biometrico: "Reloj biométrico",
+  manual: "Manual",
+};
+
+export interface EstadoHoy {
+  empleado: { id: string; numero: string; nombre_completo: string };
+  sucursal: { id: string; clave: string; nombre: string; zona_horaria: string; latitud: number | null; longitud: number | null; radio_metros: number };
+  turno: { nombre: string; entrada: string; salida: string; tolerancia_minutos: number } | null;
+  siguiente_tipo: "entrada" | "salida";
+  permitir_movil: boolean;
+  permitir_offline: boolean;
+  requiere: { gps: boolean; foto: boolean; qr: boolean };
+  checadas_hoy: Checada[];
+  hora_servidor: string;
+}
+
+export interface ConfigChecadas {
+  permitir_movil: boolean;
+  permitir_kiosco: boolean;
+  validar_gps: boolean;
+  validar_qr: boolean;
+  foto: "ninguna" | "movil" | "kiosco" | "ambos";
+  pin_kiosco: boolean;
+  minutos_antes_entrada: number;
+  ignorar_repetida_min: number;
+  permitir_offline: boolean;
+  offline_max_horas: number;
+  sucursal_id: string | null;
+  origen: "sucursal" | "general" | "predeterminada";
+}
+
+export interface Dispositivo {
+  id: string;
+  nombre: string;
+  tipo: "kiosco" | "biometrico";
+  serie: string | null;
+  sucursal: SucursalRef;
+  activo: boolean;
+  vinculado: boolean;
+  ultima_conexion: string | null;
+  codigo_vinculacion: string | null;
+  codigo_expira: string | null;
+}
+
+export interface Actividad {
+  id: string;
+  tipo: "creacion" | "cambio" | "nota" | "sistema";
+  mensaje: string | null;
+  cambios: { campo: string; etiqueta: string; antes: string | null; despues: string | null }[] | null;
+  usuario: { id: string; nombre: string } | null;
+  created_at: string;
+}
+
+/** Envía un formulario multipart (para checadas con foto). */
+export function postForm<T>(path: string, campos: Record<string, string | Blob | null | undefined>, headers?: HeadersInit): Promise<T> {
+  const body = new FormData();
+  for (const [k, v] of Object.entries(campos)) {
+    if (v === null || v === undefined) continue;
+    if (v instanceof Blob) body.append(k, v, "foto.jpg");
+    else body.append(k, v);
+  }
+  return api<T>(path, { method: "POST", body, headers });
+}
+
+export const hora = (iso: string, tz?: string) =>
+  new Date(iso).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", timeZone: tz });
+
+export const fechaHora = (iso: string) =>
+  new Date(iso).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
+
+/** Reduce una foto a máx. 720 px en JPEG para que suba rápido. */
+export async function comprimir(blob: Blob, max = 720): Promise<Blob> {
+  const img = await createImageBitmap(blob);
+  const escala = Math.min(1, max / Math.max(img.width, img.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(img.width * escala);
+  canvas.height = Math.round(img.height * escala);
+  canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+  return new Promise((ok) => canvas.toBlob((b) => ok(b ?? blob), "image/jpeg", 0.8));
+}
+
+/** Carga una imagen protegida (con token) como URL local. */
+export async function imagenProtegida(path: string): Promise<string> {
+  const token = session.get()?.access_token;
+  const r = await fetch(`/api${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (!r.ok) throw new ApiError(r.status, "Sin foto");
+  return URL.createObjectURL(await r.blob());
 }

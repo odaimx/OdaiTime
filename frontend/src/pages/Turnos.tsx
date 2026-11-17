@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import Bitacora from "../components/Bitacora";
 import { Badge, ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
 import { DIAS, DIAS_CORTOS, get, horas, hhmm, JORNADAS, patch, post, type TipoJornada, type Turno } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -232,6 +233,14 @@ export default function Turnos() {
               </p>
             </div>
 
+            {editando !== "nuevo" && (
+              <details className="rounded-lg border border-slate-200 p-3">
+                <summary className="cursor-pointer text-sm font-medium text-navy-900">Historial de cambios</summary>
+                <div className="mt-3">
+                  <Bitacora modelo="turno" registroId={editando.id} query={query} />
+                </div>
+              </details>
+            )}
             <ErrorBox message={error} />
             <div className="flex justify-end gap-3">
               <button type="button" className="btn-secondary" onClick={() => setEditando(null)}>

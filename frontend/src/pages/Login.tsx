@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { ErrorBox } from "../components/ui";
 import { ApiError, type TenantInfo } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -7,6 +7,7 @@ import { useAuth } from "../lib/auth";
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const destino = (useLocation().state as { desde?: string } | null)?.desde ?? "/";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +33,7 @@ export default function Login() {
     setEnviando(true);
     try {
       await login(email, password);
-      navigate("/", { replace: true });
+      navigate(destino, { replace: true });
     } catch (err) {
       const d = err instanceof ApiError ? (err.detalle as { codigo?: string; mensaje: string; url?: string }) : null;
       if (d?.codigo === "usar_subdominio" && d.url) setRedirigir({ mensaje: d.mensaje, url: d.url });
