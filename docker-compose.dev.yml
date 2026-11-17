@@ -1,0 +1,24 @@
+# Solo base de datos y caché para desarrollo local:
+#   docker compose -f docker-compose.dev.yml up -d
+# Luego corre la API con uvicorn y el frontend con `npm run dev`.
+name: odaitime-dev
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: odaitime
+      POSTGRES_USER: odaitime
+      POSTGRES_PASSWORD: odaitime
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+
+  cache:
+    image: valkey/valkey:8-alpine
+    ports:
+      - "6379:6379"
+
+volumes:
+  pgdata-dev:
