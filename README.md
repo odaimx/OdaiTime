@@ -60,6 +60,15 @@ sudo -u deploy /opt/odaitime/scripts/deploy.sh
 
 Revisa que todo responda en `http://IP-DEL-SERVIDOR/api/health/ready`.
 
+### Crear el primer superadmin
+
+```bash
+cd /opt/odaitime
+sudo -u deploy docker compose exec api python -m app.cli crear-superadmin --email tu@odai.mx --nombre "Tu Nombre"
+```
+
+Con ese usuario entras a la web y das de alta empresas. Cada empresa nace con su administrador.
+
 ### Despliegue automático
 
 Cada push a `main` que pasa el CI se despliega solo en staging. Configura esto en **GitHub → Settings → Environments → `staging`**:
@@ -70,6 +79,17 @@ Cada push a `main` que pasa el CI se despliega solo en staging. Configura esto e
 | `STAGING_USER` | `deploy` |
 | `STAGING_SSH_KEY` | Llave privada; su llave pública va en `/home/deploy/.ssh/authorized_keys` |
 | `STAGING_PORT` | Opcional, si SSH no usa el puerto 22 |
+
+## Roles
+
+| Rol | Alcance |
+|---|---|
+| `superadmin` | Operador del SaaS (Odai): administra empresas y puede operar sobre cualquiera |
+| `admin_empresa` | Toda su empresa: sucursales y usuarios |
+| `gerente_sucursal` | Solo las sucursales que tiene asignadas |
+| `empleado` | Lo propio (checadas en etapas siguientes) |
+
+Todas las consultas se filtran por empresa en el servidor. Un recurso de otra empresa responde 404.
 
 ## Convenciones
 
