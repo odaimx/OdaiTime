@@ -36,17 +36,17 @@ async def crear(data: EmpresaCreate, db: DB) -> Empresa:
 
     empresa = Empresa(**data.model_dump(exclude={"admin"}))
     db.add(empresa)
-    await db.flush()
-    db.add(
-        Usuario(
-            empresa_id=empresa.id,
-            email=email,
-            nombre=data.admin.nombre,
-            password_hash=hash_password(data.admin.password),
-            rol=Rol.ADMIN_EMPRESA,
-        )
-    )
     try:
+        await db.flush()
+        db.add(
+            Usuario(
+                empresa_id=empresa.id,
+                email=email,
+                nombre=data.admin.nombre,
+                password_hash=hash_password(data.admin.password),
+                rol=Rol.ADMIN_EMPRESA,
+            )
+        )
         await db.commit()
     except IntegrityError:
         await db.rollback()
