@@ -1,0 +1,249 @@
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { Badge, ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
+import { DIAS, DIAS_CORTOS, get, horas, hhmm, JORNADAS, patch, post, type TipoJornada, type Turno } from "../lib/api";
+import { useAuth } from "../lib/auth";
+
+type FilaDia = { activo: boolean; entrada: string; salida: string; comida: string };
+type Form = { nombre: string; tipo_jornada: TipoJornada; tolerancia: string; dias: FilaDia[] };
+
+const filaBase = (activo: boolean): FilaDia => ({ activo, entrada: "09:00", salida: "18:00", comida: "60" });
+const VACIO: Form = {
+  nombre: "",
+  tipo_jornada: "diurna",
+  tolerancia: "10",
+  dias: DIAS.map((_, i) => filaBase(i < 5)),
+};
+
+function minutosDia(f: FilaDia): number {
+  const [eh, em] = f.entrada.split(":").map(Number);
+  const [sh, sm] = f.salida.split(":").map(Number);
+  let d = sh * 60 + sm - (eh * 60 + em);
+  if (d <= 0) d += 1440;
+  return d - (Number(f.comida) || 0);
+}
+
+export default function Turnos() {
+  const { usuario } = useAuth();
+  const puedeEditar = usuario?.rol === "superadmin" || usuario?.rol === "admin_empresa";
+  const { query, listo, selector } = useEmpresaScope();
+  const [turnos, setTurnos] = useState<Turno[]>([]);
+  const [editando, setEditando] = useState<Turno | "nuevo" | null>(null);
+  const [form, setForm] = useState<Form>(VACIO);
+  const [error, setError] = useState<string | null>(null);
+
+  const cargar = useCallback(() => {
+    if (listo) get<Turno[]>(`/turnos${query}`).then(setTurnos);
+  }, [query, listo]);
+  useEffect(cargar, [cargar]);
+
+  function abrir(t: Turno | "nuevo") {
+    setError(null);
+    if (t === "nuevo") setForm(VACIO);
+    else
+      setForm({
+        nombre: t.nombre,
+        tipo_jornada: t.tipo_jornada,
+        tolerancia: String(t.tolerancia_minutos),
+        dias: DIAS.map((_, i) => {
+          const d = t.dias.find((x) => x.dia_semana === i);
+          return d
+            ? { activo: true, entrada: hhmm(d.entrada), salida: hhmm(d.salida), comida: String(d.comida_minutos) }
+            : { ...filaBase(false) };
+        }),
+      });
+    setEditando(t);
+  }
+
+  function setDia(i: number, cambio: Partial<FilaDia>) {
+    setForm((f) => ({ ...f, dias: f.dias.map((d, j) => (j === i ? { ...d, ...cambio } : d)) }));
+  }
+
+  function copiarPrimero() {
+    const primero = form.dias.find((d) => d.activo);
+    if (!primero) return;
+    setForm((f) => ({ ...f, dias: f.dias.map((d) => (d.activo ? { ...primero } : d)) }));
+  }
+
+  async function guardar(ev: FormEvent) {
+    ev.preventDefault();
+    setError(null);
+    const datos = {
+      nombre: form.nombre,
+      tipo_jornada: form.tipo_jornada,
+      tolerancia_minutos: Number(form.tolerancia) || 0,
+      dias: form.dias.flatMap((d, i) =>
+        d.activo ? [{ dia_semana: i, entrada: d.entrada, salida: d.salida, comida_minutos: Number(d.comida) || 0 }] : [],
+      ),
+    };
+    if (datos.dias.length === 0) return setError("Marca al menos un día laborable");
+    try {
+      const guardado =
+        editando === "nuevo" ? await post<Turno>(`/turnos${query}`, datos) : await patch<Turno>(`/turnos/${(editando as Turno).id}${query}`, datos);
+      setEditando(null);
+      cargar();
+      if (guardado.advertencias.length) {
+        alert(`Turno guardado con observaciones de la LFT:\n\n• ${guardado.advertencias.join("\n• ")}`);
+      }
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function alternar(t: Turno) {
+    await patch(`/turnos/${t.id}${query}`, { activo: !t.activo });
+    cargar();
+  }
+
+  const semanaForm = form.dias.filter((d) => d.activo).reduce((s, d) => s + minutosDia(d), 0);
+
+  return (
+    <>
+      <PageHeader
+        title="Turnos"
+        subtitle="Horarios semanales reutilizables, revisados contra la jornada máxima de la LFT"
+        action={
+          <div className="flex flex-col gap-3 sm:flex-row">
+            {selector}
+            {puedeEditar && listo && (
+              <button className="btn-primary" onClick={() => abrir("nuevo")}>
+                Nuevo turno
+              </button>
+            )}
+          </div>
+        }
+      />
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {turnos.map((t) => (
+          <div key={t.id} className={`card p-5 ${t.activo ? "" : "opacity-60"}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="font-semibold text-navy-900">{t.nombre}</h2>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  {JORNADAS[t.tipo_jornada].label} · {horas(t.minutos_semana)} por semana · tolerancia {t.tolerancia_minutos} min
+                </p>
+              </div>
+              <Badge ok={t.activo}>{t.activo ? "Activo" : "Inactivo"}</Badge>
+            </div>
+
+            <div className="mt-4 grid grid-cols-7 gap-1 text-center text-xs">
+              {DIAS_CORTOS.map((corto, i) => {
+                const d = t.dias.find((x) => x.dia_semana === i);
+                return (
+                  <div key={i} className={`rounded-md px-0.5 py-2 ${d ? "bg-brand-50 text-navy-900" : "bg-slate-50 text-slate-400"}`}>
+                    <p className="font-semibold">{corto}</p>
+                    {d ? (
+                      <p className="mt-1 leading-tight">
+                        {hhmm(d.entrada)}
+                        <br />
+                        {hhmm(d.salida)}
+                      </p>
+                    ) : (
+                      <p className="mt-1 leading-tight">Des&shy;canso</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {t.advertencias.length > 0 && (
+              <ul className="mt-4 space-y-1 rounded-lg bg-amber-50 p-3 text-xs text-amber-800 ring-1 ring-amber-200">
+                {t.advertencias.map((a) => (
+                  <li key={a}>⚠ {a}</li>
+                ))}
+              </ul>
+            )}
+
+            {puedeEditar && (
+              <div className="mt-4 flex gap-4 text-sm">
+                <button className="text-brand-600 hover:underline" onClick={() => abrir(t)}>
+                  Editar
+                </button>
+                <button className="text-slate-500 hover:underline" onClick={() => alternar(t)}>
+                  {t.activo ? "Desactivar" : "Activar"}
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+        {turnos.length === 0 && <p className="card p-10 text-center text-slate-500 lg:col-span-2">Aún no hay turnos.</p>}
+      </div>
+
+      {editando && (
+        <Modal title={editando === "nuevo" ? "Nuevo turno" : "Editar turno"} onClose={() => setEditando(null)} ancho="lg">
+          <form onSubmit={guardar} className="space-y-4">
+            <div>
+              <label className="label">Nombre</label>
+              <input className="input" required placeholder="Matutino recepción" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="label">Tipo de jornada</label>
+                <select className="input" value={form.tipo_jornada} onChange={(e) => setForm({ ...form, tipo_jornada: e.target.value as TipoJornada })}>
+                  {(Object.keys(JORNADAS) as TipoJornada[]).map((k) => (
+                    <option key={k} value={k}>
+                      {JORNADAS[k].label} — máx. {JORNADAS[k].max}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label">Tolerancia de retardo (min)</label>
+                <input className="input" type="number" min={0} max={120} value={form.tolerancia} onChange={(e) => setForm({ ...form, tolerancia: e.target.value })} />
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <span className="label mb-0">Horario</span>
+                <button type="button" className="text-xs font-medium text-brand-600 hover:underline" onClick={copiarPrimero}>
+                  Copiar el primer día a los marcados
+                </button>
+              </div>
+              <div className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+                <div className="hidden grid-cols-[6.5rem_1fr_1fr_4.5rem_3.5rem] gap-2 px-3 py-2 text-xs font-medium text-slate-500 sm:grid">
+                  <span>Día</span>
+                  <span>Entrada</span>
+                  <span>Salida</span>
+                  <span>Comida</span>
+                  <span className="text-right">Horas</span>
+                </div>
+                {form.dias.map((d, i) => (
+                  <div key={i} className="grid grid-cols-2 items-center gap-2 px-3 py-2 sm:grid-cols-[6.5rem_1fr_1fr_4.5rem_3.5rem]">
+                    <label className="col-span-2 flex items-center gap-2 text-sm text-navy-900 sm:col-span-1">
+                      <input type="checkbox" className="accent-brand-500" checked={d.activo} onChange={(e) => setDia(i, { activo: e.target.checked })} />
+                      {DIAS[i]}
+                    </label>
+                    {d.activo ? (
+                      <>
+                        <input type="time" className="input px-2" aria-label="Entrada" value={d.entrada} onChange={(e) => setDia(i, { entrada: e.target.value })} required />
+                        <input type="time" className="input px-2" aria-label="Salida" value={d.salida} onChange={(e) => setDia(i, { salida: e.target.value })} required />
+                        <input type="number" className="input px-2" aria-label="Minutos de comida" min={0} max={180} step={5} value={d.comida} onChange={(e) => setDia(i, { comida: e.target.value })} />
+                        <span className="text-right text-sm text-slate-600">{horas(minutosDia(d))}</span>
+                      </>
+                    ) : (
+                      <span className="col-span-2 text-sm text-slate-400 sm:col-span-4">Descanso</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-slate-500">
+                Total semanal: <strong className="text-navy-900">{horas(semanaForm)}</strong>. Si la salida es menor que la entrada, el turno termina al día siguiente.
+              </p>
+            </div>
+
+            <ErrorBox message={error} />
+            <div className="flex justify-end gap-3">
+              <button type="button" className="btn-secondary" onClick={() => setEditando(null)}>
+                Cancelar
+              </button>
+              <button type="submit" className="btn-primary">
+                Guardar
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </>
+  );
+}

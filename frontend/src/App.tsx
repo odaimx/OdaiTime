@@ -3,10 +3,12 @@ import { Navigate, Route, Routes } from "react-router";
 import Layout from "./components/Layout";
 import { useAuth } from "./lib/auth";
 import type { Rol } from "./lib/api";
+import Empleados from "./pages/Empleados";
 import Empresas from "./pages/Empresas";
 import Inicio from "./pages/Inicio";
 import Login from "./pages/Login";
 import Sucursales from "./pages/Sucursales";
+import Turnos from "./pages/Turnos";
 import Usuarios from "./pages/Usuarios";
 
 function Requiere({ roles, children }: { roles: Rol[]; children: ReactElement }) {
@@ -43,6 +45,22 @@ export default function App() {
           element={
             <Requiere roles={["superadmin", "admin_empresa", "gerente_sucursal"]}>
               <Sucursales />
+            </Requiere>
+          }
+        />
+        <Route
+          path="empleados"
+          element={
+            <Requiere roles={["superadmin", "admin_empresa", "gerente_sucursal"]}>
+              <Empleados />
+            </Requiere>
+          }
+        />
+        <Route
+          path="turnos"
+          element={
+            <Requiere roles={["superadmin", "admin_empresa", "gerente_sucursal"]}>
+              <Turnos />
             </Requiere>
           }
         />

@@ -14,7 +14,17 @@ export function PageHeader({ title, subtitle, action }: { title: string; subtitl
   );
 }
 
-export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Modal({
+  title,
+  onClose,
+  children,
+  ancho = "md",
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+  ancho?: "md" | "lg";
+}) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -23,7 +33,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-navy-900/40 p-3 pt-6 sm:p-4 sm:pt-16" onMouseDown={onClose}>
-      <div className="card w-full max-w-lg p-5 sm:p-6" onMouseDown={(e) => e.stopPropagation()}>
+      <div className={`card w-full p-5 sm:p-6 ${ancho === "lg" ? "max-w-2xl" : "max-w-lg"}`} onMouseDown={(e) => e.stopPropagation()}>
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-navy-900">{title}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-navy-900" aria-label="Cerrar">

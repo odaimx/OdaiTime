@@ -125,7 +125,7 @@ function errorMessage(body: unknown, status: number): string {
 
 export async function api<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
   const headers = new Headers(init.headers);
-  if (init.body) headers.set("Content-Type", "application/json");
+  if (init.body && !(init.body instanceof FormData)) headers.set("Content-Type", "application/json");
   const token = session.get()?.access_token;
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
@@ -163,3 +163,110 @@ export const ZONAS_MX: { value: string; label: string }[] = [
   { value: "America/Tijuana", label: "Noroeste (Baja California)" },
   { value: "America/Matamoros", label: "Centro con horario de verano (frontera Tamaulipas)" },
 ];
+
+// --- Etapa 3: turnos y empleados ---
+
+export type TipoJornada = "diurna" | "nocturna" | "mixta";
+
+export const JORNADAS: Record<TipoJornada, { label: string; max: string }> = {
+  diurna: { label: "Diurna", max: "8 h (6:00–20:00)" },
+  nocturna: { label: "Nocturna", max: "7 h (20:00–6:00)" },
+  mixta: { label: "Mixta", max: "7.5 h (menos de 3.5 h nocturnas)" },
+};
+
+export const DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+export const DIAS_CORTOS = ["L", "M", "M", "J", "V", "S", "D"];
+
+export interface TurnoDia {
+  dia_semana: number;
+  entrada: string; // "HH:MM:SS"
+  salida: string;
+  comida_minutos: number;
+}
+
+export interface Turno {
+  id: string;
+  nombre: string;
+  tipo_jornada: TipoJornada;
+  tolerancia_minutos: number;
+  activo: boolean;
+  dias: TurnoDia[];
+  minutos_semana: number;
+  advertencias: string[];
+}
+
+export interface Ref {
+  id: string;
+  nombre: string;
+}
+
+export interface Empleado {
+  id: string;
+  numero: string;
+  nombre: string;
+  apellido_paterno: string;
+  apellido_materno: string | null;
+  nombre_completo: string;
+  curp: string | null;
+  rfc: string | null;
+  nss: string | null;
+  fecha_ingreso: string;
+  puesto: string | null;
+  departamento: string | null;
+  salario_diario: string | null;
+  email: string | null;
+  telefono: string | null;
+  sucursal: SucursalRef;
+  turno_actual: Ref | null;
+  tiene_acceso: boolean;
+  activo: boolean;
+  fecha_baja: string | null;
+  motivo_baja: string | null;
+}
+
+export interface Asignacion {
+  id: string;
+  turno: Ref;
+  fecha_inicio: string;
+  fecha_fin: string | null;
+}
+
+export interface EmpleadoDetalle extends Empleado {
+  asignaciones: Asignacion[];
+}
+
+export const hhmm = (t: string) => t.slice(0, 5);
+
+export function horas(minutos: number): string {
+  const h = Math.floor(minutos / 60);
+  const m = minutos % 60;
+  return m ? `${h} h ${m} min` : `${h} h`;
+}
+
+export function fechaCorta(iso: string | null): string {
+  if (!iso) return "—";
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" });
+}
+
+export const hoyISO = () => new Date().toLocaleDateString("en-CA"); // AAAA-MM-DD local
+
+/** Descarga un archivo de la API (con el token) y lo guarda. */
+export async function descargar(path: string, nombre: string): Promise<void> {
+  const token = session.get()?.access_token;
+  const r = await fetch(`/api${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (!r.ok) throw new ApiError(r.status, "No se pudo descargar el archivo");
+  const url = URL.createObjectURL(await r.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nombre;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** Sube un archivo (multipart) a la API. */
+export async function subir<T>(path: string, campo: string, archivo: File): Promise<T> {
+  const body = new FormData();
+  body.append(campo, archivo);
+  return api<T>(path, { method: "POST", body });
+}
