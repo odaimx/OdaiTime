@@ -379,6 +379,7 @@ export interface EstadoHoy {
 
 export interface ConfigChecadas {
   permitir_movil: boolean;
+  portal_historial: boolean;
   permitir_kiosco: boolean;
   validar_gps: boolean;
   validar_qr: boolean;
@@ -610,6 +611,7 @@ export interface Categoria {
   id: string;
   modelo: ModeloCategoria;
   nombre: string;
-  color: number;
+  /** #rrggbb */
+  color: string;
   registros: number;
 }

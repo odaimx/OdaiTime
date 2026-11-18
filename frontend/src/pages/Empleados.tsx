@@ -413,6 +413,21 @@ export default function Empleados() {
         )}
         {input("puesto", "Puesto")}
         {input("departamento", "Departamento")}
+        {!conTurno && sel && (
+          <div className="md:col-span-2">
+      <SelectorCategorias
+        todas={cats.lista}
+        valor={cats.asignadas[sel!.id] ?? []}
+        onCambio={(ids) => cats.asignar(sel!.id, ids).then(cats.recargar)}
+        puedeCrear={esAdmin}
+        onCrear={async (nombre) => {
+          const c = await post<Categoria>(`/categorias${query}${sep}modelo=empleado`, { nombre, color: "#8a64de" });
+          cats.recargar();
+          return c;
+        }}
+      />
+          </div>
+        )}
       </div>
       <fieldset className="grid grid-cols-1 gap-x-6 gap-y-4 rounded-lg bg-slate-50 p-4 md:grid-cols-2">
         <legend className="px-1 text-xs font-medium uppercase tracking-wide text-slate-500">Datos fiscales y laborales</legend>
@@ -551,17 +566,6 @@ export default function Empleados() {
               </div>
               {!sel.activo && sel.motivo_baja && <p className="text-sm text-slate-600">Motivo de baja: {sel.motivo_baja}</p>}
 
-              <SelectorCategorias
-                todas={cats.lista}
-                valor={cats.asignadas[sel.id] ?? []}
-                onCambio={(ids) => cats.asignar(sel.id, ids).then(cats.recargar)}
-                puedeCrear={esAdmin}
-                onCrear={async (nombre) => {
-                  const c = await post<Categoria>(`/categorias${query}${sep}modelo=empleado`, { nombre, color: 7 });
-                  cats.recargar();
-                  return c;
-                }}
-              />
 
               {sel.activo && (
                 <div className="flex items-start gap-3 rounded-lg border border-slate-200 p-4">

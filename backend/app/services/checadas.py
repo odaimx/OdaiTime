@@ -21,6 +21,7 @@ from app.services.lft import bloques as lft_bloques
 
 CAMPOS_CONFIG = (
     "permitir_movil",
+    "portal_historial",
     "permitir_kiosco",
     "validar_gps",
     "validar_qr",

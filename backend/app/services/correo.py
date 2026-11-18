@@ -14,6 +14,7 @@ from email.utils import formataddr, make_msgid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cifrado import cifrar, descifrar, esta_cifrado
 from app.models import ConfigCorreo
 
 log = logging.getLogger(__name__)
@@ -34,6 +35,8 @@ async def config(db: AsyncSession) -> ConfigCorreo:
         )
         db.add(c)
         await db.flush()
+    elif c.password and not esta_cifrado(c.password):
+        c.password = cifrar(c.password)  # contraseñas guardadas antes de cifrarlas
     return c
 
 
@@ -42,14 +45,14 @@ def _enviar_sync(c: ConfigCorreo, msg: EmailMessage) -> None:
     if c.seguridad == "ssl":
         with smtplib.SMTP_SSL(c.host, c.puerto, context=contexto, timeout=20) as s:
             if c.usuario:
-                s.login(c.usuario, c.password)
+                s.login(c.usuario, descifrar(c.password))
             s.send_message(msg)
     else:
         with smtplib.SMTP(c.host, c.puerto, timeout=20) as s:
             if c.seguridad == "starttls":
                 s.starttls(context=contexto)
             if c.usuario:
-                s.login(c.usuario, c.password)
+                s.login(c.usuario, descifrar(c.password))
             s.send_message(msg)
 
 

@@ -191,21 +191,6 @@ export default function Empresas() {
         >
           <form onSubmit={(ev: FormEvent) => (ev.preventDefault(), guardar())} className="form-2col">
             {editando !== "nueva" && (
-              <div className="completo">
-                <SelectorCategorias
-                  todas={cats.lista}
-                  valor={cats.asignadas[editando.id] ?? []}
-                  onCambio={(ids) => cats.asignar(editando.id, ids).then(cats.recargar)}
-                  puedeCrear={true}
-                  onCrear={async (nombre) => {
-                    const c = await post<Categoria>("/categorias?modelo=empresa", { nombre, color: 7 });
-                    cats.recargar();
-                    return c;
-                  }}
-                />
-              </div>
-            )}
-            {editando !== "nueva" && (
               <div>
                 <label className="label">Logo</label>
                 <LogoEmpresa
@@ -280,6 +265,21 @@ export default function Empresas() {
               </div>
             </fieldset>
 
+            {editando !== "nueva" && (
+              <div>
+                <SelectorCategorias
+                  todas={cats.lista}
+                  valor={cats.asignadas[editando.id] ?? []}
+                  onCambio={(ids) => cats.asignar(editando.id, ids).then(cats.recargar)}
+                  puedeCrear={true}
+                  onCrear={async (nombre) => {
+                    const c = await post<Categoria>("/categorias?modelo=empresa", { nombre, color: "#8a64de" });
+                    cats.recargar();
+                    return c;
+                  }}
+                />
+              </div>
+            )}
             {editando === "nueva" && (
               <fieldset className="space-y-4 rounded-lg bg-brand-50 p-4">
                 <legend className="px-1 text-sm font-medium text-brand-700">Administrador de la empresa</legend>

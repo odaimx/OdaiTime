@@ -3,19 +3,10 @@ import { api, get, post, type Categoria, type ModeloCategoria } from "../lib/api
 import Icono from "./Iconos";
 import { ErrorBox, Modal } from "./ui";
 
-/** Paleta de las categorías (como las etiquetas de Odoo). */
-export const COLORES_CATEGORIA = [
-  "bg-slate-200 text-slate-800",
-  "bg-red-200 text-red-900",
-  "bg-orange-200 text-orange-900",
-  "bg-amber-200 text-amber-900",
-  "bg-lime-200 text-lime-900",
-  "bg-emerald-200 text-emerald-900",
-  "bg-cyan-200 text-cyan-900",
-  "bg-sky-200 text-sky-900",
-  "bg-violet-200 text-violet-900",
-  "bg-pink-200 text-pink-900",
-];
+/** Estilo de una categoría a partir de su color libre (#rrggbb): fondo y borde tenues. */
+export function estiloCategoria(color: string) {
+  return { backgroundColor: `${color}1f`, borderColor: `${color}66`, color: "#334155" };
+}
 
 const TITULOS: Record<ModeloCategoria, string> = {
   empleado: "Categorías de empleados",
@@ -52,7 +43,8 @@ export function useCategorias(modelo: ModeloCategoria, query: string, listo = tr
 
 export function Chip({ c, onQuitar }: { c: Categoria; onQuitar?: () => void }) {
   return (
-    <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${COLORES_CATEGORIA[c.color] ?? COLORES_CATEGORIA[0]}`}>
+    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium" style={estiloCategoria(c.color)}>
+      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: c.color }} />
       {c.nombre}
       {onQuitar && (
         <button type="button" onClick={onQuitar} className="opacity-60 hover:opacity-100" aria-label={`Quitar ${c.nombre}`}>
@@ -150,7 +142,7 @@ export function SelectorCategorias({
 export function GestorCategorias({ modelo, query, puedeEditar, onCerrar, onCambio }: { modelo: ModeloCategoria; query: string; puedeEditar: boolean; onCerrar: () => void; onCambio: () => void }) {
   const sep = query ? "&" : "?";
   const [lista, setLista] = useState<Categoria[]>([]);
-  const [nueva, setNueva] = useState({ nombre: "", color: 7 });
+  const [nueva, setNueva] = useState({ nombre: "", color: "#8a64de" });
   const [error, setError] = useState<string | null>(null);
 
   const cargar = useCallback(() => {
@@ -225,21 +217,26 @@ export function GestorCategorias({ modelo, query, puedeEditar, onCerrar, onCambi
   );
 }
 
-function Paleta({ valor, onCambio }: { valor: number; onCambio: (c: number) => void }) {
+/** Selector de color libre: solo se ve el color elegido, en un círculo. */
+function Paleta({ valor, onCambio }: { valor: string; onCambio: (c: string) => void }) {
+  const [local, setLocal] = useState(valor);
+  useEffect(() => setLocal(valor), [valor]);
+  // Guarda cuando se deja de mover el selector (sin esperar a que pierda el foco).
+  useEffect(() => {
+    if (local === valor) return;
+    const t = setTimeout(() => onCambio(local), 400);
+    return () => clearTimeout(t);
+  }, [local]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <div className="flex gap-1" role="radiogroup" aria-label="Color">
-      {COLORES_CATEGORIA.map((cls, i) => (
-        <button
-          key={i}
-          type="button"
-          role="radio"
-          aria-checked={valor === i}
-          onClick={() => onCambio(i)}
-          className={`h-6 w-6 rounded-full ${cls.split(" ")[0]} ${valor === i ? "ring-2 ring-navy-900 ring-offset-1" : ""}`}
-          aria-label={`Color ${i + 1}`}
-        />
-      ))}
-    </div>
+    <label className="relative inline-flex h-8 w-8 shrink-0 cursor-pointer rounded-full ring-1 ring-slate-300 hover:ring-2 hover:ring-brand-400" style={{ backgroundColor: local }} title="Elegir color">
+      <input
+        type="color"
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+        value={local}
+        onChange={(e) => setLocal(e.target.value)}
+        aria-label="Color de la categoría"
+      />
+    </label>
   );
 }
 

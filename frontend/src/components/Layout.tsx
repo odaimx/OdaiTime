@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router";
 import { estiloFondo, get, hoyISO, urlLogo, type Rol, type Tarea } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { usePortal } from "../lib/portal";
 import Icono, { type NombreIcono } from "./Iconos";
 import { REPORTE } from "./Vista";
 
@@ -24,7 +25,12 @@ const NAV: { to: string; label: string; roles: Rol[]; icon: NombreIcono }[] = [
 const FIJO_KEY = "odaitime.menuFijo";
 
 export default function Layout() {
-  const { usuario } = useAuth();
+  const { usuario, refrescar } = useAuth();
+  const portal = usePortal(usuario?.rol === "empleado");
+  // Al abrir, vuelve a leer el usuario: trae cambios de la empresa (logo, fondo) hechos en otra sesión.
+  useEffect(() => {
+    refrescar().catch(() => {});
+  }, [refrescar]);
   const [abierto, setAbierto] = useState(false); // móvil: panel abierto
   // Empresa que firma los reportes PDF.
   REPORTE.empresa = {
@@ -117,54 +123,7 @@ export default function Layout() {
         </div>
 
         <nav className={`flex-1 space-y-1 overflow-y-auto overflow-x-hidden ${expandido ? "px-3" : "px-3 lg:px-2"}`}>
-          {NAV.filter((n) => n.roles.includes(usuario.rol)).map((n) => (
-            <NavLink
-              key={n.to}
-              to={n.to}
-              end={n.to === "/" || n.to === "/checadas"}
-              title={expandido ? undefined : n.label}
-              className={({ isActive }) =>
-                `flex items-center gap-3 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition ${
-                  isActive ? "bg-brand-500 text-white" : "text-oro-400 hover:bg-navy-800 hover:text-oro-300"
-                }`
-              }
-            >
-              <span className="relative">
-                <Icono nombre={n.icon} className="h-5 w-5 shrink-0" />
-                {n.to === "/actividades" && pendientes > 0 && (
-                  <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">{pendientes}</span>
-                )}
-              </span>
-              <span className={oculto}>{n.label}</span>
-            </NavLink>
-          ))}
-        </nav>
-
-        <div className={`whitespace-nowrap border-t border-navy-700 py-4 ${expandido ? "px-4" : "px-4 lg:px-2"}`}>
-          <div className={oculto}>
-            {usuario.empresa?.logo_version && (
-              <div className="mb-3 flex h-12 items-center justify-center rounded-lg bg-white p-1.5">
-                <img src={urlLogo(usuario.empresa.id, usuario.empresa.logo_version)} alt={usuario.empresa.nombre} className="max-h-full max-w-full object-contain" />
-              </div>
-            )}
-          </div>
-          <button onClick={() => setAbierto(false)} className="text-oro-400 hover:text-oro-300 lg:hidden" aria-label="Cerrar menú">
-            ✕
-          </button>
-          <button
-            onClick={alternarFijo}
-            className={`hidden rounded-md p-1 text-oro-400/70 hover:bg-navy-800 hover:text-oro-300 ${expandido ? "lg:block" : ""}`}
-            aria-label={fijo ? "Ocultar menú automáticamente" : "Fijar menú abierto"}
-            title={fijo ? "Ocultar automáticamente" : "Fijar menú"}
-          >
-            <svg viewBox="0 0 24 24" fill={fijo ? "currentColor" : "none"} stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
-              <path d="M12 17v5M9 3h6l-1 6 3 3v2H7v-2l3-3z" />
-            </svg>
-          </button>
-        </div>
-
-        <nav className={`flex-1 space-y-1 overflow-y-auto overflow-x-hidden ${expandido ? "px-3" : "px-3 lg:px-2"}`}>
-          {NAV.filter((n) => n.roles.includes(usuario.rol)).map((n) => (
+          {NAV.filter((n) => n.roles.includes(usuario.rol) && (n.to !== "/checar" || portal?.checar) && (n.to !== "/mis-registros" || portal?.historial)).map((n) => (
             <NavLink
               key={n.to}
               to={n.to}

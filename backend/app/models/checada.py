@@ -19,7 +19,8 @@ class ConfigChecadas(UUIDPkMixin, TimestampMixin, Base):
     sucursal_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("sucursales.id", ondelete="CASCADE")
     )
-    permitir_movil: Mapped[bool] = mapped_column(default=True)
+    permitir_movil: Mapped[bool] = mapped_column(default=False)  # checar desde el portal (celular)
+    portal_historial: Mapped[bool] = mapped_column(default=True)  # el empleado ve su historial
     permitir_kiosco: Mapped[bool] = mapped_column(default=True)
     validar_gps: Mapped[bool] = mapped_column(default=True)
     validar_qr: Mapped[bool] = mapped_column(default=False)

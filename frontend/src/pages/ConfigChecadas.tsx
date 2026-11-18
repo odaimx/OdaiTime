@@ -6,6 +6,7 @@ import { useAuth } from "../lib/auth";
 
 const CAMPOS: (keyof Config)[] = [
   "permitir_movil",
+  "portal_historial",
   "permitir_kiosco",
   "validar_gps",
   "validar_qr",
@@ -150,8 +151,11 @@ export default function ConfigChecadas({ incrustado = false, scope }: { incrusta
               <fieldset disabled={bloqueado} className="card space-y-1 p-5">
                 <legend className="sr-only">Dónde se puede checar</legend>
                 <h2 className="mb-2 font-semibold text-navy-900">Dónde se puede checar</h2>
-                <Opcion checked={config.permitir_movil} onChange={(v) => set("permitir_movil", v)} titulo="App en el celular">
-                  Cada empleado checa desde su teléfono. Requiere darle acceso a la app.
+                <Opcion checked={config.permitir_movil} onChange={(v) => set("permitir_movil", v)} titulo="Checar desde el portal (celular)">
+                  El empleado con acceso al portal registra su entrada y salida desde su teléfono. Si está apagado, el portal es solo de consulta.
+                </Opcion>
+                <Opcion checked={config.portal_historial} onChange={(v) => set("portal_historial", v)} titulo="El empleado ve su historial en el portal">
+                  Puede consultar sus registros de asistencia. Si está apagado, el historial no aparece en el portal.
                 </Opcion>
                 <Opcion checked={config.permitir_kiosco} onChange={(v) => set("permitir_kiosco", v)} titulo="Kiosco en la sucursal">
                   Una tablet fija en la entrada, para quien no tiene celular.

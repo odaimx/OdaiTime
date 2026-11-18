@@ -12,6 +12,7 @@ import Empleados from "./pages/Empleados";
 import Empresas from "./pages/Empresas";
 import Festivos from "./pages/Festivos";
 import Inicio from "./pages/Inicio";
+import InicioPortal from "./pages/InicioPortal";
 import Kiosco from "./pages/Kiosco";
 import Login from "./pages/Login";
 import Reportes from "./pages/Reportes";
@@ -52,7 +53,7 @@ export default function App() {
     <Routes>
       <Route path="/kiosco" element={<Kiosco />} />
       <Route element={<Layout />}>
-        <Route index element={usuario.rol === "empleado" ? <Navigate to="/checar" replace /> : <Inicio />} />
+        <Route index element={usuario.rol === "empleado" ? <InicioPortal /> : <Inicio />} />
         <Route
           path="checar"
           element={

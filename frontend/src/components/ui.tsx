@@ -55,7 +55,7 @@ export function PageHeader({
         </div>
       </div>
       {submenu && submenu.length > 0 && (
-        <nav className="-mx-4 mb-5 flex gap-1 overflow-x-auto border-b border-slate-200 bg-white px-3 sm:-mx-6 sm:px-5 lg:-mx-8 lg:px-7" aria-label="Submenú">
+        <nav className="relative z-20 -mx-4 mb-5 flex flex-wrap gap-1 border-b border-slate-200 bg-white px-3 sm:-mx-6 sm:px-5 lg:-mx-8 lg:px-7" aria-label="Submenú">
           {submenu.map((m) => (
             <div key={m.etiqueta} className="relative">
               <button

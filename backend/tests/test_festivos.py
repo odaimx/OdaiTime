@@ -141,7 +141,11 @@ async def test_en_festivo_solo_checan_los_designados(client, superadmin):
     # Sin GPS para simplificar.
     cfg = (await client.get("/api/checadas/config", headers=a)).json()
     cfg = {k: v for k, v in cfg.items() if k not in ("origen", "sucursal_id")}
-    await client.put("/api/checadas/config", headers=a, json={**cfg, "validar_gps": False})
+    await client.put(
+        "/api/checadas/config",
+        headers=a,
+        json={**cfg, "validar_gps": False, "permitir_movil": True},
+    )
 
     # Hoy es festivo de la empresa.
     hoy = datetime.now(UTC).astimezone(ZoneInfo("America/Cancun")).date()

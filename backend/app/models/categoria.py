@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import ForeignKey, Index, SmallInteger, String
+from sqlalchemy import ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, UUIDPkMixin
@@ -23,7 +23,7 @@ class Categoria(UUIDPkMixin, Base):
     )
     modelo: Mapped[str] = mapped_column(String(20))
     nombre: Mapped[str] = mapped_column(String(60))
-    color: Mapped[int] = mapped_column(SmallInteger, default=0)  # índice de la paleta (0-9)
+    color: Mapped[str] = mapped_column(String(7), default="#8a64de")  # #rrggbb
 
 
 class CategoriaRegistro(Base):
