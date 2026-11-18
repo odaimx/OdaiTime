@@ -420,7 +420,7 @@ export default function Empleados() {
    * Dos columnas en una sola rejilla: la foto ocupa los primeros renglones de la segunda columna
    * y los campos de la derecha siguen justo debajo (sin renglones vacíos).
    */
-  const columnas = (foto: ReactNode, izq: ReactNode[], der: ReactNode[]) => (
+  const dosColumnas = (foto: ReactNode, izq: ReactNode[], der: ReactNode[]) => (
     <div className="grid grid-cols-1 gap-x-10 gap-y-2 md:grid-flow-row-dense md:grid-cols-2">
       <div className="flex items-start md:col-start-2 md:row-span-3 md:justify-end">{foto}</div>
       {izq.map((c, i) => (
@@ -464,7 +464,7 @@ export default function Empleados() {
 
       {pestana === "generales" ? (
         <>
-          {columnas(
+          {dosColumnas(
             foto,
             [
               fila("numero", "Número *", { required: true, maxLength: 20 }),
