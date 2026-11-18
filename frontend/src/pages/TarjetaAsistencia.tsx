@@ -93,6 +93,7 @@ export default function TarjetaAsistencia() {
 
   const config: ConfigVista<FilaResumen> = {
     id: "tarjeta_asistencia",
+    fuentes: "arts. 59, 66, 68, 71, 73, 74, 75 y 76",
     clave: (f) => f.empleado.id,
     onAbrir: (f) => abrir(f.empleado.id),
     actividades: { modelo: "empleado", query, listo },
@@ -228,7 +229,8 @@ export default function TarjetaAsistencia() {
     <>
       <PageHeader
         ajustes={{ titulo: "Reglas de la tarjeta de asistencia", contenido: <ReglasTarjeta query={query} esAdmin={esAdmin} /> }}
-        fuentes="arts. 59, 66, 68, 71, 73, 74, 75 y 76" title="Tarjeta de asistencia" subtitle="Faltas, retardos, horas extra, domingos y festivos del periodo, calculados con la Ley Federal del Trabajo" action={selector} />
+        icono="clipboard-list"
+        title="Tarjeta de asistencia" subtitle="Faltas, retardos, horas extra, domingos y festivos del periodo, calculados con la Ley Federal del Trabajo" action={selector} />
 
       <ErrorBox message={!detalle ? error : null} />
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import Icono from "./Iconos";
 
 /** Fuentes oficiales. La Cámara de Diputados publica el texto vigente con todas sus reformas. */
 export const LFT_URL = "https://www.diputados.gob.mx/LeyesBiblio/ref/lft.htm";
@@ -39,7 +40,8 @@ export function TextoLFT({ texto }: { texto: string }) {
 }
 
 /** Ícono de balanza que abre las fuentes oficiales (LFT y STPS) de la pantalla. */
-export function FuentesOficiales({ articulos }: { articulos?: string }) {
+/** `oscuro`: sobre el encabezado azul. `enGrupo`: como botón del grupo de vistas. */
+export function FuentesOficiales({ articulos, oscuro = false, enGrupo = false }: { articulos?: string; oscuro?: boolean; enGrupo?: boolean }) {
   const [abierto, setAbierto] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -55,14 +57,20 @@ export function FuentesOficiales({ articulos }: { articulos?: string }) {
         onClick={() => setAbierto((a) => !a)}
         title="Fuentes oficiales (Ley Federal del Trabajo)"
         aria-label="Fuentes oficiales"
-        className={`flex h-8 w-8 items-center justify-center rounded-full transition ${abierto ? "bg-brand-100 text-brand-700" : "text-slate-400 hover:bg-brand-50 hover:text-brand-600"}`}
+        className={
+          enGrupo
+            ? abierto
+              ? "btn-vista-activo"
+              : "btn-vista"
+            : `flex h-8 w-8 items-center justify-center rounded-full transition ${
+                oscuro ? "text-oro-300/80 hover:bg-white/10 hover:text-oro-300" : abierto ? "bg-brand-100 text-brand-700" : "text-slate-400 hover:bg-brand-50 hover:text-brand-600"
+              }`
+        }
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M12 3v18M7 21h10M5 7h14M7 7l-3 7a3 3 0 006 0zM17 7l-3 7a3 3 0 006 0z" />
-        </svg>
+        <Icono nombre="scale" className={enGrupo ? "h-4 w-4" : "h-5 w-5"} />
       </button>
       {abierto && (
-        <div className="absolute left-0 top-10 z-40 w-72 rounded-xl bg-white p-4 text-sm shadow-xl ring-1 ring-slate-200">
+        <div className={`absolute top-10 z-40 w-72 ${enGrupo ? "right-0" : "left-0"} rounded-xl bg-white p-4 text-sm shadow-xl ring-1 ring-slate-200`}>
           <p className="mb-1 font-semibold text-navy-900">Fuentes oficiales</p>
           {articulos && <p className="mb-3 text-xs text-slate-500">Aplica: {articulos}</p>}
           <ul className="space-y-2">

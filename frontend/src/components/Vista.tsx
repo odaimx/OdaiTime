@@ -1,6 +1,8 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ResumenTarea } from "../lib/api";
-import { Calendario, Icono, RelojActividad, useFlotante, useResumenActividades } from "./Actividades";
+import { RelojActividad, useFlotante, useResumenActividades } from "./Actividades";
+import Calendario from "./Calendario";
+import Icono, { type NombreIcono } from "./Iconos";
 import { FuentesOficiales } from "./LFT";
 
 /**
@@ -65,18 +67,30 @@ export interface ConfigVista<T> {
   tarjetas?: { filtro: string; color: ColorTarjeta }[];
   /** Panel a la derecha de las tarjetas (periodo, indicadores). */
   panel?: ReactNode;
+  /** Opciones del botón ⋮ "Acciones" junto a Nuevo. "Exportar" se agrega siempre. */
+  menuAcciones?: AccionMenu[];
+  /** Contenido entre la búsqueda y el paginador (p. ej. uso de la licencia). */
+  extra?: ReactNode;
   /** Vista con la que abre la primera vez (luego se recuerda la que elija cada quien). */
   modoInicial?: "lista" | "kanban";
 }
 
+export interface AccionMenu {
+  etiqueta: string;
+  icono?: NombreIcono;
+  onClick: () => void;
+  /** Línea separadora arriba de esta opción. */
+  separar?: boolean;
+}
+
 export type ColorTarjeta = "naranja" | "morado" | "azul" | "rojo" | "verde" | "gris";
 const COLORES: Record<ColorTarjeta, string> = {
-  naranja: "bg-orange-50 text-orange-800 ring-orange-200",
-  morado: "bg-brand-50 text-brand-700 ring-brand-200",
-  azul: "bg-sky-50 text-sky-800 ring-sky-200",
-  rojo: "bg-red-50 text-red-700 ring-red-200",
-  verde: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  gris: "bg-slate-50 text-slate-700 ring-slate-200",
+  naranja: "bg-orange-100/80 text-orange-900",
+  morado: "bg-brand-100 text-brand-700",
+  azul: "bg-cyan-100/80 text-cyan-900",
+  rojo: "bg-red-100/80 text-red-800",
+  verde: "bg-emerald-100/80 text-emerald-800",
+  gris: "bg-slate-100 text-slate-700",
 };
 
 export type Orden = { clave: string; dir: "asc" | "desc" } | null;
@@ -143,21 +157,21 @@ function comparar(a: Valor, b: Valor): number {
 
 const textoValor = (v: Valor) => (v === true ? "Sí" : v === false ? "No" : v === null || v === undefined || v === "" ? "" : String(v));
 
-// --- Íconos ---
+// --- Íconos (Lucide) ---
 const I = {
-  buscar: "M11 19a8 8 0 100-16 8 8 0 000 16zm10 2l-4.35-4.35",
-  flecha: "M6 9l6 6 6-6",
-  filtro: "M22 3H2l8 9.46V19l4 2v-8.54z",
-  capas: "M12 2l10 5-10 5L2 7zM2 17l10 5 10-5M2 12l10 5 10-5",
-  estrella: "M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z",
-  lista: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
-  kanban: "M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z",
-  calendario: "M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z",
-  ajustes: "M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6",
-  x: "M18 6L6 18M6 6l12 12",
-  basura: "M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6",
-  descargar: "M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3",
-};
+  buscar: "search",
+  flecha: "chevron-down",
+  filtro: "funnel",
+  capas: "layers",
+  estrella: "star",
+  lista: "list",
+  kanban: "square-kanban",
+  calendario: "calendar",
+  ajustes: "sliders-horizontal",
+  x: "x",
+  basura: "trash",
+  descargar: "download",
+} as const satisfies Record<string, NombreIcono>;
 
 export function useVista<T>(config: ConfigVista<T>, datos: T[]) {
   const pk = `odaitime.vista.${config.id}`;
@@ -325,24 +339,67 @@ export default function Vista<T>({ vista }: { vista: EstadoVista<T> }) {
 }
 
 function BarraControl<T>({ vista }: { vista: EstadoVista<T> }) {
-  const { config, prefs } = vista;
+  const { config } = vista;
   return (
-    <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center">
-      <div className="flex items-center gap-2 lg:order-1">
+    <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center">
+      <div className="flex items-center gap-2">
         {config.acciones}
-        {config.fuentes !== undefined && <FuentesOficiales articulos={config.fuentes || undefined} />}
+        <MenuAcciones vista={vista} />
       </div>
       <Buscador vista={vista} />
-      <div className="flex items-center justify-between gap-3 lg:order-3 lg:justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-3 xl:justify-end">
+        {config.extra}
         <Paginador vista={vista} />
-        <div className="flex gap-1" role="group" aria-label="Tipo de vista">
+        <div className="grupo-vistas" role="group" aria-label="Tipo de vista">
           <BotonModo vista={vista} modo="lista" icono={I.lista} titulo="Lista" />
           {config.kanban && <BotonModo vista={vista} modo="kanban" icono={I.kanban} titulo="Kanban" />}
           {config.actividades && <BotonModo vista={vista} modo="calendario" icono={I.calendario} titulo="Calendario de actividades" />}
+          {config.fuentes !== undefined && <FuentesOficiales articulos={config.fuentes || undefined} enGrupo />}
         </div>
       </div>
-      {prefs.modo === "calendario" && <span className="sr-only">Calendario</span>}
     </div>
+  );
+}
+
+function MenuAcciones<T>({ vista }: { vista: EstadoVista<T> }) {
+  const menu = useFlotante(240, "izquierda");
+  const opciones: AccionMenu[] = [
+    ...(vista.config.menuAcciones ?? []),
+    { etiqueta: vista.seleccion.size ? `Exportar seleccionados (${vista.seleccion.size})` : "Exportar", icono: "upload", onClick: () => exportarCsv(vista), separar: (vista.config.menuAcciones ?? []).length > 0 && !(vista.config.menuAcciones ?? []).some((o) => o.icono === "download") },
+  ];
+  return (
+    <>
+      <button
+        ref={(el) => {
+          menu.boton.current = el;
+        }}
+        className={menu.abierto ? "btn-icono-activo h-10 w-9" : "btn-icono h-10 w-9"}
+        onClick={menu.alternar}
+        title="Acciones"
+        aria-label="Acciones"
+      >
+        <Icono nombre="ellipsis-vertical" className="h-4 w-4" />
+      </button>
+      {menu.render(
+        <div className="py-1">
+          {opciones.map((o) => (
+            <Fragment key={o.etiqueta}>
+              {o.separar && <hr className="my-1 border-slate-100" />}
+              <button
+                className="menu-item"
+                onClick={() => {
+                  menu.cerrar();
+                  o.onClick();
+                }}
+              >
+                <span className="w-4">{o.icono && <Icono nombre={o.icono} className="h-4 w-4" />}</span>
+                {o.etiqueta}
+              </button>
+            </Fragment>
+          ))}
+        </div>,
+      )}
+    </>
   );
 }
 
@@ -361,25 +418,25 @@ function Tarjetas<T>({ vista }: { vista: EstadoVista<T> }) {
             <button
               key={t.filtro}
               onClick={() => vista.setFiltros(activo ? vista.filtros.filter((k) => k !== f.clave) : [...vista.filtros.filter((k) => !config.tarjetas?.some((c) => c.filtro === k)), f.clave])}
-              className={`min-w-32 rounded-xl px-5 py-3 text-center ring-1 transition hover:shadow-sm ${COLORES[t.color]} ${activo ? "ring-2 ring-offset-1" : ""}`}
+              className={`min-w-36 rounded-lg px-6 py-2.5 text-center transition hover:brightness-95 ${COLORES[t.color]} ${activo ? "ring-2 ring-brand-500 ring-offset-1" : ""}`}
               aria-pressed={activo}
             >
-              <span className="block text-2xl font-bold tabular-nums">{n}</span>
+              <span className="block text-lg font-bold tabular-nums">{n}</span>
               <span className="text-sm font-medium">{f.titulo}</span>
             </button>
           );
         })}
       </div>
-      {config.panel && <div className="card flex flex-wrap items-center gap-x-8 gap-y-3 px-5 py-3">{config.panel}</div>}
+      {config.panel && <div className="flex flex-wrap items-center gap-x-8 gap-y-3 rounded-lg border border-slate-200 bg-white px-5 py-3">{config.panel}</div>}
     </div>
   );
 }
 
-function BotonModo<T>({ vista, modo, icono, titulo }: { vista: EstadoVista<T>; modo: Modo; icono: string; titulo: string }) {
+function BotonModo<T>({ vista, modo, icono, titulo }: { vista: EstadoVista<T>; modo: Modo; icono: NombreIcono; titulo: string }) {
   const activo = vista.prefs.modo === modo;
   return (
-    <button className={activo ? "btn-icono-activo" : "btn-icono"} onClick={() => vista.cambiarPrefs({ modo })} title={titulo} aria-label={titulo} aria-pressed={activo}>
-      <Icono d={icono} className="h-4 w-4" />
+    <button className={activo ? "btn-vista-activo" : "btn-vista"} onClick={() => vista.cambiarPrefs({ modo })} title={titulo} aria-label={titulo} aria-pressed={activo}>
+      <Icono nombre={icono} className="h-4 w-4" />
     </button>
   );
 }
@@ -400,7 +457,7 @@ function Buscador<T>({ vista }: { vista: EstadoVista<T> }) {
     setSugerido(0);
   }
 
-  const facetas: { clave: string; icono: string; etiqueta: ReactNode; quitar: () => void }[] = [];
+  const facetas: { clave: string; icono: NombreIcono; etiqueta: ReactNode; quitar: () => void }[] = [];
   const nombresFiltro = (config.filtros ?? []).filter((f) => vista.filtros.includes(f.clave)).map((f) => f.titulo);
   if (nombresFiltro.length) facetas.push({ clave: "f", icono: I.filtro, etiqueta: nombresFiltro.join(" o "), quitar: () => vista.setFiltros([]) });
   if (vista.agrupar.length)
@@ -425,20 +482,20 @@ function Buscador<T>({ vista }: { vista: EstadoVista<T> }) {
     });
 
   return (
-    <div className="relative min-w-0 flex-1 lg:order-2 lg:mx-auto lg:max-w-2xl" ref={caja}>
+    <div className="relative min-w-0 flex-1 xl:max-w-3xl" ref={caja}>
       <div
         ref={(el) => {
           menu.boton.current = el;
         }}
-        className="flex min-h-10 items-center rounded-lg border border-slate-300 bg-white focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-200"
+        className="flex min-h-11 items-center rounded-lg border border-slate-300 bg-white shadow-sm focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-200"
         onClick={() => input.current?.focus()}
       >
-        <Icono d={I.buscar} className="ml-3 h-4 w-4 shrink-0 text-slate-400" />
+        <Icono nombre={I.buscar} className="ml-3 h-4 w-4 shrink-0 text-slate-400" />
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1 px-2 py-1">
           {facetas.map((f) => (
             <span key={f.clave} className="faceta">
               <span className="flex items-center self-stretch bg-brand-500 px-1.5 text-white">
-                <Icono d={f.icono} className="h-3 w-3" />
+                <Icono nombre={f.icono} className="h-3 w-3" />
               </span>
               <span className="truncate px-1 py-0.5">{f.etiqueta}</span>
               <button
@@ -449,7 +506,7 @@ function Buscador<T>({ vista }: { vista: EstadoVista<T> }) {
                 className="px-1 text-slate-400 hover:text-red-600"
                 aria-label="Quitar"
               >
-                <Icono d={I.x} className="h-3 w-3" />
+                <Icono nombre={I.x} className="h-3 w-3" />
               </button>
             </span>
           ))}
@@ -482,7 +539,7 @@ function Buscador<T>({ vista }: { vista: EstadoVista<T> }) {
           title="Filtros, agrupar y favoritos"
           aria-label="Abrir filtros"
         >
-          <Icono d={I.flecha} className="h-4 w-4" />
+          <Icono nombre={I.flecha} className="h-4 w-4" />
         </button>
       </div>
 
@@ -522,7 +579,7 @@ function MenuFiltros<T>({ vista }: { vista: EstadoVista<T> }) {
     <div className="grid max-h-[70vh] grid-cols-1 divide-y divide-slate-100 overflow-y-auto sm:grid-cols-3 sm:divide-x sm:divide-y-0">
       <div className="p-2">
         <p className="menu-titulo">
-          <Icono d={I.filtro} className="h-4 w-4 text-brand-500" /> Filtros
+          <Icono nombre={I.filtro} className="h-4 w-4 text-brand-500" /> Filtros
         </p>
         {bloques.length === 0 && <p className="px-3 py-1 text-sm text-slate-400">Sin filtros</p>}
         {bloques.map((b, i) => (
@@ -539,7 +596,7 @@ function MenuFiltros<T>({ vista }: { vista: EstadoVista<T> }) {
       </div>
       <div className="p-2">
         <p className="menu-titulo">
-          <Icono d={I.capas} className="h-4 w-4 text-accent-500" /> Agrupar por
+          <Icono nombre={I.capas} className="h-4 w-4 text-accent-500" /> Agrupar por
         </p>
         {agrupables.length === 0 && <p className="px-3 py-1 text-sm text-slate-400">Sin opciones</p>}
         {agrupables.map((c) => (
@@ -551,7 +608,7 @@ function MenuFiltros<T>({ vista }: { vista: EstadoVista<T> }) {
       </div>
       <div className="p-2">
         <p className="menu-titulo">
-          <Icono d={I.estrella} className="h-4 w-4 text-amber-500" /> Favoritos
+          <Icono nombre={I.estrella} className="h-4 w-4 text-amber-500" /> Favoritos
         </p>
         {vista.favoritos.map((f) => (
           <div key={f.nombre} className="group flex items-center">
@@ -559,7 +616,7 @@ function MenuFiltros<T>({ vista }: { vista: EstadoVista<T> }) {
               {f.nombre}
             </button>
             <button className="invisible px-2 text-slate-400 hover:text-red-600 group-hover:visible" onClick={() => vista.borrarFavorito(f.nombre)} aria-label={`Borrar ${f.nombre}`}>
-              <Icono d={I.basura} className="h-4 w-4" />
+              <Icono nombre={I.basura} className="h-4 w-4" />
             </button>
           </div>
         ))}
@@ -600,7 +657,7 @@ function Paginador<T>({ vista }: { vista: EstadoVista<T> }) {
         ref={(el) => {
           menu.boton.current = el;
         }}
-        className="rounded-md px-2 py-1 tabular-nums hover:bg-slate-100"
+        className="rounded-md px-2 py-1 font-semibold tabular-nums text-navy-900 hover:bg-slate-100"
         onClick={menu.alternar}
         title="Registros por página"
       >
@@ -616,11 +673,11 @@ function Paginador<T>({ vista }: { vista: EstadoVista<T> }) {
       </button>
       {!vista.grupos && (
         <>
-          <button className="btn-icono h-8 w-8" disabled={pagina === 0} onClick={() => vista.setPagina(pagina - 1)} aria-label="Página anterior">
-            ‹
+          <button className="btn-icono h-9 w-10" disabled={pagina === 0} onClick={() => vista.setPagina(pagina - 1)} aria-label="Página anterior">
+            <Icono nombre="chevron-left" className="h-4 w-4" />
           </button>
-          <button className="btn-icono h-8 w-8" disabled={pagina >= paginas - 1} onClick={() => vista.setPagina(pagina + 1)} aria-label="Página siguiente">
-            ›
+          <button className="btn-icono h-9 w-10" disabled={pagina >= paginas - 1} onClick={() => vista.setPagina(pagina + 1)} aria-label="Página siguiente">
+            <Icono nombre="chevron-right" className="h-4 w-4" />
           </button>
         </>
       )}
@@ -645,26 +702,29 @@ function Paginador<T>({ vista }: { vista: EstadoVista<T> }) {
   );
 }
 
-function BarraSeleccion<T>({ vista }: { vista: EstadoVista<T> }) {
+/** Exporta a CSV (se abre en Excel) las columnas visibles de los registros seleccionados, o de todos los filtrados. */
+function exportarCsv<T>(vista: EstadoVista<T>) {
   const { config } = vista;
-  function exportar() {
-    const filas = vista.ordenados.filter((r) => vista.seleccion.has(config.clave(r)));
-    const cols = vista.visibles;
+  const filas = vista.seleccion.size ? vista.ordenados.filter((r) => vista.seleccion.has(config.clave(r))) : vista.ordenados;
+  const cols = vista.visibles;
     const csv = [cols.map((c) => c.titulo), ...filas.map((r) => cols.map((c) => textoValor(c.valor(r))))]
       .map((f) => f.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
       .join("\r\n");
     const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${config.id}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
+  a.download = `${config.id}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function BarraSeleccion<T>({ vista }: { vista: EstadoVista<T> }) {
+  const exportar = () => exportarCsv(vista);
   return (
     <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg bg-brand-50 px-4 py-2 text-sm ring-1 ring-brand-200">
       <span className="font-medium text-brand-700">{vista.seleccion.size} seleccionado(s)</span>
       <button className="inline-flex items-center gap-1 font-medium text-navy-900 hover:underline" onClick={exportar}>
-        <Icono d={I.descargar} className="h-4 w-4" /> Exportar
+        <Icono nombre={I.descargar} className="h-4 w-4" /> Exportar
       </button>
       <button className="text-slate-500 hover:underline" onClick={() => vista.setSeleccion(new Set())}>
         Quitar selección
@@ -777,9 +837,9 @@ function Lista<T>({ vista, resumen, recargar }: { vista: EstadoVista<T>; resumen
     });
 
   return (
-    <div className="card overflow-x-auto">
+    <div className="-mx-4 overflow-x-auto border-y border-slate-200 bg-white sm:mx-0 sm:rounded-lg sm:border">
       <table className="w-full text-sm">
-        <thead className="sticky top-0 z-10 border-b border-slate-200 bg-white text-left text-xs font-semibold text-navy-900">
+        <thead className="sticky top-0 z-10 border-b border-slate-200 bg-white text-left text-[15px] font-medium text-navy-900">
           <tr>
             <th className="w-10 px-3 py-3">
               <input
@@ -796,7 +856,7 @@ function Lista<T>({ vista, resumen, recargar }: { vista: EstadoVista<T>; resumen
                 <th key={c.clave} className={`whitespace-nowrap px-3 py-3 ${c.alinear === "derecha" ? "text-right" : ""}`}>
                   <button className={`group inline-flex items-center gap-1 hover:text-brand-600 ${o ? "text-brand-700" : ""}`} onClick={() => ordenar(c.clave)} title="Ordenar">
                     {c.titulo}
-                    <span className={`text-[10px] ${o ? "" : "text-transparent group-hover:text-slate-300"}`}>{o === "desc" ? "▼" : "▲"}</span>
+                    <Icono nombre={o === "desc" ? "chevron-down" : "chevron-up"} className={`h-3.5 w-3.5 ${o ? "" : "text-transparent group-hover:text-slate-300"}`} />
                   </button>
                 </th>
               );
@@ -812,7 +872,7 @@ function Lista<T>({ vista, resumen, recargar }: { vista: EstadoVista<T>; resumen
                 title="Personalizar columnas"
                 aria-label="Personalizar columnas"
               >
-                <Icono d={I.ajustes} className="h-4 w-4" />
+                <Icono nombre={I.ajustes} className="h-4 w-4" />
               </button>
             </th>
           </tr>
@@ -828,7 +888,7 @@ function Lista<T>({ vista, resumen, recargar }: { vista: EstadoVista<T>; resumen
           )}
         </tbody>
         {sumas && vista.total > 0 && (
-          <tfoot className="border-t border-slate-200 bg-slate-50">
+          <tfoot className="border-t border-slate-200 bg-slate-100/70">
             <tr>
               <td />
               {pie(vista.grupos ? vista.ordenados : vista.enPagina)}

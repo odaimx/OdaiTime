@@ -161,7 +161,7 @@ export default function Reportes() {
 
   return (
     <>
-      <PageHeader ajustes={{ titulo: "Claves de nómina", ancho: "xl", contenido: claves }} fuentes="arts. 66, 68, 71, 73 y 75" title="Reportes y nómina" subtitle="Descarga los reportes del periodo y el archivo de incidencias para tu sistema de nómina" action={selector} />
+      <PageHeader icono="file-chart-column" ajustes={{ titulo: "Claves de nómina", ancho: "xl", contenido: claves }} fuentes="arts. 66, 68, 71, 73 y 75" title="Reportes y nómina" subtitle="Descarga los reportes del periodo y el archivo de incidencias para tu sistema de nómina" action={selector} />
 
       <div className="mb-6 flex flex-wrap items-end gap-3">
         <div className="flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1">

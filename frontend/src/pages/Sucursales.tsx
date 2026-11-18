@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import Bitacora from "../components/Bitacora";
 import Registro, { useFormulario } from "../components/Registro";
+import Icono from "../components/Iconos";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
 import { Badge, ErrorBox, PageHeader, useEmpresaScope } from "../components/ui";
 import { get, patch, post, ZONAS_MX, type Sucursal } from "../lib/api";
@@ -75,6 +76,11 @@ export default function Sucursales() {
     id: "sucursales",
     clave: (s) => s.id,
     onAbrir: abrir,
+    acciones: puedeEditar && listo && (
+      <button className="btn-primary" onClick={() => abrir("nueva")}>
+        <Icono nombre="plus" /> Nuevo
+      </button>
+    ),
     actividades: { modelo: "sucursal", query, listo },
     vacio: "Aún no hay sucursales.",
     ordenInicial: { clave: "clave", dir: "asc" },
@@ -137,14 +143,10 @@ export default function Sucursales() {
   return (
     <>
       <PageHeader
+        icono="store"
         title="Sucursales"
         subtitle="Cada sucursal tiene su zona horaria y su geocerca para validar checadas"
-        action={
-          <div className="flex flex-col gap-3 sm:flex-row">
-            {selector}
-            {puedeEditar && listo && <button className="btn-primary" onClick={() => abrir("nueva")}>Nueva sucursal</button>}
-          </div>
-        }
+        action={selector}
       />
 
       <Vista vista={vista} />

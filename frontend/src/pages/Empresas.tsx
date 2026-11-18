@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import LogoEmpresa from "../components/LogoEmpresa";
 import Registro, { useFormulario } from "../components/Registro";
+import Icono from "../components/Iconos";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
 import { Badge, ErrorBox, PageHeader } from "../components/ui";
 import { get, patch, post, urlLogo, type Empresa, type TenantInfo } from "../lib/api";
@@ -77,6 +78,11 @@ export default function Empresas() {
     id: "empresas",
     clave: (e) => e.id,
     onAbrir: abrir,
+    acciones: (
+      <button className="btn-primary" onClick={() => abrir("nueva")}>
+        <Icono nombre="plus" /> Nuevo
+      </button>
+    ),
     vacio: "Aún no hay empresas.",
     ordenInicial: { clave: "nombre", dir: "asc" },
     columnas: [
@@ -151,9 +157,9 @@ export default function Empresas() {
   return (
     <>
       <PageHeader
+        icono="building"
         title="Empresas"
         subtitle="Clientes de ODAITIME"
-        action={<button className="btn-primary" onClick={() => abrir("nueva")}>Nueva empresa</button>}
       />
 
       <Vista vista={vista} />

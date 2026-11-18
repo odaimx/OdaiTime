@@ -3,6 +3,7 @@ import Avatar from "../components/Avatar";
 import Bitacora from "../components/Bitacora";
 import Registro from "../components/Registro";
 import FotoChecada from "../components/FotoChecada";
+import Icono from "../components/Iconos";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
 import { Badge, ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
 import ConfigChecadas from "./ConfigChecadas";
@@ -76,6 +77,20 @@ export default function Checadas() {
     id: "asistencias",
     clave: (c) => c.id,
     onAbrir: abrir,
+    fuentes: "registro de jornada: art. 132, fracción XXXIV",
+    acciones: listo && (
+      <button
+        className="btn-primary"
+        title="Registrar checada manual"
+        onClick={() => {
+          setError(null);
+          setForm({ empleado_id: "", tipo: "entrada", momento: localInput(new Date().toISOString()), motivo: "" });
+          setManual(true);
+        }}
+      >
+        <Icono nombre="plus" /> Nuevo
+      </button>
+    ),
     vacio: "No hay checadas en ese periodo.",
     ordenInicial: { clave: "momento", dir: "desc" },
     columnas: [
@@ -172,26 +187,10 @@ export default function Checadas() {
     <>
       <PageHeader
         ajustes={{ titulo: "Asistencias", ancho: "xl", contenido: <ConfigChecadas incrustado scope={{ query, empresaId }} /> }}
-        fuentes="registro de jornada: art. 132, fracción XXXIV"
+        icono="fingerprint-pattern"
         title="Asistencias"
         subtitle="Registros de entrada y salida (checadas) de todas las sucursales"
-        action={
-          <div className="flex flex-col gap-3 sm:flex-row">
-            {selector}
-            {listo && (
-              <button
-                className="btn-primary"
-                onClick={() => {
-                  setError(null);
-                  setForm({ empleado_id: "", tipo: "entrada", momento: localInput(new Date().toISOString()), motivo: "" });
-                  setManual(true);
-                }}
-              >
-                Registrar checada manual
-              </button>
-            )}
-          </div>
-        }
+        action={selector}
       />
 
       <ErrorBox message={!sel && !manual ? error : null} />

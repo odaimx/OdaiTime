@@ -211,8 +211,8 @@ async def calendario(
     mias: bool = False,
     incluir_hechas: bool = True,
 ) -> list[Tarea]:
-    if (hasta - desde).days > 62:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "El rango máximo es de 62 días")
+    if (hasta - desde).days > 400:  # la vista de año pide el año completo
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "El rango máximo es de un año")
     emp = empresa_scope(user, empresa_id)
     q = _visibles(
         select(Tarea).where(Tarea.empresa_id == emp, Tarea.fecha.between(desde, hasta)), user

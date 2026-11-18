@@ -27,7 +27,7 @@ export default function Inicio() {
 
   return (
     <>
-      <PageHeader title={`Hola, ${usuario.nombre.split(" ")[0]}`} subtitle={`${ROLES[usuario.rol]}${usuario.empresa ? ` · ${usuario.empresa.nombre}` : ""}`} />
+      <PageHeader icono="house" title={`Hola, ${usuario.nombre.split(" ")[0]}`} subtitle={`${ROLES[usuario.rol]}${usuario.empresa ? ` · ${usuario.empresa.nombre}` : ""}`} />
 
       <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
         {usuario.rol === "admin_empresa" && usuario.empresa && (

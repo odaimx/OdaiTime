@@ -12,13 +12,17 @@
   --color-navy-900: #1a2c4f; /* azul marino corporativo */
   --color-navy-800: #243a63;
   --color-navy-700: #2f4878;
+  --color-navy-950: #13204a; /* encabezado de las pantallas */
+  --color-oro-300: #ecd9b2;
+  --color-oro-400: #e2c68f; /* títulos sobre el encabezado */
+  --color-oro-500: #d2b16f;
 
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 @layer components {
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 bg-brand-500 text-white hover:bg-brand-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 bg-navy-900 text-white hover:bg-navy-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy-900;
   }
   .btn-secondary {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 border border-slate-300 bg-white text-navy-900 hover:bg-slate-50;
@@ -50,9 +54,26 @@
     @apply inline-flex max-w-full items-center gap-1 overflow-hidden rounded-md bg-slate-100 text-xs text-navy-900 ring-1 ring-slate-200;
   }
   .btn-icono {
-    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-navy-900;
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-100 text-navy-900 transition hover:bg-slate-200 disabled:opacity-40 disabled:hover:bg-slate-100;
   }
   .btn-icono-activo {
-    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg border border-brand-500 bg-brand-50 text-brand-700;
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-md bg-brand-50 text-navy-900 ring-1 ring-brand-500;
+  }
+  /* Grupo de botones de vista (lista, kanban, calendario, fuentes) */
+  .grupo-vistas {
+    @apply flex items-center gap-0.5 rounded-lg bg-slate-100 p-0.5;
+  }
+  .btn-vista {
+    @apply inline-flex h-9 w-11 items-center justify-center rounded-md text-navy-900 transition hover:bg-slate-200;
+  }
+  .btn-vista-activo {
+    @apply inline-flex h-9 w-11 items-center justify-center rounded-md bg-brand-50 text-navy-900 ring-1 ring-brand-500;
+  }
+  /* Encabezado azul marino de cada pantalla */
+  .banda .input {
+    @apply border-white/30 bg-white/5 text-white focus:border-oro-400 focus:ring-oro-400/30;
+  }
+  .banda .input option {
+    @apply text-navy-900;
   }
 }
