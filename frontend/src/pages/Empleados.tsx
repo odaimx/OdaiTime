@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent, typ
 import Avatar from "../components/Avatar";
 import Bitacora from "../components/Bitacora";
 import Camara from "../components/Camara";
+import Registro, { useFormulario } from "../components/Registro";
 import VacacionesIncidencias from "../components/VacacionesIncidencias";
 import { AvisoLicencia, Badge, ErrorBox, Modal, PageHeader, UsoLicencia, useEmpresaScope } from "../components/ui";
 import {
@@ -39,19 +40,7 @@ const vacio = (sucursal_id = ""): Form => ({
   pin: "",
 });
 
-type Vista = "detalle" | "editar" | "turno" | "baja" | "acceso";
-
-const dinero = (v: string | null) =>
-  v == null ? "—" : Number(v).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
-
-function Dato({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div>
-      <dt className="text-xs text-slate-500">{label}</dt>
-      <dd className="mt-0.5 text-sm text-navy-900">{children || "—"}</dd>
-    </div>
-  );
-}
+type Vista = "detalle" | "turno" | "baja" | "acceso";
 
 export default function Empleados() {
   const { usuario } = useAuth();
@@ -67,7 +56,7 @@ export default function Empleados() {
   const [nuevo, setNuevo] = useState(false);
   const [sel, setSel] = useState<EmpleadoDetalle | null>(null);
   const [vista, setVista] = useState<Vista>("detalle");
-  const [form, setForm] = useState<Form>(vacio());
+  const { form, setForm, cargar: cargarForm, sucio, descartar } = useFormulario<Form>(vacio());
   const [extra, setExtra] = useState({ turno_id: "", fecha: hoyISO(), motivo: "", email: "", password: "" });
   const [error, setError] = useState<string | null>(null);
   const [importando, setImportando] = useState(false);
@@ -112,11 +101,45 @@ export default function Empleados() {
   const turnosActivos = turnos.filter((t) => t.activo);
   const sucursalesActivas = sucursales.filter((s) => s.activa);
 
+  function fichaAForm(e: EmpleadoDetalle): Form {
+    return {
+      ...(Object.fromEntries(CAMPOS.map((c) => [c, ""])) as Record<Campo, string>),
+      ...Object.fromEntries(CAMPOS.filter((c) => c !== "sucursal_id").map((c) => [c, String(e[c as keyof EmpleadoDetalle] ?? "")])),
+      sucursal_id: e.sucursal.id,
+      turno_id: "",
+      pin: "",
+    };
+  }
+
+  function mostrar(e: EmpleadoDetalle) {
+    setSel(e);
+    cargarForm(fichaAForm(e));
+  }
+
   async function abrirDetalle(id: string) {
     setError(null);
     setVista("detalle");
-    setSel(await get<EmpleadoDetalle>(`/empleados/${id}${query}`));
+    mostrar(await get<EmpleadoDetalle>(`/empleados/${id}${query}`));
   }
+
+  /** Guarda la ficha (se llama al cambiar de registro, al cerrar o con la nube). */
+  async function guardarFicha(): Promise<boolean> {
+    if (!sel) return true;
+    setError(null);
+    try {
+      const { turno_id: _t, pin, ...datos } = form;
+      const r = await patch<EmpleadoDetalle>(`/empleados/${sel.id}${query}`, pin ? { ...datos, pin } : datos);
+      mostrar(r);
+      setHistorial((n) => n + 1);
+      setEmpleados((lista) => lista.map((x) => (x.id === r.id ? r : x)));
+      return true;
+    } catch (err) {
+      setError((err as Error).message);
+      return false;
+    }
+  }
+
+  const indiceSel = sel ? empleados.findIndex((x) => x.id === sel.id) : -1;
 
   function abrirNuevo() {
     // Si ya no hay lugares, avisa antes de capturar todo el formulario.
@@ -131,23 +154,12 @@ export default function Empleados() {
       return;
     }
     setError(null);
-    setForm(vacio(sucursalesActivas.length === 1 ? sucursalesActivas[0].id : ""));
+    cargarForm(vacio(sucursalesActivas.length === 1 ? sucursalesActivas[0].id : ""));
     setNuevo(true);
   }
 
   function irA(v: Vista) {
     setError(null);
-    if (v === "editar" && sel) {
-      setForm({
-        ...(Object.fromEntries(CAMPOS.map((c) => [c, ""])) as Record<Campo, string>),
-        ...Object.fromEntries(
-          CAMPOS.filter((c) => c !== "sucursal_id").map((c) => [c, String(sel[c as keyof EmpleadoDetalle] ?? "")]),
-        ),
-        sucursal_id: sel.sucursal.id,
-        turno_id: "",
-        pin: "",
-      });
-    }
     if (v === "turno") setExtra((x) => ({ ...x, turno_id: sel?.turno_actual?.id ?? "", fecha: hoyISO() }));
     if (v === "baja") setExtra((x) => ({ ...x, fecha: hoyISO(), motivo: "" }));
     if (v === "acceso") setExtra((x) => ({ ...x, email: sel?.email ?? "", password: "" }));
@@ -158,7 +170,7 @@ export default function Empleados() {
     setError(null);
     try {
       const r = await accion();
-      if (r) setSel(r);
+      if (r) mostrar(r);
       setHistorial((n) => n + 1);
       setVista("detalle");
       cargar();
@@ -369,7 +381,17 @@ export default function Empleados() {
 
       {/* Detalle y acciones */}
       {sel && (
-        <Modal title={sel.nombre_completo} onClose={() => setSel(null)} ancho="lg">
+        <Registro
+          titulo={sel.nombre_completo}
+          subtitulo={`#${sel.numero} · ${sel.sucursal.clave} — ${sel.sucursal.nombre}`}
+          indice={indiceSel >= 0 ? indiceSel : undefined}
+          total={empleados.length}
+          onIr={(i) => abrirDetalle(empleados[i].id)}
+          sucio={vista === "detalle" && sucio}
+          onGuardar={guardarFicha}
+          onDescartar={descartar}
+          onCerrar={() => setSel(null)}
+        >
           {vista === "detalle" && (
             <div className="space-y-5">
               <div className="flex flex-wrap items-center gap-4">
@@ -397,18 +419,12 @@ export default function Empleados() {
               </div>
               {!sel.activo && sel.motivo_baja && <p className="text-sm text-slate-600">Motivo de baja: {sel.motivo_baja}</p>}
 
-              <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                <Dato label="Sucursal">{`${sel.sucursal.clave} — ${sel.sucursal.nombre}`}</Dato>
-                <Dato label="Puesto">{sel.puesto}</Dato>
-                <Dato label="Departamento">{sel.departamento}</Dato>
-                <Dato label="Ingreso">{fechaCorta(sel.fecha_ingreso)}</Dato>
-                <Dato label="Salario diario">{dinero(sel.salario_diario)}</Dato>
-                <Dato label="Teléfono">{sel.telefono}</Dato>
-                <Dato label="CURP">{sel.curp}</Dato>
-                <Dato label="RFC">{sel.rfc}</Dato>
-                <Dato label="NSS">{sel.nss}</Dato>
-                <Dato label="Correo">{sel.email}</Dato>
-              </dl>
+              <form className="space-y-4" onSubmit={(ev) => (ev.preventDefault(), guardarFicha())}>
+                {camposExpediente(false)}
+                <button type="submit" className="sr-only">
+                  Guardar
+                </button>
+              </form>
 
               <div>
                 <h3 className="mb-2 text-sm font-medium text-navy-900">Historial de turnos</h3>
@@ -430,9 +446,6 @@ export default function Empleados() {
 
               <ErrorBox message={error} />
               <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-4">
-                <button className="btn-secondary" onClick={() => irA("editar")}>
-                  Editar
-                </button>
                 {sel.activo && (
                   <button className="btn-secondary" onClick={() => irA("turno")}>
                     Cambiar turno
@@ -464,21 +477,6 @@ export default function Empleados() {
                 <Bitacora modelo="empleado" registroId={sel.id} query={query} recargar={historial} />
               </div>
             </div>
-          )}
-
-          {vista === "editar" && (
-            <form
-              className="space-y-4"
-              onSubmit={(ev) => {
-                ev.preventDefault();
-                const { turno_id: _t, pin, ...datos } = form;
-                ejecutar(() => patch<EmpleadoDetalle>(`/empleados/${sel.id}${query}`, pin ? { ...datos, pin } : datos));
-              }}
-            >
-              {camposExpediente(false)}
-              <ErrorBox message={error} />
-              {botones(() => setVista("detalle"))}
-            </form>
           )}
 
           {vista === "turno" && (
@@ -553,7 +551,7 @@ export default function Empleados() {
               {botones(() => setVista("detalle"), "Crear acceso")}
             </form>
           )}
-        </Modal>
+        </Registro>
       )}
 
       {importando && (

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
-import { Badge, ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
+import Registro, { useFormulario } from "../components/Registro";
+import { Badge, ErrorBox, PageHeader, useEmpresaScope } from "../components/ui";
 import { get, patch, post, ROLES, type Rol, type Sucursal, type Usuario } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -17,7 +18,7 @@ export default function Usuarios() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
   const [editando, setEditando] = useState<Usuario | "nuevo" | null>(null);
-  const [form, setForm] = useState<Form>(VACIO);
+  const { form, setForm, cargar: cargarForm, sucio, descartar } = useFormulario<Form>(VACIO);
   const [error, setError] = useState<string | null>(null);
 
   const cargar = useCallback(() => {
@@ -29,26 +30,30 @@ export default function Usuarios() {
 
   function abrir(u: Usuario | "nuevo") {
     setError(null);
-    setForm(u === "nuevo" ? VACIO : { nombre: u.nombre, email: u.email, password: "", rol: u.rol, sucursal_ids: u.sucursales.map((s) => s.id) });
+    cargarForm(u === "nuevo" ? VACIO : { nombre: u.nombre, email: u.email, password: "", rol: u.rol, sucursal_ids: u.sucursales.map((s) => s.id) });
     setEditando(u);
   }
 
-  async function guardar(ev: FormEvent) {
-    ev.preventDefault();
+  async function guardar(): Promise<boolean> {
     setError(null);
     try {
+      let r: Usuario;
       if (editando === "nuevo") {
-        await post(`/usuarios${query}`, form);
-      } else if (editando) {
+        r = await post<Usuario>(`/usuarios${query}`, form);
+      } else {
         const { email: _email, password, ...resto } = form;
-        await patch(`/usuarios/${editando.id}${query}`, password ? { ...resto, password } : resto);
+        r = await patch<Usuario>(`/usuarios/${(editando as Usuario).id}${query}`, password ? { ...resto, password } : resto);
       }
-      setEditando(null);
-      cargar();
+      abrir(r);
+      setUsuarios((lista) => (lista.some((x) => x.id === r.id) ? lista.map((x) => (x.id === r.id ? r : x)) : [...lista, r]));
+      return true;
     } catch (err) {
       setError((err as Error).message);
+      return false;
     }
   }
+
+  const indice = editando && editando !== "nuevo" ? usuarios.findIndex((x) => x.id === editando.id) : -1;
 
   async function alternar(u: Usuario) {
     try {
@@ -96,7 +101,7 @@ export default function Usuarios() {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {usuarios.map((u) => (
-              <tr key={u.id}>
+              <tr key={u.id} className="cursor-pointer hover:bg-brand-50/50" onClick={() => abrir(u)}>
                 <td className="px-4 py-3">
                   <p className="font-medium text-navy-900">{u.nombre}</p>
                   <p className="text-xs text-slate-500">{u.email}</p>
@@ -108,9 +113,8 @@ export default function Usuarios() {
                 <td className="hidden px-4 py-3 text-slate-600 lg:table-cell">{fecha(u.ultimo_acceso)}</td>
                 <td className="px-4 py-3"><Badge ok={u.activo}>{u.activo ? "Activo" : "Inactivo"}</Badge></td>
                 <td className="space-x-3 whitespace-nowrap px-4 py-3 text-right">
-                  <button className="text-brand-600 hover:underline" onClick={() => abrir(u)}>Editar</button>
                   {u.id !== yo?.id && (
-                    <button className="text-slate-500 hover:underline" onClick={() => alternar(u)}>{u.activo ? "Desactivar" : "Activar"}</button>
+                    <button className="text-slate-500 hover:underline" onClick={(e) => (e.stopPropagation(), alternar(u))}>{u.activo ? "Desactivar" : "Activar"}</button>
                   )}
                 </td>
               </tr>
@@ -123,8 +127,19 @@ export default function Usuarios() {
       </div>
 
       {editando && (
-        <Modal title={editando === "nuevo" ? "Nuevo usuario" : "Editar usuario"} onClose={() => setEditando(null)}>
-          <form onSubmit={guardar} className="space-y-4">
+        <Registro
+          titulo={editando === "nuevo" ? "Nuevo usuario" : editando.nombre}
+          subtitulo={editando !== "nuevo" ? editando.email : undefined}
+          indice={indice >= 0 ? indice : undefined}
+          total={usuarios.length}
+          onIr={(i) => abrir(usuarios[i])}
+          sucio={sucio}
+          onGuardar={guardar}
+          onDescartar={descartar}
+          onCerrar={() => setEditando(null)}
+          ancho="md"
+        >
+          <form onSubmit={(e: FormEvent) => (e.preventDefault(), guardar())} className="space-y-4">
             <div>
               <label className="label">Nombre</label>
               <input className="input" required value={form.nombre} onChange={set("nombre")} />
@@ -165,12 +180,9 @@ export default function Usuarios() {
             )}
 
             <ErrorBox message={error} />
-            <div className="flex justify-end gap-3">
-              <button type="button" className="btn-secondary" onClick={() => setEditando(null)}>Cancelar</button>
-              <button type="submit" className="btn-primary">Guardar</button>
-            </div>
+            <button type="submit" className="sr-only">Guardar</button>
           </form>
-        </Modal>
+        </Registro>
       )}
     </>
   );

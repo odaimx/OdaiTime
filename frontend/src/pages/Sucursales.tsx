@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import Bitacora from "../components/Bitacora";
-import { Badge, ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
+import Registro, { useFormulario } from "../components/Registro";
+import { Badge, ErrorBox, PageHeader, useEmpresaScope } from "../components/ui";
 import { get, patch, post, ZONAS_MX, type Sucursal } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -9,13 +10,23 @@ const VACIO: Form = { clave: "", nombre: "", zona_horaria: "America/Mexico_City"
 
 const zonaLabel = (z: string) => ZONAS_MX.find((x) => x.value === z)?.label ?? z;
 
+const aForm = (s: Sucursal): Form => ({
+  clave: s.clave,
+  nombre: s.nombre,
+  zona_horaria: s.zona_horaria,
+  direccion: s.direccion ?? "",
+  latitud: s.latitud?.toString() ?? "",
+  longitud: s.longitud?.toString() ?? "",
+  radio_metros: String(s.radio_metros),
+});
+
 export default function Sucursales() {
   const { usuario } = useAuth();
   const puedeEditar = usuario?.rol === "superadmin" || usuario?.rol === "admin_empresa";
   const { query, listo, selector } = useEmpresaScope();
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
   const [editando, setEditando] = useState<Sucursal | "nueva" | null>(null);
-  const [form, setForm] = useState<Form>(VACIO);
+  const { form, setForm, cargar: cargarForm, sucio, descartar } = useFormulario<Form>(VACIO);
   const [error, setError] = useState<string | null>(null);
 
   const cargar = useCallback(() => {
@@ -25,24 +36,11 @@ export default function Sucursales() {
 
   function abrir(s: Sucursal | "nueva") {
     setError(null);
-    setForm(
-      s === "nueva"
-        ? VACIO
-        : {
-            clave: s.clave,
-            nombre: s.nombre,
-            zona_horaria: s.zona_horaria,
-            direccion: s.direccion ?? "",
-            latitud: s.latitud?.toString() ?? "",
-            longitud: s.longitud?.toString() ?? "",
-            radio_metros: String(s.radio_metros),
-          },
-    );
+    cargarForm(s === "nueva" ? VACIO : aForm(s));
     setEditando(s);
   }
 
-  async function guardar(ev: FormEvent) {
-    ev.preventDefault();
+  async function guardar(): Promise<boolean> {
     setError(null);
     const datos = {
       clave: form.clave.trim().toUpperCase(),
@@ -54,14 +52,19 @@ export default function Sucursales() {
       radio_metros: Number(form.radio_metros) || 150,
     };
     try {
-      if (editando === "nueva") await post(`/sucursales${query}`, datos);
-      else if (editando) await patch(`/sucursales/${editando.id}${query}`, datos);
-      setEditando(null);
-      cargar();
+      const r =
+        editando === "nueva" ? await post<Sucursal>(`/sucursales${query}`, datos) : await patch<Sucursal>(`/sucursales/${(editando as Sucursal).id}${query}`, datos);
+      cargarForm(aForm(r));
+      setEditando(r);
+      setSucursales((lista) => (lista.some((x) => x.id === r.id) ? lista.map((x) => (x.id === r.id ? r : x)) : [...lista, r]));
+      return true;
     } catch (err) {
       setError((err as Error).message);
+      return false;
     }
   }
+
+  const indice = editando && editando !== "nueva" ? sucursales.findIndex((x) => x.id === editando.id) : -1;
 
   async function alternar(s: Sucursal) {
     await patch(`/sucursales/${s.id}${query}`, { activa: !s.activa });
@@ -97,8 +100,12 @@ export default function Sucursales() {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {sucursales.map((s) => (
-              <tr key={s.id}>
-                <td className="px-4 py-3 font-mono text-xs font-semibold text-brand-600">{s.clave}</td>
+              <tr key={s.id} className="cursor-pointer hover:bg-brand-50/50" onClick={() => abrir(s)}>
+                <td className="px-4 py-3">
+                  <button type="button" className="font-mono text-xs font-semibold text-brand-600 hover:underline" onClick={() => abrir(s)}>
+                    {s.clave}
+                  </button>
+                </td>
                 <td className="px-4 py-3">
                   <p className="font-medium text-navy-900">{s.nombre}</p>
                   {s.direccion && <p className="text-xs text-slate-500">{s.direccion}</p>}
@@ -110,8 +117,7 @@ export default function Sucursales() {
                 <td className="px-4 py-3"><Badge ok={s.activa}>{s.activa ? "Activa" : "Inactiva"}</Badge></td>
                 {puedeEditar && (
                   <td className="space-x-3 whitespace-nowrap px-4 py-3 text-right">
-                    <button className="text-brand-600 hover:underline" onClick={() => abrir(s)}>Editar</button>
-                    <button className="text-slate-500 hover:underline" onClick={() => alternar(s)}>{s.activa ? "Desactivar" : "Activar"}</button>
+                    <button className="text-slate-500 hover:underline" onClick={(e) => (e.stopPropagation(), alternar(s))}>{s.activa ? "Desactivar" : "Activar"}</button>
                   </td>
                 )}
               </tr>
@@ -124,8 +130,19 @@ export default function Sucursales() {
       </div>
 
       {editando && (
-        <Modal title={editando === "nueva" ? "Nueva sucursal" : "Editar sucursal"} onClose={() => setEditando(null)}>
-          <form onSubmit={guardar} className="space-y-4">
+        <Registro
+          titulo={editando === "nueva" ? "Nueva sucursal" : `${editando.clave} · ${editando.nombre}`}
+          indice={indice >= 0 ? indice : undefined}
+          total={sucursales.length}
+          onIr={(i) => abrir(sucursales[i])}
+          sucio={puedeEditar && sucio}
+          onGuardar={puedeEditar ? guardar : undefined}
+          onDescartar={descartar}
+          onCerrar={() => setEditando(null)}
+          ancho="md"
+        >
+          <form onSubmit={(e: FormEvent) => (e.preventDefault(), guardar())} className="space-y-4">
+            <fieldset disabled={!puedeEditar} className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
                 <label className="label">Clave</label>
@@ -163,6 +180,7 @@ export default function Sucursales() {
               </div>
             </div>
             <p className="text-xs text-slate-500">Tip: en Google Maps, clic derecho sobre la sucursal para copiar las coordenadas.</p>
+            </fieldset>
 
             {editando !== "nueva" && (
               <details className="rounded-lg border border-slate-200 p-3">
@@ -173,12 +191,9 @@ export default function Sucursales() {
               </details>
             )}
             <ErrorBox message={error} />
-            <div className="flex justify-end gap-3">
-              <button type="button" className="btn-secondary" onClick={() => setEditando(null)}>Cancelar</button>
-              <button type="submit" className="btn-primary">Guardar</button>
-            </div>
+            <button type="submit" className="sr-only">Guardar</button>
           </form>
-        </Modal>
+        </Registro>
       )}
     </>
   );

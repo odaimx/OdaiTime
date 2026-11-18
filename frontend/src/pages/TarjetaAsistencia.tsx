@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import Avatar from "../components/Avatar";
 import { ArticuloLFT, FuenteLFT } from "../components/LFT";
+import Registro from "../components/Registro";
 import { ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
 import { get, hm, hora, INCIDENCIAS, post, type DetalleAsistencia, type DiaAsistencia, type FilaResumen, type Sucursal } from "../lib/api";
 
@@ -244,7 +245,14 @@ export default function TarjetaAsistencia() {
       <FuenteLFT articulos="arts. 59, 66, 68, 71, 73, 74, 75 y 76" className="mt-2" />
 
       {detalle && (
-        <Modal title={`${detalle.empleado.nombre_completo} · ${rango.desde} a ${rango.hasta}`} onClose={() => setDetalle(null)} ancho="lg">
+        <Registro
+          titulo={detalle.empleado.nombre_completo}
+          subtitulo={`${rango.desde} a ${rango.hasta}`}
+          indice={Math.max(filas?.findIndex((f) => f.empleado.id === detalle.empleado.id) ?? 0, 0)}
+          total={filas?.length ?? 0}
+          onIr={(i) => filas && abrir(filas[i].empleado.id)}
+          onCerrar={() => setDetalle(null)}
+        >
           <div className="max-h-[65vh] overflow-y-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-white text-left text-xs font-medium uppercase tracking-wide text-slate-500">
@@ -307,7 +315,7 @@ export default function TarjetaAsistencia() {
               </tbody>
             </table>
           </div>
-        </Modal>
+        </Registro>
       )}
 
       {justificar && detalle && (
