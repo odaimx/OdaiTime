@@ -5,7 +5,14 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from app.models import Turno
 from app.schemas.common import Nombre
-from app.services.lft import Horario, TipoJornada, analizar, efectivos, validar_bloques
+from app.services.lft import (
+    Horario,
+    TipoJornada,
+    analizar,
+    efectivos,
+    semana_max_min,
+    validar_bloques,
+)
 
 
 class TurnoDiaIn(BaseModel):
@@ -78,6 +85,7 @@ class TurnoOut(BaseModel):
     activo: bool
     dias: list[TurnoDiaIn]
     minutos_semana: int
+    semana_max_minutos: int  # tope del año en curso (art. 59)
     advertencias: list[str]
 
     @classmethod
@@ -97,6 +105,7 @@ class TurnoOut(BaseModel):
             activo=t.activo,
             dias=[TurnoDiaIn.model_validate(d) for d in t.dias],
             minutos_semana=semana,
+            semana_max_minutos=semana_max_min(t.tipo_jornada),
             advertencias=avisos,
         )
 

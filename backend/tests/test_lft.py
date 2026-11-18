@@ -14,8 +14,24 @@ def test_duracion_cruza_medianoche():
     assert minutos_nocturnos(time(5), time(7)) == 60
 
 
+def test_tope_semanal_gradual():
+    from app.services.lft import semana_max_min
+
+    assert semana_max_min(TipoJornada.DIURNA, 2026) == 48 * 60
+    assert semana_max_min(TipoJornada.DIURNA, 2027) == 46 * 60
+    assert semana_max_min(TipoJornada.DIURNA, 2030) == 40 * 60
+    assert semana_max_min(TipoJornada.DIURNA, 2035) == 40 * 60
+    assert semana_max_min(TipoJornada.NOCTURNA, 2026) == 42 * 60  # 6 × 7 h
+    assert semana_max_min(TipoJornada.MIXTA, 2028) == 44 * 60
+
+    seis_dias_8h = _semana((9, 0), (18, 0), comida=60)
+    assert analizar(TipoJornada.DIURNA, seis_dias_8h, anio=2026)[1] == []
+    _, avisos = analizar(TipoJornada.DIURNA, seis_dias_8h, anio=2027)
+    assert any("en 2027 el máximo" in a and "46 h" in a and "art. 59" in a for a in avisos)
+
+
 def test_diurna_correcta():
-    semana, avisos = analizar(TipoJornada.DIURNA, _semana((9, 0), (18, 0), comida=60))
+    semana, avisos = analizar(TipoJornada.DIURNA, _semana((9, 0), (18, 0), comida=60), anio=2026)
     assert semana == 48 * 60
     assert avisos == []
 
@@ -59,7 +75,9 @@ def test_turno_quebrado():
     assert efectivos(h) == 480
     assert validar_bloques(h) is None
     semana, avisos = analizar(
-        TipoJornada.DIURNA, [Horario(d, time(9), time(14), 0, time(16), time(19)) for d in range(6)]
+        TipoJornada.DIURNA,
+        [Horario(d, time(9), time(14), 0, time(16), time(19)) for d in range(6)],
+        anio=2026,
     )
     assert semana == 48 * 60 and avisos == []
 

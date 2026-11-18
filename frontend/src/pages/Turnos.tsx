@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Bitacora from "../components/Bitacora";
+import { ArticuloLFT, FuenteLFT, TextoLFT } from "../components/LFT";
 import { Badge, ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
 import { DIAS, DIAS_CORTOS, get, horas, hhmm, JORNADAS, patch, post, type TipoJornada, type Turno } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -108,7 +109,7 @@ export default function Turnos() {
       setEditando(null);
       cargar();
       if (guardado.advertencias.length) {
-        alert(`Turno guardado con observaciones de la LFT:\n\n• ${guardado.advertencias.join("\n• ")}`);
+        alert(`Turno guardado con observaciones de la Ley Federal del Trabajo:\n\n• ${guardado.advertencias.join("\n• ")}\n\nConsulta el texto oficial en diputados.gob.mx (Leyes Federales › LFT).`);
       }
     } catch (err) {
       setError((err as Error).message);
@@ -126,7 +127,7 @@ export default function Turnos() {
     <>
       <PageHeader
         title="Turnos"
-        subtitle="Horarios semanales reutilizables, revisados contra la jornada máxima de la LFT"
+        subtitle="Horarios semanales reutilizables, revisados contra la jornada máxima de la Ley Federal del Trabajo"
         action={
           <div className="flex flex-col gap-3 sm:flex-row">
             {selector}
@@ -146,7 +147,7 @@ export default function Turnos() {
               <div>
                 <h2 className="font-semibold text-navy-900">{t.nombre}</h2>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  {JORNADAS[t.tipo_jornada].label} · {horas(t.minutos_semana)} por semana · tolerancia {t.tolerancia_minutos} min
+                  {JORNADAS[t.tipo_jornada].label} · {horas(t.minutos_semana)} de {horas(t.semana_max_minutos)} por semana · tolerancia {t.tolerancia_minutos} min
                 </p>
               </div>
               <Badge ok={t.activo}>{t.activo ? "Activo" : "Inactivo"}</Badge>
@@ -183,7 +184,9 @@ export default function Turnos() {
             {t.advertencias.length > 0 && (
               <ul className="mt-4 space-y-1 rounded-lg bg-amber-50 p-3 text-xs text-amber-800 ring-1 ring-amber-200">
                 {t.advertencias.map((a) => (
-                  <li key={a}>⚠ {a}</li>
+                  <li key={a}>
+                    ⚠ <TextoLFT texto={a} />
+                  </li>
                 ))}
               </ul>
             )}
@@ -202,6 +205,7 @@ export default function Turnos() {
         ))}
         {turnos.length === 0 && <p className="card p-10 text-center text-slate-500 lg:col-span-2">Aún no hay turnos.</p>}
       </div>
+      <FuenteLFT articulos="arts. 59 a 69: jornada, descansos y horas extra" className="mt-4" />
 
       {editando && (
         <Modal title={editando === "nuevo" ? "Nuevo turno" : "Editar turno"} onClose={() => setEditando(null)} ancho="lg">
@@ -212,7 +216,9 @@ export default function Turnos() {
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="label">Tipo de jornada</label>
+                <label className="label">
+                  Tipo de jornada <span className="font-normal text-slate-500">(<ArticuloLFT art="60" /> y <ArticuloLFT art="61" />)</span>
+                </label>
                 <select className="input" value={form.tipo_jornada} onChange={(e) => setForm({ ...form, tipo_jornada: e.target.value as TipoJornada })}>
                   {(Object.keys(JORNADAS) as TipoJornada[]).map((k) => (
                     <option key={k} value={k}>
@@ -284,7 +290,8 @@ export default function Turnos() {
               </div>
               <p className="mt-2 text-xs text-slate-500">
                 Total semanal: <strong className="text-navy-900">{horas(semanaForm)}</strong>. Si la salida es menor que la entrada, el turno termina al día siguiente.
-                En turno quebrado el empleado checa al salir y al regresar; el tiempo entre horarios no cuenta como trabajado.
+                En turno quebrado el empleado checa al salir y al regresar; el tiempo entre horarios no cuenta como trabajado (<ArticuloLFT art="64" />).
+                Tope semanal: <ArticuloLFT art="59" />.
               </p>
             </div>
 

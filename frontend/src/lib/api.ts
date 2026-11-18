@@ -233,6 +233,7 @@ export interface Turno {
   activo: boolean;
   dias: TurnoDia[];
   minutos_semana: number;
+  semana_max_minutos: number;
   advertencias: string[];
 }
 

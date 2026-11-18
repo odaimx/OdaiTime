@@ -1,9 +1,14 @@
 """Reglas de jornada de la Ley Federal del Trabajo (arts. 58-69).
 
-- Diurna: entre 6:00 y 20:00, máximo 8 h diarias (48 h semanales).
-- Nocturna: entre 20:00 y 6:00, máximo 7 h (42 h semanales).
-- Mixta: abarca ambos periodos con menos de 3.5 h nocturnas, máximo 7.5 h (45 h semanales).
-  Con 3.5 h nocturnas o más se considera nocturna.
+Fuente oficial: https://www.diputados.gob.mx/LeyesBiblio/ref/lft.htm (Cámara de Diputados).
+
+- Diurna: entre 6:00 y 20:00, máximo 8 h diarias (art. 61).
+- Nocturna: entre 20:00 y 6:00, máximo 7 h.
+- Mixta: abarca ambos periodos con menos de 3.5 h nocturnas, máximo 7.5 h.
+  Con 3.5 h nocturnas o más se considera nocturna (art. 60).
+- Jornada semanal máxima (art. 59, reforma DOF 01-05-2026): baja gradualmente de 48 h (2026)
+  a 40 h (2030); 46 h en 2027, 44 h en 2028 y 42 h en 2029, a partir del 1 de enero de cada año.
+  Para nocturna y mixta el tope semanal es además 6 veces su jornada diaria.
 - Por cada seis días de trabajo, al menos uno de descanso con goce de salario (art. 69).
 
 Las advertencias no bloquean el guardado: el patrón puede pactar horas extra, pero el turno
@@ -11,7 +16,7 @@ ordinario no debe rebasar la jornada máxima.
 """
 
 from dataclasses import dataclass
-from datetime import time
+from datetime import date, time
 from enum import StrEnum
 
 
@@ -24,7 +29,17 @@ class TipoJornada(StrEnum):
 DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 
 JORNADA_MAX_MIN = {TipoJornada.DIURNA: 480, TipoJornada.NOCTURNA: 420, TipoJornada.MIXTA: 450}
-SEMANA_MAX_MIN = {TipoJornada.DIURNA: 2880, TipoJornada.NOCTURNA: 2520, TipoJornada.MIXTA: 2700}
+# Art. 59 y segundo transitorio de la reforma publicada en el DOF el 1 de mayo de 2026.
+SEMANA_MAX_HORAS_POR_ANIO = {2026: 48, 2027: 46, 2028: 44, 2029: 42, 2030: 40}
+
+
+def semana_max_min(tipo: "TipoJornada", anio: int | None = None) -> int:
+    """Minutos máximos por semana para el tipo de jornada en ese año."""
+    anio = anio or date.today().year
+    horas = SEMANA_MAX_HORAS_POR_ANIO.get(anio, 48 if anio < 2026 else 40)
+    return min(horas * 60, JORNADA_MAX_MIN[tipo] * 6)
+
+
 MIXTA_MAX_NOCTURNO_MIN = 210  # 3.5 h
 
 _NOCHE_INICIO = 20 * 60
@@ -102,7 +117,9 @@ def fmt(minutos: int) -> str:
     return f"{h} h" if m == 0 else f"{h} h {m} min"
 
 
-def analizar(tipo: TipoJornada, horarios: list[Horario]) -> tuple[int, list[str]]:
+def analizar(
+    tipo: TipoJornada, horarios: list[Horario], anio: int | None = None
+) -> tuple[int, list[str]]:
     """Devuelve (minutos efectivos por semana, advertencias)."""
     avisos: list[str] = []
     if not horarios:
@@ -140,10 +157,12 @@ def analizar(tipo: TipoJornada, horarios: list[Horario]) -> tuple[int, list[str]
                 )
 
     semana = sum(efectivos(h) for h in horarios)
-    if semana > SEMANA_MAX_MIN[tipo]:
+    anio = anio or date.today().year
+    tope = semana_max_min(tipo, anio)
+    if semana > tope:
         avisos.append(
-            f"{fmt(semana)} por semana; el máximo para jornada {tipo} es "
-            f"{fmt(SEMANA_MAX_MIN[tipo])}"
+            f"{fmt(semana)} por semana; en {anio} el máximo para jornada {tipo} es "
+            f"{fmt(tope)} (art. 59)"
         )
     if len(horarios) == 7:
         avisos.append(
