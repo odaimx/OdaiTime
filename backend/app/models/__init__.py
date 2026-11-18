@@ -1,4 +1,5 @@
 from app.models.actividad import Actividad
+from app.models.asistencia import Incidencia, PoliticaAsistencia
 from app.models.checada import Checada, ConfigChecadas, Dispositivo
 from app.models.empleado import Empleado
 from app.models.empresa import Empresa
@@ -14,6 +15,8 @@ __all__ = [
     "AsignacionTurno",
     "Empleado",
     "Empresa",
+    "Incidencia",
+    "PoliticaAsistencia",
     "Rol",
     "Sesion",
     "Sucursal",

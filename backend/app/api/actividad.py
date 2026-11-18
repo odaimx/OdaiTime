@@ -71,6 +71,9 @@ async def verificar_registro(
         if r is None:
             raise _NO
         sucursal_id = r
+    elif modelo == "politica_asistencia":
+        if registro_id != emp:
+            raise _NO
     elif modelo == "config_checadas":
         # registro_id = id de la empresa (config general) o de la sucursal.
         if registro_id != emp:
