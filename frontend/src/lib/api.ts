@@ -221,6 +221,8 @@ export interface TurnoDia {
   entrada: string; // "HH:MM:SS"
   salida: string;
   comida_minutos: number;
+  entrada2: string | null; // turno quebrado
+  salida2: string | null;
 }
 
 export interface Turno {
@@ -338,7 +340,7 @@ export const ORIGENES: Record<Checada["origen"], string> = {
 export interface EstadoHoy {
   empleado: { id: string; numero: string; nombre_completo: string };
   sucursal: { id: string; clave: string; nombre: string; zona_horaria: string; latitud: number | null; longitud: number | null; radio_metros: number };
-  turno: { nombre: string; entrada: string; salida: string; tolerancia_minutos: number } | null;
+  turno: { nombre: string; entrada: string; salida: string; tolerancia_minutos: number; bloques: { entrada: string; salida: string }[] } | null;
   siguiente_tipo: "entrada" | "salida";
   permitir_movil: boolean;
   permitir_offline: boolean;

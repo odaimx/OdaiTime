@@ -217,7 +217,9 @@ export default function Checar() {
           <div>
             <p className="text-xs text-slate-500">Turno de hoy</p>
             <p className="font-medium text-navy-900">
-              {estado.turno ? `${estado.turno.nombre} · ${hora(estado.turno.entrada, tz)} – ${hora(estado.turno.salida, tz)}` : "Hoy no tienes turno asignado"}
+              {estado.turno
+                ? `${estado.turno.nombre} · ${estado.turno.bloques.map((b) => `${hora(b.entrada, tz)} – ${hora(b.salida, tz)}`).join(" y ")}`
+                : "Hoy no tienes turno asignado"}
             </p>
           </div>
         </div>

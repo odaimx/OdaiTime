@@ -21,7 +21,7 @@ from app.schemas.empleado import (
     ImportResultado,
 )
 from app.schemas.turno import AsignarTurnoIn
-from app.services import bitacora, importar, licencia
+from app.services import bitacora, fotos, importar, licencia
 
 _ADMIN = (Rol.SUPERADMIN, Rol.ADMIN_EMPRESA)
 _GESTION = (*_ADMIN, Rol.GERENTE_SUCURSAL)
@@ -444,3 +444,52 @@ async def crear_acceso(
     await _log(db, user, empleado, "cambio", f"Acceso a la app creado ({email})")
     await db.commit()
     return EmpleadoDetalle.de(await _recargar(db, empleado))
+
+
+# --- Foto de la ficha ---
+
+
+@router.put("/{empleado_id}/foto", response_model=EmpleadoDetalle)
+async def subir_foto(
+    empleado_id: uuid.UUID,
+    user: CurrentUser,
+    db: DB,
+    archivo: Annotated[UploadFile, File()],
+    empresa_id: uuid.UUID | None = None,
+) -> EmpleadoDetalle:
+    empleado = await _get(db, user, empleado_id, empresa_scope(user, empresa_id))
+    empleado.foto = await fotos.procesar(archivo)
+    empleado.foto_actualizada = datetime.now(UTC)
+    await _log(db, user, empleado, "cambio", "Foto actualizada")
+    await db.commit()
+    return EmpleadoDetalle.de(await _recargar(db, empleado))
+
+
+@router.delete("/{empleado_id}/foto", response_model=EmpleadoDetalle)
+async def quitar_foto(
+    empleado_id: uuid.UUID, user: CurrentUser, db: DB, empresa_id: uuid.UUID | None = None
+) -> EmpleadoDetalle:
+    empleado = await _get(db, user, empleado_id, empresa_scope(user, empresa_id))
+    if empleado.foto_actualizada:
+        empleado.foto = None
+        empleado.foto_actualizada = None
+        await _log(db, user, empleado, "cambio", "Foto eliminada")
+        await db.commit()
+    return EmpleadoDetalle.de(await _recargar(db, empleado))
+
+
+@router.get("/{empleado_id}/foto")
+async def ver_foto(
+    empleado_id: uuid.UUID, user: CurrentUser, db: DB, empresa_id: uuid.UUID | None = None
+) -> Response:
+    emp = empresa_scope(user, empresa_id)
+    q = select(Empleado.foto).where(Empleado.id == empleado_id, Empleado.empresa_id == emp)
+    permitidas = _sucursales_permitidas(user)
+    if permitidas is not None:
+        q = q.where(Empleado.sucursal_id.in_(permitidas))
+    datos = await db.scalar(q)
+    if not datos:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Sin foto")
+    return Response(
+        datos, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=86400"}
+    )

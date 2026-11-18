@@ -121,6 +121,7 @@ class EmpleadoOut(BaseModel):
     turno_actual: TurnoRef | None
     tiene_acceso: bool
     tiene_pin: bool
+    foto_version: str | None  # cambia al actualizar la foto (sirve para refrescar caché)
     activo: bool
     fecha_baja: date | None
     motivo_baja: str | None
@@ -134,6 +135,7 @@ class EmpleadoOut(BaseModel):
             turno_actual=TurnoRef.model_validate(actual.turno) if actual else None,
             tiene_acceso=e.usuario_id is not None,
             tiene_pin=e.pin_hash is not None,
+            foto_version=e.foto_actualizada.isoformat() if e.foto_actualizada else None,
         )
 
 
