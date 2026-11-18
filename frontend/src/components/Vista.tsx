@@ -65,6 +65,8 @@ export interface ConfigVista<T> {
   tarjetas?: { filtro: string; color: ColorTarjeta }[];
   /** Panel a la derecha de las tarjetas (periodo, indicadores). */
   panel?: ReactNode;
+  /** Vista con la que abre la primera vez (luego se recuerda la que elija cada quien). */
+  modoInicial?: "lista" | "kanban";
 }
 
 export type ColorTarjeta = "naranja" | "morado" | "azul" | "rojo" | "verde" | "gris";
@@ -162,7 +164,7 @@ export function useVista<T>(config: ConfigVista<T>, datos: T[]) {
   const fk = `odaitime.favoritos.${config.id}`;
   const [prefs, setPrefs] = useState<Prefs>(() =>
     leer<Prefs>(pk, {
-      modo: config.kanban && window.innerWidth < 640 ? "kanban" : "lista",
+      modo: config.kanban && (window.innerWidth < 640 || config.modoInicial === "kanban") ? "kanban" : "lista",
       ocultas: [],
       visibles: [],
       orden: config.ordenInicial ?? null,

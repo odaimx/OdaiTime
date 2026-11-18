@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import Registro, { useFormulario } from "../components/Registro";
+import Vista, { useVista, type ConfigVista } from "../components/Vista";
 import { Badge, ErrorBox, PageHeader, useEmpresaScope } from "../components/ui";
 import { get, patch, post, ROLES, type Rol, type Sucursal, type Usuario } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -53,16 +54,66 @@ export default function Usuarios() {
     }
   }
 
-  const indice = editando && editando !== "nuevo" ? usuarios.findIndex((x) => x.id === editando.id) : -1;
-
   async function alternar(u: Usuario) {
     try {
-      await patch(`/usuarios/${u.id}${query}`, { activo: !u.activo });
+      const r = await patch<Usuario>(`/usuarios/${u.id}${query}`, { activo: !u.activo });
+      setEditando(r);
       cargar();
     } catch (err) {
       alert((err as Error).message);
     }
   }
+
+  const config: ConfigVista<Usuario> = {
+    id: "usuarios",
+    clave: (u) => u.id,
+    onAbrir: abrir,
+    vacio: "Aún no hay usuarios.",
+    ordenInicial: { clave: "nombre", dir: "asc" },
+    columnas: [
+      {
+        clave: "nombre",
+        titulo: "Usuario",
+        fija: true,
+        buscable: true,
+        valor: (u) => u.nombre,
+        render: (u) => (
+          <div className="flex items-center gap-3">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-500/15 text-xs font-semibold text-navy-900">{u.nombre.slice(0, 2).toUpperCase()}</span>
+            <span className="truncate font-medium text-navy-900">{u.nombre}</span>
+          </div>
+        ),
+      },
+      { clave: "email", titulo: "Correo", buscable: true, valor: (u) => u.email },
+      { clave: "rol", titulo: "Rol", agrupable: true, valor: (u) => ROLES[u.rol] },
+      { clave: "sucursales", titulo: "Sucursales", buscable: true, valor: (u) => (u.rol === "admin_empresa" ? "Todas" : u.sucursales.map((x) => x.clave).join(", ")) },
+      { clave: "acceso", titulo: "Último acceso", valor: (u) => u.ultimo_acceso, render: (u) => fecha(u.ultimo_acceso) },
+      { clave: "estado", titulo: "Estado", agrupable: true, valor: (u) => (u.activo ? "Activo" : "Inactivo"), render: (u) => <Badge ok={u.activo}>{u.activo ? "Activo" : "Inactivo"}</Badge> },
+    ],
+    filtros: [
+      { clave: "admins", titulo: "Administradores", grupo: "rol", prueba: (u) => u.rol === "admin_empresa" },
+      { clave: "gerentes", titulo: "Gerentes de sucursal", grupo: "rol", prueba: (u) => u.rol === "gerente_sucursal" },
+      { clave: "empleados", titulo: "Empleados", grupo: "rol", prueba: (u) => u.rol === "empleado" },
+      { clave: "nunca", titulo: "Nunca han entrado", grupo: "acceso", prueba: (u) => !u.ultimo_acceso },
+      { clave: "activos", titulo: "Activos", grupo: "estado", prueba: (u) => u.activo },
+      { clave: "inactivos", titulo: "Inactivos", grupo: "estado", prueba: (u) => !u.activo },
+    ],
+    filtrosIniciales: ["activos"],
+    kanban: (u) => (
+      <div className="flex items-center gap-3">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-accent-500/15 font-semibold text-navy-900">{u.nombre.slice(0, 2).toUpperCase()}</span>
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-navy-900">{u.nombre}</p>
+          <p className="truncate text-xs text-slate-500">{u.email}</p>
+          <span className="mt-1 inline-block rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700">{ROLES[u.rol]}</span>
+          {!u.activo && <span className="ml-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-500">Inactivo</span>}
+        </div>
+      </div>
+    ),
+  };
+  const vista = useVista(config, usuarios);
+  const enOrden = vista.ordenados;
+  const indice = editando && editando !== "nuevo" ? enOrden.findIndex((x) => x.id === editando.id) : -1;
 
   const set = (k: "nombre" | "email" | "password" | "rol") => (ev: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm({ ...form, [k]: ev.target.value });
@@ -87,52 +138,15 @@ export default function Usuarios() {
         }
       />
 
-      <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-4 py-3">Usuario</th>
-              <th className="px-4 py-3">Rol</th>
-              <th className="hidden px-4 py-3 md:table-cell">Sucursales</th>
-              <th className="hidden px-4 py-3 lg:table-cell">Último acceso</th>
-              <th className="px-4 py-3">Estado</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {usuarios.map((u) => (
-              <tr key={u.id} className="cursor-pointer hover:bg-brand-50/50" onClick={() => abrir(u)}>
-                <td className="px-4 py-3">
-                  <p className="font-medium text-navy-900">{u.nombre}</p>
-                  <p className="text-xs text-slate-500">{u.email}</p>
-                </td>
-                <td className="px-4 py-3 text-slate-600">{ROLES[u.rol]}</td>
-                <td className="hidden px-4 py-3 text-slate-600 md:table-cell">
-                  {u.rol === "admin_empresa" ? <span className="text-slate-400">Todas</span> : u.sucursales.map((s) => s.clave).join(", ") || "—"}
-                </td>
-                <td className="hidden px-4 py-3 text-slate-600 lg:table-cell">{fecha(u.ultimo_acceso)}</td>
-                <td className="px-4 py-3"><Badge ok={u.activo}>{u.activo ? "Activo" : "Inactivo"}</Badge></td>
-                <td className="space-x-3 whitespace-nowrap px-4 py-3 text-right">
-                  {u.id !== yo?.id && (
-                    <button className="text-slate-500 hover:underline" onClick={(e) => (e.stopPropagation(), alternar(u))}>{u.activo ? "Desactivar" : "Activar"}</button>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {usuarios.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-500">Aún no hay usuarios.</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <Vista vista={vista} />
 
       {editando && (
         <Registro
           titulo={editando === "nuevo" ? "Nuevo usuario" : editando.nombre}
           subtitulo={editando !== "nuevo" ? editando.email : undefined}
           indice={indice >= 0 ? indice : undefined}
-          total={usuarios.length}
-          onIr={(i) => abrir(usuarios[i])}
+          total={enOrden.length}
+          onIr={(i) => abrir(enOrden[i])}
           sucio={sucio}
           onGuardar={guardar}
           onDescartar={descartar}
@@ -179,6 +193,13 @@ export default function Usuarios() {
               </div>
             )}
 
+            {editando !== "nuevo" && editando.id !== yo?.id && (
+              <div className="flex justify-end">
+                <button type="button" className="text-sm text-slate-500 hover:text-navy-900 hover:underline" onClick={() => alternar(editando)}>
+                  {editando.activo ? "Desactivar usuario" : "Activar usuario"}
+                </button>
+              </div>
+            )}
             <ErrorBox message={error} />
             <button type="submit" className="sr-only">Guardar</button>
           </form>

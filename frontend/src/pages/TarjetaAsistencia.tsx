@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Avatar from "../components/Avatar";
 import Registro from "../components/Registro";
+import ReglasTarjeta from "../components/ReglasTarjeta";
+import { useAuth } from "../lib/auth";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
 import { ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
 import { periodo } from "../lib/periodo";
@@ -18,6 +20,8 @@ const ESTADOS: Record<string, { label: string; clase: string }> = {
 
 export default function TarjetaAsistencia() {
   const { query, listo, selector } = useEmpresaScope();
+  const { usuario } = useAuth();
+  const esAdmin = usuario?.rol === "superadmin" || usuario?.rol === "admin_empresa";
   const sep = query ? "&" : "?";
   const [preset, setPreset] = useState("semana");
   const [rango, setRango] = useState(periodo("semana"));
@@ -222,7 +226,9 @@ export default function TarjetaAsistencia() {
 
   return (
     <>
-      <PageHeader fuentes="arts. 59, 66, 68, 71, 73, 74, 75 y 76" title="Tarjeta de asistencia" subtitle="Faltas, retardos, horas extra, domingos y festivos del periodo, calculados con la Ley Federal del Trabajo" action={selector} />
+      <PageHeader
+        ajustes={{ titulo: "Reglas de la tarjeta de asistencia", contenido: <ReglasTarjeta query={query} esAdmin={esAdmin} /> }}
+        fuentes="arts. 59, 66, 68, 71, 73, 74, 75 y 76" title="Tarjeta de asistencia" subtitle="Faltas, retardos, horas extra, domingos y festivos del periodo, calculados con la Ley Federal del Trabajo" action={selector} />
 
       <ErrorBox message={!detalle ? error : null} />
 

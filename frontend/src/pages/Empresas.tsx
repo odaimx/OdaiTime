@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import LogoEmpresa from "../components/LogoEmpresa";
 import Registro, { useFormulario } from "../components/Registro";
+import Vista, { useVista, type ConfigVista } from "../components/Vista";
 import { Badge, ErrorBox, PageHeader } from "../components/ui";
-import { get, patch, post, type Empresa, type TenantInfo } from "../lib/api";
+import { get, patch, post, urlLogo, type Empresa, type TenantInfo } from "../lib/api";
 
 type Form = { nombre: string; slug: string; razon_social: string; rfc: string; max_empleados: string; licencia_vence: string; admin_nombre: string; admin_email: string; admin_password: string };
 const VACIO: Form = { nombre: "", slug: "", razon_social: "", rfc: "", max_empleados: "15", licencia_vence: "", admin_nombre: "", admin_email: "", admin_password: "" };
@@ -58,12 +59,92 @@ export default function Empresas() {
     }
   }
 
-  const indice = editando && editando !== "nueva" ? empresas.findIndex((x) => x.id === editando.id) : -1;
-
   async function alternar(e: Empresa) {
-    await patch(`/empresas/${e.id}`, { activa: !e.activa });
+    const r = await patch<Empresa>(`/empresas/${e.id}`, { activa: !e.activa });
+    setEditando(r);
     cargar();
   }
+
+  const hoy = new Date().toLocaleDateString("en-CA");
+  const en30 = new Date(Date.now() + 30 * 86_400_000).toLocaleDateString("en-CA");
+  const logo = (e: Empresa, tam: string) =>
+    e.logo_version ? (
+      <img src={urlLogo(e.id, e.logo_version)} alt="" className={`${tam} shrink-0 rounded-lg bg-white object-contain p-0.5 ring-1 ring-slate-200`} />
+    ) : (
+      <span className={`${tam} flex shrink-0 items-center justify-center rounded-lg bg-navy-900 text-xs font-semibold text-white`}>{e.nombre.slice(0, 2).toUpperCase()}</span>
+    );
+  const config: ConfigVista<Empresa> = {
+    id: "empresas",
+    clave: (e) => e.id,
+    onAbrir: abrir,
+    vacio: "Aún no hay empresas.",
+    ordenInicial: { clave: "nombre", dir: "asc" },
+    columnas: [
+      {
+        clave: "nombre",
+        titulo: "Empresa",
+        fija: true,
+        buscable: true,
+        valor: (e) => e.nombre,
+        render: (e) => (
+          <div className="flex items-center gap-3">
+            {logo(e, "h-8 w-8")}
+            <div className="min-w-0">
+              <p className="truncate font-medium text-navy-900">{e.nombre}</p>
+              {e.razon_social && <p className="truncate text-xs text-slate-500">{e.razon_social}</p>}
+            </div>
+          </div>
+        ),
+      },
+      {
+        clave: "url",
+        titulo: "Subdominio",
+        buscable: true,
+        valor: (e) => e.url ?? e.slug,
+        render: (e) =>
+          e.url ? (
+            <a href={e.url} target="_blank" rel="noopener noreferrer" onClick={(ev) => ev.stopPropagation()} className="font-mono text-xs text-brand-600 hover:underline">
+              {e.url.replace("https://", "")}
+            </a>
+          ) : (
+            <span className="font-mono text-xs text-slate-400">{e.slug}</span>
+          ),
+      },
+      { clave: "rfc", titulo: "RFC", buscable: true, valor: (e) => e.rfc, className: "font-mono text-xs" },
+      { clave: "licencia", titulo: "Licencia (empleados)", alinear: "derecha", sumar: true, valor: (e) => e.max_empleados },
+      { clave: "vence", titulo: "Vence", valor: (e) => e.licencia_vence, render: (e) => (e.licencia_vence ? <span className={e.licencia_vence < hoy ? "font-medium text-red-600" : ""}>{e.licencia_vence}</span> : "—") },
+      { clave: "alta", titulo: "Alta", visible: false, valor: (e) => e.created_at.slice(0, 10) },
+      { clave: "estado", titulo: "Estado", agrupable: true, valor: (e) => (e.activa ? "Activa" : "Inactiva"), render: (e) => <Badge ok={e.activa}>{e.activa ? "Activa" : "Inactiva"}</Badge> },
+    ],
+    filtros: [
+      { clave: "prueba", titulo: "Licencia de prueba (15)", grupo: "lic", prueba: (e) => e.max_empleados <= 15 },
+      { clave: "por_vencer", titulo: "Vence en 30 días", grupo: "venc", prueba: (e) => !!e.licencia_vence && e.licencia_vence >= hoy && e.licencia_vence <= en30 },
+      { clave: "vencidas", titulo: "Vencidas", grupo: "venc", prueba: (e) => !!e.licencia_vence && e.licencia_vence < hoy },
+      { clave: "activas", titulo: "Activas", grupo: "estado", prueba: (e) => e.activa },
+      { clave: "inactivas", titulo: "Inactivas", grupo: "estado", prueba: (e) => !e.activa },
+    ],
+    tarjetas: [
+      { filtro: "prueba", color: "morado" },
+      { filtro: "por_vencer", color: "naranja" },
+      { filtro: "vencidas", color: "rojo" },
+    ],
+    kanban: (e) => (
+      <div className="flex gap-3">
+        {logo(e, "h-14 w-14")}
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-navy-900">{e.nombre}</p>
+          <p className="truncate font-mono text-xs text-brand-600">{e.url?.replace("https://", "") ?? e.slug}</p>
+          <p className="text-xs text-slate-600">
+            {e.max_empleados} empleados{e.licencia_vence && ` · vence ${e.licencia_vence}`}
+          </p>
+          {!e.activa && <span className="mt-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-500">Inactiva</span>}
+        </div>
+      </div>
+    ),
+  };
+  const vista = useVista(config, empresas);
+  const enOrden = vista.ordenados;
+  const indice = editando && editando !== "nueva" ? enOrden.findIndex((x) => x.id === editando.id) : -1;
 
   const set = (k: keyof Form) => (ev: ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: ev.target.value });
 
@@ -75,55 +156,14 @@ export default function Empresas() {
         action={<button className="btn-primary" onClick={() => abrir("nueva")}>Nueva empresa</button>}
       />
 
-      <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-4 py-3">Nombre</th>
-              <th className="hidden px-4 py-3 sm:table-cell">RFC</th>
-              <th className="px-4 py-3">Licencia</th>
-              <th className="px-4 py-3">Estado</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {empresas.map((e) => (
-              <tr key={e.id} className="cursor-pointer hover:bg-brand-50/50" onClick={() => abrir(e)}>
-                <td className="px-4 py-3">
-                  <p className="font-medium text-navy-900">{e.nombre}</p>
-                  {e.razon_social && <p className="text-xs text-slate-500">{e.razon_social}</p>}
-                  {e.url ? (
-                    <a href={e.url} target="_blank" rel="noopener noreferrer" onClick={(ev) => ev.stopPropagation()} className="font-mono text-xs text-brand-600 hover:underline">
-                      {e.url.replace("https://", "")}
-                    </a>
-                  ) : (
-                    <p className="font-mono text-xs text-slate-400">{e.slug}</p>
-                  )}
-                </td>
-                <td className="hidden px-4 py-3 font-mono text-xs sm:table-cell">{e.rfc ?? "—"}</td>
-                <td className="px-4 py-3 text-slate-600">
-                  {e.max_empleados} empleados
-                  {e.licencia_vence && <p className="text-xs text-slate-400">vence {e.licencia_vence}</p>}
-                </td>
-                <td className="px-4 py-3"><Badge ok={e.activa}>{e.activa ? "Activa" : "Inactiva"}</Badge></td>
-                <td className="space-x-3 px-4 py-3 text-right">
-                  <button className="text-slate-500 hover:underline" onClick={(ev) => (ev.stopPropagation(), alternar(e))}>{e.activa ? "Desactivar" : "Activar"}</button>
-                </td>
-              </tr>
-            ))}
-            {empresas.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-10 text-center text-slate-500">Aún no hay empresas.</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <Vista vista={vista} />
 
       {editando && (
         <Registro
           titulo={editando === "nueva" ? "Nueva empresa" : editando.nombre}
           indice={indice >= 0 ? indice : undefined}
-          total={empresas.length}
-          onIr={(i) => abrir(empresas[i])}
+          total={enOrden.length}
+          onIr={(i) => abrir(enOrden[i])}
           sucio={sucio}
           onGuardar={guardar}
           onDescartar={descartar}
@@ -208,6 +248,13 @@ export default function Empresas() {
               </fieldset>
             )}
 
+            {editando !== "nueva" && (
+              <div className="flex justify-end">
+                <button type="button" className="text-sm text-slate-500 hover:text-navy-900 hover:underline" onClick={() => alternar(editando)}>
+                  {editando.activa ? "Desactivar empresa" : "Activar empresa"}
+                </button>
+              </div>
+            )}
             <ErrorBox message={error} />
             <button type="submit" className="sr-only">Guardar</button>
           </form>

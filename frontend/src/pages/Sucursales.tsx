@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import Bitacora from "../components/Bitacora";
 import Registro, { useFormulario } from "../components/Registro";
+import Vista, { useVista, type ConfigVista } from "../components/Vista";
 import { Badge, ErrorBox, PageHeader, useEmpresaScope } from "../components/ui";
 import { get, patch, post, ZONAS_MX, type Sucursal } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -64,12 +65,72 @@ export default function Sucursales() {
     }
   }
 
-  const indice = editando && editando !== "nueva" ? sucursales.findIndex((x) => x.id === editando.id) : -1;
-
   async function alternar(s: Sucursal) {
-    await patch(`/sucursales/${s.id}${query}`, { activa: !s.activa });
+    const r = await patch<Sucursal>(`/sucursales/${s.id}${query}`, { activa: !s.activa });
+    setEditando(r);
     cargar();
   }
+
+  const config: ConfigVista<Sucursal> = {
+    id: "sucursales",
+    clave: (s) => s.id,
+    onAbrir: abrir,
+    actividades: { modelo: "sucursal", query, listo },
+    vacio: "Aún no hay sucursales.",
+    ordenInicial: { clave: "clave", dir: "asc" },
+    columnas: [
+      { clave: "clave", titulo: "Clave", fija: true, buscable: true, valor: (s) => s.clave, render: (s) => <span className="font-mono text-xs font-semibold text-brand-600">{s.clave}</span> },
+      {
+        clave: "nombre",
+        titulo: "Nombre",
+        buscable: true,
+        valor: (s) => s.nombre,
+        render: (s) => (
+          <div className="min-w-0">
+            <p className="truncate font-medium text-navy-900">{s.nombre}</p>
+            {s.direccion && <p className="truncate text-xs text-slate-500">{s.direccion}</p>}
+          </div>
+        ),
+      },
+      { clave: "direccion", titulo: "Dirección", buscable: true, visible: false, valor: (s) => s.direccion },
+      { clave: "zona", titulo: "Zona horaria", agrupable: true, valor: (s) => zonaLabel(s.zona_horaria) },
+      {
+        clave: "geocerca",
+        titulo: "Geocerca",
+        agrupable: true,
+        valor: (s) => (s.latitud != null && s.longitud != null ? `${s.radio_metros} m` : "Sin ubicación"),
+        render: (s) => (s.latitud != null && s.longitud != null ? `${s.radio_metros} m` : <span className="text-slate-400">Sin ubicación</span>),
+      },
+      { clave: "estado", titulo: "Estado", agrupable: true, valor: (s) => (s.activa ? "Activa" : "Inactiva"), render: (s) => <Badge ok={s.activa}>{s.activa ? "Activa" : "Inactiva"}</Badge> },
+    ],
+    filtros: [
+      { clave: "sin_ubicacion", titulo: "Sin ubicación (geocerca)", grupo: "datos", prueba: (s) => s.latitud == null || s.longitud == null },
+      { clave: "activas", titulo: "Activas", grupo: "estado", prueba: (s) => s.activa },
+      { clave: "inactivas", titulo: "Inactivas", grupo: "estado", prueba: (s) => !s.activa },
+    ],
+    filtrosIniciales: ["activas"],
+    kanban: (s) => (
+      <div className="space-y-1 pr-6">
+        <div className="flex items-center gap-2">
+          <span className="rounded bg-brand-50 px-1.5 py-0.5 font-mono text-xs font-semibold text-brand-700">{s.clave}</span>
+          <p className="truncate font-semibold text-navy-900">{s.nombre}</p>
+        </div>
+        <p className="truncate text-xs text-slate-500">{s.direccion ?? "Sin dirección"}</p>
+        <p className="text-xs text-slate-600">{zonaLabel(s.zona_horaria)}</p>
+        <div className="flex gap-1 pt-1">
+          {s.latitud != null && s.longitud != null ? (
+            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">Geocerca {s.radio_metros} m</span>
+          ) : (
+            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">Sin ubicación</span>
+          )}
+          {!s.activa && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">Inactiva</span>}
+        </div>
+      </div>
+    ),
+  };
+  const vista = useVista(config, sucursales);
+  const enOrden = vista.ordenados;
+  const indice = editando && editando !== "nueva" ? enOrden.findIndex((x) => x.id === editando.id) : -1;
 
   const set = (k: keyof Form) => (ev: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm({ ...form, [k]: ev.target.value });
 
@@ -86,55 +147,14 @@ export default function Sucursales() {
         }
       />
 
-      <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-4 py-3">Clave</th>
-              <th className="px-4 py-3">Nombre</th>
-              <th className="hidden px-4 py-3 md:table-cell">Zona horaria</th>
-              <th className="hidden px-4 py-3 lg:table-cell">Geocerca</th>
-              <th className="px-4 py-3">Estado</th>
-              {puedeEditar && <th className="px-4 py-3" />}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {sucursales.map((s) => (
-              <tr key={s.id} className="cursor-pointer hover:bg-brand-50/50" onClick={() => abrir(s)}>
-                <td className="px-4 py-3">
-                  <button type="button" className="font-mono text-xs font-semibold text-brand-600 hover:underline" onClick={() => abrir(s)}>
-                    {s.clave}
-                  </button>
-                </td>
-                <td className="px-4 py-3">
-                  <p className="font-medium text-navy-900">{s.nombre}</p>
-                  {s.direccion && <p className="text-xs text-slate-500">{s.direccion}</p>}
-                </td>
-                <td className="hidden px-4 py-3 text-slate-600 md:table-cell">{zonaLabel(s.zona_horaria)}</td>
-                <td className="hidden px-4 py-3 text-slate-600 lg:table-cell">
-                  {s.latitud != null && s.longitud != null ? `${s.radio_metros} m` : <span className="text-slate-400">Sin ubicación</span>}
-                </td>
-                <td className="px-4 py-3"><Badge ok={s.activa}>{s.activa ? "Activa" : "Inactiva"}</Badge></td>
-                {puedeEditar && (
-                  <td className="space-x-3 whitespace-nowrap px-4 py-3 text-right">
-                    <button className="text-slate-500 hover:underline" onClick={(e) => (e.stopPropagation(), alternar(s))}>{s.activa ? "Desactivar" : "Activar"}</button>
-                  </td>
-                )}
-              </tr>
-            ))}
-            {sucursales.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-500">Aún no hay sucursales.</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <Vista vista={vista} />
 
       {editando && (
         <Registro
           titulo={editando === "nueva" ? "Nueva sucursal" : `${editando.clave} · ${editando.nombre}`}
           indice={indice >= 0 ? indice : undefined}
-          total={sucursales.length}
-          onIr={(i) => abrir(sucursales[i])}
+          total={enOrden.length}
+          onIr={(i) => abrir(enOrden[i])}
           sucio={puedeEditar && sucio}
           onGuardar={puedeEditar ? guardar : undefined}
           onDescartar={descartar}
@@ -182,6 +202,13 @@ export default function Sucursales() {
             <p className="text-xs text-slate-500">Tip: en Google Maps, clic derecho sobre la sucursal para copiar las coordenadas.</p>
             </fieldset>
 
+            {editando !== "nueva" && puedeEditar && (
+              <div className="flex justify-end">
+                <button type="button" className="text-sm text-slate-500 hover:text-navy-900 hover:underline" onClick={() => alternar(editando)}>
+                  {editando.activa ? "Desactivar sucursal" : "Activar sucursal"}
+                </button>
+              </div>
+            )}
             {editando !== "nueva" && (
               <details className="rounded-lg border border-slate-200 p-3">
                 <summary className="cursor-pointer text-sm font-medium text-navy-900">Historial de cambios</summary>

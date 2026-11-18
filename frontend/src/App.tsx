@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router";
 import Layout from "./components/Layout";
 import { useAuth } from "./lib/auth";
 import type { Rol } from "./lib/api";
+import Actividades from "./pages/Actividades";
 import Checadas from "./pages/Checadas";
 import TarjetaAsistencia from "./pages/TarjetaAsistencia";
 import Checar from "./pages/Checar";
@@ -87,6 +88,14 @@ export default function App() {
           element={
             <Requiere roles={GESTION}>
               <TarjetaAsistencia />
+            </Requiere>
+          }
+        />
+        <Route
+          path="actividades"
+          element={
+            <Requiere roles={GESTION}>
+              <Actividades />
             </Requiere>
           }
         />
