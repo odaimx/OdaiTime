@@ -116,7 +116,7 @@ async def test_foto_requerida_y_visible_para_admin(client, superadmin):
 async def test_config_por_sucursal_y_movil_bloqueado(client, superadmin):
     a, e, suc, _ = await _setup(client, superadmin)
     base = (await client.get("/api/checadas/config", headers=a)).json()
-    assert base["origen"] == "predeterminada"
+    assert base["origen"] == "general"
 
     propia = {k: v for k, v in base.items() if k not in ("origen", "sucursal_id")}
     r = await client.put(
