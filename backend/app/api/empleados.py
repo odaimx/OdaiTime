@@ -458,7 +458,8 @@ async def subir_foto(
     empresa_id: uuid.UUID | None = None,
 ) -> EmpleadoDetalle:
     empleado = await _get(db, user, empleado_id, empresa_scope(user, empresa_id))
-    empleado.foto = await fotos.procesar(archivo)
+    tamanos = await fotos.procesar(archivo)
+    empleado.foto, empleado.foto_128 = tamanos[512], tamanos[128]
     empleado.foto_actualizada = datetime.now(UTC)
     await _log(db, user, empleado, "cambio", "Foto actualizada")
     await db.commit()
@@ -472,6 +473,7 @@ async def quitar_foto(
     empleado = await _get(db, user, empleado_id, empresa_scope(user, empresa_id))
     if empleado.foto_actualizada:
         empleado.foto = None
+        empleado.foto_128 = None
         empleado.foto_actualizada = None
         await _log(db, user, empleado, "cambio", "Foto eliminada")
         await db.commit()
@@ -480,10 +482,15 @@ async def quitar_foto(
 
 @router.get("/{empleado_id}/foto")
 async def ver_foto(
-    empleado_id: uuid.UUID, user: CurrentUser, db: DB, empresa_id: uuid.UUID | None = None
+    empleado_id: uuid.UUID,
+    user: CurrentUser,
+    db: DB,
+    tam: int = Query(default=512, description="512 (ficha) o 128 (listados)"),
+    empresa_id: uuid.UUID | None = None,
 ) -> Response:
     emp = empresa_scope(user, empresa_id)
-    q = select(Empleado.foto).where(Empleado.id == empleado_id, Empleado.empresa_id == emp)
+    columna = Empleado.foto_128 if tam <= 128 else Empleado.foto
+    q = select(columna).where(Empleado.id == empleado_id, Empleado.empresa_id == emp)
     permitidas = _sucursales_permitidas(user)
     if permitidas is not None:
         q = q.where(Empleado.sucursal_id.in_(permitidas))

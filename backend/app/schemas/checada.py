@@ -38,6 +38,7 @@ class EmpleadoRef(BaseModel):
     id: uuid.UUID
     numero: str
     nombre_completo: str
+    foto_actualizada: datetime | None = None
 
 
 class ChecadaOut(BaseModel):

@@ -327,7 +327,7 @@ export interface Checada {
   estado: "valida" | "anulada";
   corregida: boolean;
   tiene_foto: boolean;
-  empleado: { id: string; numero: string; nombre_completo: string };
+  empleado: { id: string; numero: string; nombre_completo: string; foto_actualizada: string | null };
   sucursal: SucursalRef;
 }
 

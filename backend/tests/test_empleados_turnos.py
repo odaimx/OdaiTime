@@ -323,7 +323,7 @@ async def test_foto_del_empleado(client, superadmin):
     emp = r.json()
     assert emp["foto_version"] is None
 
-    # Imagen grande con transparencia: se reduce a 400 px y se guarda como JPEG.
+    # Imagen grande con transparencia: se guarda en 512 y 128 px como JPEG.
     buf = BytesIO()
     Image.new("RGBA", (1600, 1200), (138, 100, 222, 200)).save(buf, "PNG")
     r = await client.put(
@@ -337,8 +337,11 @@ async def test_foto_del_empleado(client, superadmin):
     r = await client.get(f"/api/empleados/{emp['id']}/foto", headers=a)
     assert r.status_code == 200
     assert r.headers["content-type"] == "image/jpeg"
-    assert max(Image.open(BytesIO(r.content)).size) == 400
-    assert len(r.content) < 60_000
+    assert max(Image.open(BytesIO(r.content)).size) == 512
+    assert len(r.content) < 80_000
+    r = await client.get(f"/api/empleados/{emp['id']}/foto", headers=a, params={"tam": 128})
+    assert max(Image.open(BytesIO(r.content)).size) == 128
+    assert len(r.content) < 15_000
 
     # El listado no trae la foto, solo su versión.
     lista = (await client.get("/api/empleados", headers=a)).json()

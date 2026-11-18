@@ -42,9 +42,10 @@ class Empleado(UUIDPkMixin, TimestampMixin, Base):
         ForeignKey("usuarios.id", ondelete="SET NULL"), unique=True
     )
 
-    # Foto de la ficha: JPEG de máx. 400 px (~30 KB) guardado como binario (bytea).
-    # Diferida: los listados no la cargan; se lee solo en GET /empleados/{id}/foto.
-    foto: Mapped[bytes | None] = deferred(mapped_column(LargeBinary))
+    # Foto en dos tamaños, como Odoo (image_512 / image_128): JPEG guardado como binario.
+    # Diferidas: los listados no las cargan; se leen solo en GET /empleados/{id}/foto.
+    foto: Mapped[bytes | None] = deferred(mapped_column(LargeBinary))  # 512 px, ficha
+    foto_128: Mapped[bytes | None] = deferred(mapped_column(LargeBinary))  # 128 px, listados
     foto_actualizada: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # PIN para checar en el kiosco (hash Argon2).

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import Avatar from "../components/Avatar";
 import Bitacora from "../components/Bitacora";
 import FotoChecada from "../components/FotoChecada";
 import { Badge, ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
@@ -149,8 +150,13 @@ export default function Checadas() {
             {checadas.map((c) => (
               <tr key={c.id} onClick={() => abrir(c)} className={`cursor-pointer hover:bg-brand-50/50 ${c.estado === "anulada" ? "opacity-50" : ""}`}>
                 <td className="px-4 py-3">
-                  <p className="font-medium text-navy-900">{c.empleado.nombre_completo}</p>
-                  <p className="font-mono text-xs text-slate-500">#{c.empleado.numero}</p>
+                  <div className="flex items-center gap-3">
+                    <Avatar empleadoId={c.empleado.id} nombre={c.empleado.nombre_completo} version={c.empleado.foto_actualizada} query={query} tam={36} />
+                    <div>
+                      <p className="font-medium text-navy-900">{c.empleado.nombre_completo}</p>
+                      <p className="font-mono text-xs text-slate-500">#{c.empleado.numero}</p>
+                    </div>
+                  </div>
                 </td>
                 <td className="px-4 py-3 capitalize">{c.tipo}</td>
                 <td className="whitespace-nowrap px-4 py-3 tabular-nums text-slate-700">{fechaHora(c.momento)}</td>

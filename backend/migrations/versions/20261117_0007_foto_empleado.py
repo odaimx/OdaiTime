@@ -17,10 +17,12 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.add_column("empleados", sa.Column("foto", sa.LargeBinary()))
+    op.add_column("empleados", sa.Column("foto", sa.LargeBinary()))  # 512 px
+    op.add_column("empleados", sa.Column("foto_128", sa.LargeBinary()))  # 128 px
     op.add_column("empleados", sa.Column("foto_actualizada", sa.DateTime(timezone=True)))
 
 
 def downgrade() -> None:
     op.drop_column("empleados", "foto_actualizada")
+    op.drop_column("empleados", "foto_128")
     op.drop_column("empleados", "foto")

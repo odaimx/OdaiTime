@@ -1,4 +1,8 @@
-"""Fotos de la ficha del empleado: se reducen y se guardan como JPEG en la base de datos."""
+"""Fotos de la ficha del empleado.
+
+Como Odoo, de cada foto se generan varios tamaños al subirla: 512 px para la ficha y 128 px
+para los listados (miniatura de pocos KB). Se guardan como JPEG sin metadatos (EXIF/GPS).
+"""
 
 from io import BytesIO
 
@@ -8,10 +12,10 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from app.services.checadas import error
 
 MAX_ENTRADA = 10 * 1024 * 1024
-LADO_MAX = 400
+TAMANOS = (512, 128)
 
 
-async def procesar(archivo: UploadFile) -> bytes:
+async def procesar(archivo: UploadFile) -> dict[int, bytes]:
     datos = await archivo.read(MAX_ENTRADA + 1)
     if len(datos) > MAX_ENTRADA:
         raise error("foto_grande", "La foto supera 10 MB.")
@@ -25,7 +29,12 @@ async def procesar(archivo: UploadFile) -> bytes:
         fondo = Image.new("RGB", img.size, (255, 255, 255))
         fondo.paste(img, mask=img.convert("RGBA").split()[-1])
         img = fondo
-    img.thumbnail((LADO_MAX, LADO_MAX))
-    salida = BytesIO()
-    img.convert("RGB").save(salida, "JPEG", quality=82, optimize=True)  # sin EXIF ni GPS
-    return salida.getvalue()
+    img = img.convert("RGB")
+    resultado: dict[int, bytes] = {}
+    for lado in TAMANOS:
+        copia = img.copy()
+        copia.thumbnail((lado, lado))
+        salida = BytesIO()
+        copia.save(salida, "JPEG", quality=82 if lado > 128 else 78, optimize=True)
+        resultado[lado] = salida.getvalue()
+    return resultado

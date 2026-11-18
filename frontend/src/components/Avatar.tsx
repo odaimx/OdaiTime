@@ -9,7 +9,8 @@ const iniciales = (n: string) =>
     .map((p) => p[0]!.toUpperCase())
     .join("");
 
-/** Foto del empleado o sus iniciales. `version` cambia cuando se actualiza la foto. */
+/** Foto del empleado o sus iniciales. Pide la miniatura de 128 px para tamaños chicos
+ * (listados) y la de 512 px para la ficha. `version` cambia cuando se actualiza la foto. */
 export default function Avatar({ empleadoId, nombre, version, query = "", tam = 40 }: { empleadoId: string; nombre: string; version: string | null; query?: string; tam?: number }) {
   const [url, setUrl] = useState<string | null>(null);
 
@@ -17,7 +18,8 @@ export default function Avatar({ empleadoId, nombre, version, query = "", tam = 
     if (!version) return setUrl(null);
     let actual: string | null = null;
     const sep = query ? "&" : "?";
-    imagenProtegida(`/empleados/${empleadoId}/foto${query}${sep}v=${encodeURIComponent(version)}`)
+    const lado = tam <= 64 ? 128 : 512;
+    imagenProtegida(`/empleados/${empleadoId}/foto${query}${sep}tam=${lado}&v=${encodeURIComponent(version)}`)
       .then((u) => {
         actual = u;
         setUrl(u);
@@ -26,7 +28,7 @@ export default function Avatar({ empleadoId, nombre, version, query = "", tam = 
     return () => {
       if (actual) URL.revokeObjectURL(actual);
     };
-  }, [empleadoId, version, query]);
+  }, [empleadoId, version, query, tam]);
 
   const estilo = { width: tam, height: tam, fontSize: Math.max(11, tam * 0.36) };
   return url ? (
