@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router";
 import { ROLES, type Rol } from "../lib/api";
+import { LFT_URL, STPS_URL } from "./LFT";
 import { useAuth } from "../lib/auth";
 
 const NAV: { to: string; label: string; roles: Rol[]; icon: string }[] = [
@@ -79,6 +80,15 @@ export default function Layout() {
           ))}
         </nav>
 
+        <div className="space-y-1 px-6 pb-3 text-xs text-slate-400">
+          <p className="font-semibold uppercase tracking-wide text-slate-500">Fuentes oficiales</p>
+          <a href={LFT_URL} target="_blank" rel="noopener noreferrer" className="block hover:text-white">
+            Ley Federal del Trabajo ↗
+          </a>
+          <a href={STPS_URL} target="_blank" rel="noopener noreferrer" className="block hover:text-white">
+            Secretaría del Trabajo (STPS) ↗
+          </a>
+        </div>
         <div className="border-t border-navy-700 px-4 py-4">
           <p className="truncate text-sm font-medium text-white">{usuario.nombre}</p>
           <p className="truncate text-xs text-slate-400">
