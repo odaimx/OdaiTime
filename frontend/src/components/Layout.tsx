@@ -4,11 +4,15 @@ import { ROLES, type Rol } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 const NAV: { to: string; label: string; roles: Rol[]; icon: string }[] = [
-  { to: "/", label: "Inicio", roles: ["superadmin", "admin_empresa", "gerente_sucursal", "empleado"], icon: "M3 12l9-9 9 9M5 10v10h14V10" },
+  { to: "/checar", label: "Checar", roles: ["empleado"], icon: "M12 7v5l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" },
+  { to: "/mis-registros", label: "Mis registros", roles: ["empleado"], icon: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" },
+  { to: "/", label: "Inicio", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "M3 12l9-9 9 9M5 10v10h14V10" },
   { to: "/empresas", label: "Empresas", roles: ["superadmin"], icon: "M3 21h18M5 21V7l7-4 7 4v14M9 9h1m4 0h1M9 13h1m4 0h1M9 17h1m4 0h1" },
   { to: "/sucursales", label: "Sucursales", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "M12 21s-7-6.2-7-11a7 7 0 1114 0c0 4.8-7 11-7 11zm0-8a3 3 0 100-6 3 3 0 000 6z" },
   { to: "/empleados", label: "Empleados", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "M15 7a3 3 0 11-6 0 3 3 0 016 0zM4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1" },
+  { to: "/checadas", label: "Checadas", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" },
   { to: "/turnos", label: "Turnos", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "M12 7v5l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" },
+  { to: "/checadas/configuracion", label: "Config. checadas", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z" },
   { to: "/usuarios", label: "Usuarios", roles: ["superadmin", "admin_empresa"], icon: "M16 19v-1a4 4 0 00-4-4H6a4 4 0 00-4 4v1M9 10a3 3 0 100-6 3 3 0 000 6zm13 9v-1a4 4 0 00-3-3.9M16 4.1a3 3 0 010 5.8" },
 ];
 
@@ -62,7 +66,7 @@ export default function Layout() {
             <NavLink
               key={n.to}
               to={n.to}
-              end={n.to === "/"}
+              end={n.to === "/" || n.to === "/checadas"}
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
                   isActive ? "bg-brand-500 text-white" : "hover:bg-navy-800 hover:text-white"

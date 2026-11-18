@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
+import Avatar from "../components/Avatar";
+import Bitacora from "../components/Bitacora";
+import Camara from "../components/Camara";
 import { AvisoLicencia, Badge, ErrorBox, Modal, PageHeader, UsoLicencia, useEmpresaScope } from "../components/ui";
 import {
+  api,
+  comprimir,
   descargar,
   errorLicencia,
   fechaCorta,
@@ -23,13 +28,14 @@ const CAMPOS = [
   "puesto", "departamento", "salario_diario", "email", "telefono", "sucursal_id",
 ] as const;
 type Campo = (typeof CAMPOS)[number];
-type Form = Record<Campo, string> & { turno_id: string };
+type Form = Record<Campo, string> & { turno_id: string; pin: string };
 
 const vacio = (sucursal_id = ""): Form => ({
   ...(Object.fromEntries(CAMPOS.map((c) => [c, ""])) as Record<Campo, string>),
   fecha_ingreso: hoyISO(),
   sucursal_id,
   turno_id: "",
+  pin: "",
 });
 
 type Vista = "detalle" | "editar" | "turno" | "baja" | "acceso";
@@ -65,6 +71,16 @@ export default function Empleados() {
   const [error, setError] = useState<string | null>(null);
   const [importando, setImportando] = useState(false);
   const [lic, setLic] = useState<Licencia | null>(null);
+  const [historial, setHistorial] = useState(0);
+  const [camaraFoto, setCamaraFoto] = useState(false);
+
+  async function guardarFoto(archivo: Blob) {
+    if (!sel) return;
+    setCamaraFoto(false);
+    const body = new FormData();
+    body.append("archivo", await comprimir(archivo, 1200), "foto.jpg");
+    await ejecutar(() => api<EmpleadoDetalle>(`/empleados/${sel.id}/foto${query}`, { method: "PUT", body }));
+  }
   const [aviso, setAviso] = useState<LimiteLicencia | null>(null);
 
   const cargarLicencia = useCallback(() => {
@@ -128,6 +144,7 @@ export default function Empleados() {
         ),
         sucursal_id: sel.sucursal.id,
         turno_id: "",
+        pin: "",
       });
     }
     if (v === "turno") setExtra((x) => ({ ...x, turno_id: sel?.turno_actual?.id ?? "", fecha: hoyISO() }));
@@ -141,6 +158,7 @@ export default function Empleados() {
     try {
       const r = await accion();
       if (r) setSel(r);
+      setHistorial((n) => n + 1);
       setVista("detalle");
       cargar();
     } catch (err) {
@@ -154,8 +172,8 @@ export default function Empleados() {
     ev.preventDefault();
     setError(null);
     try {
-      const { turno_id, ...datos } = form;
-      const creado = await post<EmpleadoDetalle>(`/empleados${query}`, { ...datos, turno_id: turno_id || null });
+      const { turno_id, pin, ...datos } = form;
+      const creado = await post<EmpleadoDetalle>(`/empleados${query}`, { ...datos, turno_id: turno_id || null, pin: pin || null });
       setNuevo(false);
       cargar();
       setSel(creado);
@@ -224,6 +242,19 @@ export default function Empleados() {
         {input("salario_diario", "Salario diario", { type: "number", min: 0, step: "0.01" })}
         {input("email", "Correo", { type: "email" })}
         {input("telefono", "Teléfono", { type: "tel", maxLength: 20 })}
+        <div>
+          <label className="label">PIN del kiosco</label>
+          <input
+            className="input tracking-widest"
+            inputMode="numeric"
+            pattern="\d{4,6}"
+            maxLength={6}
+            title="De 4 a 6 dígitos"
+            placeholder={sel?.tiene_pin && !nuevo ? "•••• (asignado)" : "4 a 6 dígitos"}
+            value={form.pin}
+            onChange={(e) => setForm({ ...form, pin: e.target.value.replace(/\D/g, "") })}
+          />
+        </div>
       </fieldset>
     </>
   );
@@ -294,8 +325,13 @@ export default function Empleados() {
             {empleados.map((e) => (
               <tr key={e.id} className="cursor-pointer hover:bg-brand-50/50" onClick={() => abrirDetalle(e.id)}>
                 <td className="px-4 py-3">
-                  <p className="font-medium text-navy-900">{e.nombre_completo}</p>
-                  <p className="font-mono text-xs text-slate-500">#{e.numero}</p>
+                  <div className="flex items-center gap-3">
+                    <Avatar empleadoId={e.id} nombre={e.nombre_completo} version={e.foto_version} query={query} tam={36} />
+                    <div>
+                      <p className="font-medium text-navy-900">{e.nombre_completo}</p>
+                      <p className="font-mono text-xs text-slate-500">#{e.numero}</p>
+                    </div>
+                  </div>
                 </td>
                 <td className="hidden px-4 py-3 text-slate-600 md:table-cell">{e.puesto ?? "—"}</td>
                 <td className="hidden px-4 py-3 sm:table-cell">
@@ -335,9 +371,27 @@ export default function Empleados() {
         <Modal title={sel.nombre_completo} onClose={() => setSel(null)} ancho="lg">
           {vista === "detalle" && (
             <div className="space-y-5">
+              <div className="flex flex-wrap items-center gap-4">
+                <Avatar empleadoId={sel.id} nombre={sel.nombre_completo} version={sel.foto_version} query={query} tam={88} />
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                  <label className="cursor-pointer font-medium text-brand-600 hover:underline">
+                    {sel.foto_version ? "Cambiar foto" : "Subir foto"}
+                    <input type="file" accept="image/*" className="sr-only" onChange={(e) => e.target.files?.[0] && guardarFoto(e.target.files[0])} />
+                  </label>
+                  <button type="button" className="font-medium text-brand-600 hover:underline" onClick={() => setCamaraFoto(true)}>
+                    Tomar con la cámara
+                  </button>
+                  {sel.foto_version && (
+                    <button type="button" className="text-slate-500 hover:text-red-600 hover:underline" onClick={() => ejecutar(() => api<EmpleadoDetalle>(`/empleados/${sel.id}/foto${query}`, { method: "DELETE" }))}>
+                      Quitar
+                    </button>
+                  )}
+                </div>
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono text-xs text-slate-500">#{sel.numero}</span>
                 <Badge ok={sel.activo}>{sel.activo ? "Activo" : `Baja ${fechaCorta(sel.fecha_baja)}`}</Badge>
+                {sel.tiene_pin && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">PIN de kiosco</span>}
                 {sel.tiene_acceso && <span className="rounded-full bg-accent-500/10 px-2 py-0.5 text-xs font-medium text-accent-500">Con acceso a la app</span>}
               </div>
               {!sel.activo && sel.motivo_baja && <p className="text-sm text-slate-600">Motivo de baja: {sel.motivo_baja}</p>}
@@ -398,6 +452,11 @@ export default function Empleados() {
                   </button>
                 )}
               </div>
+
+              <div className="border-t border-slate-100 pt-4">
+                <h3 className="mb-3 text-sm font-medium text-navy-900">Historial</h3>
+                <Bitacora modelo="empleado" registroId={sel.id} query={query} recargar={historial} />
+              </div>
             </div>
           )}
 
@@ -406,8 +465,8 @@ export default function Empleados() {
               className="space-y-4"
               onSubmit={(ev) => {
                 ev.preventDefault();
-                const { turno_id: _t, ...datos } = form;
-                ejecutar(() => patch<EmpleadoDetalle>(`/empleados/${sel.id}${query}`, datos));
+                const { turno_id: _t, pin, ...datos } = form;
+                ejecutar(() => patch<EmpleadoDetalle>(`/empleados/${sel.id}${query}`, pin ? { ...datos, pin } : datos));
               }}
             >
               {camposExpediente(false)}
@@ -503,6 +562,7 @@ export default function Empleados() {
         />
       )}
       {aviso && <AvisoLicencia info={aviso} onClose={() => setAviso(null)} />}
+      {camaraFoto && <Camara titulo="Foto para la ficha" onFoto={guardarFoto} onCancelar={() => setCamaraFoto(false)} />}
     </>
   );
 }

@@ -81,3 +81,10 @@ def empresa_scope(user: Usuario, empresa_id: uuid.UUID | None) -> uuid.UUID:
         return empresa_id
     assert user.empresa_id is not None
     return user.empresa_id
+
+
+def sucursales_permitidas(user: Usuario) -> set[uuid.UUID] | None:
+    """Sucursales que el usuario puede ver. None = todas las de su empresa."""
+    if user.rol == Rol.GERENTE_SUCURSAL:
+        return {s.id for s in user.sucursales}
+    return None

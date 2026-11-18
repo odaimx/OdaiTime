@@ -7,6 +7,18 @@ from sqlalchemy.exc import IntegrityError
 from app.api.deps import DB, CurrentUser, empresa_scope, require_roles
 from app.models import Rol, Sucursal, Usuario
 from app.schemas.sucursal import SucursalCreate, SucursalOut, SucursalUpdate
+from app.services import bitacora
+
+CAMPOS = (
+    "clave",
+    "nombre",
+    "zona_horaria",
+    "direccion",
+    "latitud",
+    "longitud",
+    "radio_metros",
+    "activa",
+)
 
 router = APIRouter(prefix="/sucursales", tags=["sucursales"])
 
@@ -51,6 +63,16 @@ async def crear(
     sucursal = Sucursal(empresa_id=empresa_scope(user, empresa_id), **data.model_dump())
     db.add(sucursal)
     try:
+        await db.flush()
+        await bitacora.registrar(
+            db,
+            empresa_id=sucursal.empresa_id,
+            modelo="sucursal",
+            registro_id=sucursal.id,
+            usuario=user,
+            tipo="creacion",
+            mensaje="Sucursal creada",
+        )
         await db.commit()
     except IntegrityError:
         await db.rollback()
@@ -78,8 +100,18 @@ async def actualizar(
     empresa_id: uuid.UUID | None = None,
 ) -> Sucursal:
     sucursal = await _get(db, user, sucursal_id, empresa_scope(user, empresa_id))
+    antes = bitacora.snapshot(sucursal, CAMPOS)
     for campo, valor in data.model_dump(exclude_unset=True).items():
         setattr(sucursal, campo, valor)
+    await bitacora.cambios(
+        db,
+        empresa_id=sucursal.empresa_id,
+        modelo="sucursal",
+        registro_id=sucursal.id,
+        usuario=user,
+        antes=antes,
+        despues=bitacora.snapshot(sucursal, CAMPOS),
+    )
     try:
         await db.commit()
     except IntegrityError:

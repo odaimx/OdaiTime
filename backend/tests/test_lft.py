@@ -48,3 +48,32 @@ def test_mixta():
 
 def test_sin_dias():
     assert analizar(TipoJornada.DIURNA, []) == (0, ["El turno no tiene días laborables"])
+
+
+def test_turno_quebrado():
+    # 9-14 y 16-19: 8 h efectivas, diurna válida; el descanso no cuenta.
+    h = Horario(0, time(9), time(14), 0, time(16), time(19))
+    from app.services.lft import bloques, efectivos, validar_bloques
+
+    assert bloques(h) == [(540, 840), (960, 1140)]
+    assert efectivos(h) == 480
+    assert validar_bloques(h) is None
+    semana, avisos = analizar(
+        TipoJornada.DIURNA, [Horario(d, time(9), time(14), 0, time(16), time(19)) for d in range(6)]
+    )
+    assert semana == 48 * 60 and avisos == []
+
+    # 10-15 y 17-21: 9 h y entra en periodo nocturno.
+    _, avisos = analizar(
+        TipoJornada.DIURNA, [Horario(0, time(10), time(15), 0, time(17), time(21))]
+    )
+    assert any("9 h de trabajo" in a for a in avisos)
+    assert any("no es diurna" in a for a in avisos)
+
+
+def test_turno_quebrado_nocturno_cruza_medianoche():
+    from app.services.lft import bloques, validar_bloques
+
+    h = Horario(0, time(20), time(23), 0, time(0, 30), time(4, 30))
+    assert bloques(h) == [(1200, 1380), (1470, 1710)]
+    assert validar_bloques(h) is None

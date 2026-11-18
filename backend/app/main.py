@@ -2,10 +2,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import (
+    actividad,
     auth,
+    checadas,
+    dispositivos,
     empleados,
     empresas,
     health,
+    kiosco,
     licencia,
     sucursales,
     tenant,
@@ -41,5 +45,9 @@ for r in (
     empleados.router,
     licencia.router,
     tenant.router,
+    actividad.router,
+    checadas.router,
+    dispositivos.router,
+    kiosco.router,
 ):
     app.include_router(r, prefix="/api")

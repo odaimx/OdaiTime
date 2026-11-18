@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import Bitacora from "../components/Bitacora";
 import { Badge, ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
 import { DIAS, DIAS_CORTOS, get, horas, hhmm, JORNADAS, patch, post, type TipoJornada, type Turno } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
-type FilaDia = { activo: boolean; entrada: string; salida: string; comida: string };
+type FilaDia = { activo: boolean; entrada: string; salida: string; comida: string; quebrado: boolean; entrada2: string; salida2: string };
 type Form = { nombre: string; tipo_jornada: TipoJornada; tolerancia: string; dias: FilaDia[] };
 
-const filaBase = (activo: boolean): FilaDia => ({ activo, entrada: "09:00", salida: "18:00", comida: "60" });
+const filaBase = (activo: boolean): FilaDia => ({ activo, entrada: "09:00", salida: "18:00", comida: "60", quebrado: false, entrada2: "16:00", salida2: "19:00" });
 const VACIO: Form = {
   nombre: "",
   tipo_jornada: "diurna",
@@ -14,12 +15,18 @@ const VACIO: Form = {
   dias: DIAS.map((_, i) => filaBase(i < 5)),
 };
 
+const aMin = (t: string) => {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+};
+const dur = (a: string, b: string) => {
+  const d = aMin(b) - aMin(a);
+  return d > 0 ? d : d + 1440;
+};
+
 function minutosDia(f: FilaDia): number {
-  const [eh, em] = f.entrada.split(":").map(Number);
-  const [sh, sm] = f.salida.split(":").map(Number);
-  let d = sh * 60 + sm - (eh * 60 + em);
-  if (d <= 0) d += 1440;
-  return d - (Number(f.comida) || 0);
+  const segundo = f.quebrado && f.entrada2 && f.salida2 ? dur(f.entrada2, f.salida2) : 0;
+  return dur(f.entrada, f.salida) + segundo - (f.quebrado ? 0 : Number(f.comida) || 0);
 }
 
 export default function Turnos() {
@@ -47,7 +54,15 @@ export default function Turnos() {
         dias: DIAS.map((_, i) => {
           const d = t.dias.find((x) => x.dia_semana === i);
           return d
-            ? { activo: true, entrada: hhmm(d.entrada), salida: hhmm(d.salida), comida: String(d.comida_minutos) }
+            ? {
+                activo: true,
+                entrada: hhmm(d.entrada),
+                salida: hhmm(d.salida),
+                comida: String(d.comida_minutos),
+                quebrado: !!d.entrada2,
+                entrada2: d.entrada2 ? hhmm(d.entrada2) : "16:00",
+                salida2: d.salida2 ? hhmm(d.salida2) : "19:00",
+              }
             : { ...filaBase(false) };
         }),
       });
@@ -72,7 +87,18 @@ export default function Turnos() {
       tipo_jornada: form.tipo_jornada,
       tolerancia_minutos: Number(form.tolerancia) || 0,
       dias: form.dias.flatMap((d, i) =>
-        d.activo ? [{ dia_semana: i, entrada: d.entrada, salida: d.salida, comida_minutos: Number(d.comida) || 0 }] : [],
+        d.activo
+          ? [
+              {
+                dia_semana: i,
+                entrada: d.entrada,
+                salida: d.salida,
+                comida_minutos: d.quebrado ? 0 : Number(d.comida) || 0,
+                entrada2: d.quebrado ? d.entrada2 : null,
+                salida2: d.quebrado ? d.salida2 : null,
+              },
+            ]
+          : [],
       ),
     };
     if (datos.dias.length === 0) return setError("Marca al menos un día laborable");
@@ -137,6 +163,14 @@ export default function Turnos() {
                         {hhmm(d.entrada)}
                         <br />
                         {hhmm(d.salida)}
+                        {d.entrada2 && d.salida2 && (
+                          <>
+                            <span className="my-0.5 block border-t border-brand-200" aria-label="y" />
+                            {hhmm(d.entrada2)}
+                            <br />
+                            {hhmm(d.salida2)}
+                          </>
+                        )}
                       </p>
                     ) : (
                       <p className="mt-1 leading-tight">Des&shy;canso</p>
@@ -209,29 +243,59 @@ export default function Turnos() {
                   <span className="text-right">Horas</span>
                 </div>
                 {form.dias.map((d, i) => (
-                  <div key={i} className="grid grid-cols-2 items-center gap-2 px-3 py-2 sm:grid-cols-[6.5rem_1fr_1fr_4.5rem_3.5rem]">
-                    <label className="col-span-2 flex items-center gap-2 text-sm text-navy-900 sm:col-span-1">
-                      <input type="checkbox" className="accent-brand-500" checked={d.activo} onChange={(e) => setDia(i, { activo: e.target.checked })} />
-                      {DIAS[i]}
-                    </label>
-                    {d.activo ? (
-                      <>
-                        <input type="time" className="input px-2" aria-label="Entrada" value={d.entrada} onChange={(e) => setDia(i, { entrada: e.target.value })} required />
-                        <input type="time" className="input px-2" aria-label="Salida" value={d.salida} onChange={(e) => setDia(i, { salida: e.target.value })} required />
-                        <input type="number" className="input px-2" aria-label="Minutos de comida" min={0} max={180} step={5} value={d.comida} onChange={(e) => setDia(i, { comida: e.target.value })} />
-                        <span className="text-right text-sm text-slate-600">{horas(minutosDia(d))}</span>
-                      </>
-                    ) : (
-                      <span className="col-span-2 text-sm text-slate-400 sm:col-span-4">Descanso</span>
+                  <div key={i} className="space-y-2 px-3 py-2">
+                    <div className="grid grid-cols-2 items-center gap-2 sm:grid-cols-[6.5rem_1fr_1fr_4.5rem_3.5rem]">
+                      <label className="col-span-2 flex items-center gap-2 text-sm text-navy-900 sm:col-span-1">
+                        <input type="checkbox" className="accent-brand-500" checked={d.activo} onChange={(e) => setDia(i, { activo: e.target.checked })} />
+                        {DIAS[i]}
+                      </label>
+                      {d.activo ? (
+                        <>
+                          <input type="time" className="input px-2" aria-label={`Entrada ${DIAS[i]}`} value={d.entrada} onChange={(e) => setDia(i, { entrada: e.target.value })} required />
+                          <input type="time" className="input px-2" aria-label={`Salida ${DIAS[i]}`} value={d.salida} onChange={(e) => setDia(i, { salida: e.target.value })} required />
+                          {d.quebrado ? (
+                            <span className="text-center text-xs text-slate-400">—</span>
+                          ) : (
+                            <input type="number" className="input px-2" aria-label={`Minutos de comida ${DIAS[i]}`} min={0} max={180} step={5} value={d.comida} onChange={(e) => setDia(i, { comida: e.target.value })} />
+                          )}
+                          <span className="text-right text-sm text-slate-600">{horas(minutosDia(d))}</span>
+                        </>
+                      ) : (
+                        <span className="col-span-2 text-sm text-slate-400 sm:col-span-4">Descanso</span>
+                      )}
+                    </div>
+                    {d.activo && d.quebrado && (
+                      <div className="grid grid-cols-2 items-center gap-2 sm:grid-cols-[6.5rem_1fr_1fr_4.5rem_3.5rem]">
+                        <span className="col-span-2 text-xs text-slate-500 sm:col-span-1">2º horario</span>
+                        <input type="time" className="input px-2" aria-label={`Regreso ${DIAS[i]}`} value={d.entrada2} onChange={(e) => setDia(i, { entrada2: e.target.value })} required />
+                        <input type="time" className="input px-2" aria-label={`Salida final ${DIAS[i]}`} value={d.salida2} onChange={(e) => setDia(i, { salida2: e.target.value })} required />
+                        <button type="button" className="col-span-2 text-left text-xs text-slate-500 hover:text-red-600 sm:col-span-2" onClick={() => setDia(i, { quebrado: false })}>
+                          Quitar
+                        </button>
+                      </div>
+                    )}
+                    {d.activo && !d.quebrado && (
+                      <button type="button" className="text-xs font-medium text-brand-600 hover:underline sm:ml-[7rem]" onClick={() => setDia(i, { quebrado: true })}>
+                        + Agregar segundo horario (turno quebrado)
+                      </button>
                     )}
                   </div>
                 ))}
               </div>
               <p className="mt-2 text-xs text-slate-500">
                 Total semanal: <strong className="text-navy-900">{horas(semanaForm)}</strong>. Si la salida es menor que la entrada, el turno termina al día siguiente.
+                En turno quebrado el empleado checa al salir y al regresar; el tiempo entre horarios no cuenta como trabajado.
               </p>
             </div>
 
+            {editando !== "nuevo" && (
+              <details className="rounded-lg border border-slate-200 p-3">
+                <summary className="cursor-pointer text-sm font-medium text-navy-900">Historial de cambios</summary>
+                <div className="mt-3">
+                  <Bitacora modelo="turno" registroId={editando.id} query={query} />
+                </div>
+              </details>
+            )}
             <ErrorBox message={error} />
             <div className="flex justify-end gap-3">
               <button type="button" className="btn-secondary" onClick={() => setEditando(null)}>

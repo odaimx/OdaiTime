@@ -1,9 +1,9 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Date, ForeignKey, Numeric, String, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Date, DateTime, ForeignKey, LargeBinary, Numeric, String, UniqueConstraint
+from sqlalchemy.orm import Mapped, deferred, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
 from app.models.sucursal import Sucursal
@@ -41,6 +41,15 @@ class Empleado(UUIDPkMixin, TimestampMixin, Base):
     usuario_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("usuarios.id", ondelete="SET NULL"), unique=True
     )
+
+    # Foto en dos tamaños, como Odoo (image_512 / image_128): JPEG guardado como binario.
+    # Diferidas: los listados no las cargan; se leen solo en GET /empleados/{id}/foto.
+    foto: Mapped[bytes | None] = deferred(mapped_column(LargeBinary))  # 512 px, ficha
+    foto_128: Mapped[bytes | None] = deferred(mapped_column(LargeBinary))  # 128 px, listados
+    foto_actualizada: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    # PIN para checar en el kiosco (hash Argon2).
+    pin_hash: Mapped[str | None] = mapped_column(String(255))
 
     activo: Mapped[bool] = mapped_column(default=True)
     fecha_baja: Mapped[date | None] = mapped_column(Date)

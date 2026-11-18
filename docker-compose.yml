@@ -39,6 +39,8 @@ services:
       REDIS_URL: redis://cache:6379/0
       BASE_DOMAIN: ${DOMAIN}
       ADMIN_HOST: ${ADMIN_HOST:-}
+    volumes:
+      - fotos:/app/data
     depends_on:
       db:
         condition: service_healthy
@@ -68,6 +70,7 @@ services:
 
 volumes:
   pgdata:
+  fotos:
   cachedata:
   caddydata:
   caddyconfig:

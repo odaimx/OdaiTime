@@ -313,3 +313,47 @@ async def test_plantilla_e_importacion(client, superadmin):
     assert por_numero["1"]["nss"] == "01234567890"  # recupera el cero perdido por Excel
     assert por_numero["1"]["turno_actual"]["nombre"] == "Oficina"
     assert por_numero["A-2"]["turno_actual"] is None
+
+
+async def test_foto_del_empleado(client, superadmin):
+    from PIL import Image
+
+    a, sucs, _ = await _setup(client, superadmin)
+    r = await client.post("/api/empleados", headers=a, json=_empleado("1001", sucs["CUN"]["id"]))
+    emp = r.json()
+    assert emp["foto_version"] is None
+
+    # Imagen grande con transparencia: se guarda en 512 y 128 px como JPEG.
+    buf = BytesIO()
+    Image.new("RGBA", (1600, 1200), (138, 100, 222, 200)).save(buf, "PNG")
+    r = await client.put(
+        f"/api/empleados/{emp['id']}/foto",
+        headers=a,
+        files={"archivo": ("yo.png", buf.getvalue(), "image/png")},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["foto_version"]
+
+    r = await client.get(f"/api/empleados/{emp['id']}/foto", headers=a)
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "image/jpeg"
+    assert max(Image.open(BytesIO(r.content)).size) == 512
+    assert len(r.content) < 80_000
+    r = await client.get(f"/api/empleados/{emp['id']}/foto", headers=a, params={"tam": 128})
+    assert max(Image.open(BytesIO(r.content)).size) == 128
+    assert len(r.content) < 15_000
+
+    # El listado no trae la foto, solo su versión.
+    lista = (await client.get("/api/empleados", headers=a)).json()
+    assert lista[0]["foto_version"] and "foto" not in lista[0]
+
+    r = await client.put(
+        f"/api/empleados/{emp['id']}/foto",
+        headers=a,
+        files={"archivo": ("x.txt", b"no soy imagen", "text/plain")},
+    )
+    assert r.status_code == 422
+
+    r = await client.delete(f"/api/empleados/{emp['id']}/foto", headers=a)
+    assert r.json()["foto_version"] is None
+    assert (await client.get(f"/api/empleados/{emp['id']}/foto", headers=a)).status_code == 404

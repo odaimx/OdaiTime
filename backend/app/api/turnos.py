@@ -7,6 +7,25 @@ from sqlalchemy.exc import IntegrityError
 from app.api.deps import DB, CurrentUser, empresa_scope, require_roles
 from app.models import Rol, Turno, TurnoDia
 from app.schemas.turno import TurnoCreate, TurnoOut, TurnoUpdate
+from app.services import bitacora
+from app.services.lft import DIAS
+
+
+def _horario(dias) -> str:
+    partes = [
+        f"{DIAS[d.dia_semana][:3]} {d.entrada:%H:%M}-{d.salida:%H:%M}"
+        + (f" y {d.entrada2:%H:%M}-{d.salida2:%H:%M}" if d.entrada2 and d.salida2 else "")
+        + (f" ({d.comida_minutos} min comida)" if d.comida_minutos else "")
+        for d in sorted(dias, key=lambda x: x.dia_semana)
+    ]
+    return ", ".join(partes)
+
+
+def _snap(t: Turno) -> dict:
+    return bitacora.snapshot(
+        t, ("nombre", "tipo_jornada", "tolerancia_minutos", "activo"), {"horario": _horario(t.dias)}
+    )
+
 
 router = APIRouter(prefix="/turnos", tags=["turnos"])
 
@@ -49,6 +68,16 @@ async def crear(
     )
     db.add(turno)
     try:
+        await db.flush()
+        await bitacora.registrar(
+            db,
+            empresa_id=turno.empresa_id,
+            modelo="turno",
+            registro_id=turno.id,
+            usuario=user,
+            tipo="creacion",
+            mensaje=f"Turno creado: {_horario(turno.dias)}",
+        )
         await db.commit()
     except IntegrityError:
         await db.rollback()
@@ -76,6 +105,7 @@ async def actualizar(
     empresa_id: uuid.UUID | None = None,
 ) -> TurnoOut:
     turno = await obtener_turno(db, turno_id, empresa_scope(user, empresa_id))
+    antes = _snap(turno)
     cambios = data.model_dump(exclude_unset=True, exclude={"dias"})
     for campo, valor in cambios.items():
         setattr(turno, campo, valor)
@@ -91,4 +121,14 @@ async def actualizar(
         await db.rollback()
         raise _DUPLICADO from None
     await db.refresh(turno, attribute_names=["dias"])
+    await bitacora.cambios(
+        db,
+        empresa_id=turno.empresa_id,
+        modelo="turno",
+        registro_id=turno.id,
+        usuario=user,
+        antes=antes,
+        despues=_snap(turno),
+    )
+    await db.commit()
     return TurnoOut.de(turno)
