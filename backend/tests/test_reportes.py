@@ -5,6 +5,7 @@ from io import BytesIO, StringIO
 from openpyxl import load_workbook
 
 from tests.test_asistencia import LUN, _manual, _setup
+from tests.test_logo import _archivo, _png
 
 PARAMS = {"desde": str(LUN), "hasta": str(LUN + timedelta(6))}
 
@@ -24,11 +25,13 @@ def _hoja(contenido: bytes, nombre: str):
 async def test_reportes_excel(client, superadmin):
     a, _, emp = await _setup(client, superadmin)
     await _semana(client, a, emp)
+    await client.put("/api/tenant/logo", headers=a, files=_archivo(_png()))
 
     r = await client.get("/api/reportes/asistencia.xlsx", headers=a, params=PARAMS)
     assert r.status_code == 200, r.text
     assert "attachment" in r.headers["content-disposition"]
     ws = _hoja(r.content, "Resumen")
+    assert len(ws._images) == 1 and ws["C1"].value == "Empresa Caribe"  # logo y razón social
     encabezados = [c.value for c in ws[5]]
     fila = {h: c.value for h, c in zip(encabezados, ws[6], strict=False)}
     assert fila["Número"] == "1" and fila["Horas extra dobles"] == 2
