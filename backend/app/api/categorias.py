@@ -22,7 +22,7 @@ _NO = HTTPException(status.HTTP_404_NOT_FOUND, "Categoría no encontrada")
 
 class CategoriaIn(BaseModel):
     nombre: str = Field(min_length=1, max_length=60)
-    color: int = Field(default=0, ge=0, le=9)
+    color: str = Field(default="#8a64de", pattern=r"^#[0-9a-fA-F]{6}$")
 
 
 class CategoriaOut(BaseModel):
@@ -30,7 +30,7 @@ class CategoriaOut(BaseModel):
     id: uuid.UUID
     modelo: str
     nombre: str
-    color: int
+    color: str
     registros: int = 0
 
 
@@ -108,7 +108,12 @@ async def crear(
     empresa_id: uuid.UUID | None = None,
 ) -> Categoria:
     _puede_editar(user)
-    c = Categoria(empresa_id=_dueno(user, modelo, empresa_id), modelo=modelo, **data.model_dump())
+    c = Categoria(
+        empresa_id=_dueno(user, modelo, empresa_id),
+        modelo=modelo,
+        nombre=data.nombre,
+        color=data.color.lower(),
+    )
     db.add(c)
     await db.commit()
     return c
@@ -133,7 +138,7 @@ async def editar(
 ) -> Categoria:
     _puede_editar(user)
     c = await _obtener(db, user, categoria_id, empresa_id)
-    c.nombre, c.color = data.nombre, data.color
+    c.nombre, c.color = data.nombre, data.color.lower()
     await db.commit()
     return c
 

@@ -1,9 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api, urlFondo } from "../lib/api";
 import Icono from "./Iconos";
 import { ErrorBox } from "./ui";
-
-const SUGERIDOS = ["#ffffff", "#f8fafc", "#f1ecfc", "#eaf4fe", "#fdf6e9", "#eef7f1", "#13204a"];
 
 /** Fondo principal de la empresa: un color o una imagen. Se ve detrás de las pantallas y en su login. */
 export default function FondoEmpresa({
@@ -30,6 +28,12 @@ export default function FondoEmpresa({
       setError((e as Error).message);
     }
   }
+  // El selector de color dispara muchos cambios al arrastrarlo: se guarda al soltarlo.
+  const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const elegir = (c: string) => {
+    if (temporizador.current) clearTimeout(temporizador.current);
+    temporizador.current = setTimeout(() => ponerColor(c), 400);
+  };
   const ponerColor = (c: string) => ejecutar(() => api(`/tenant/fondo/color${query}`, { method: "PUT", body: JSON.stringify({ color: c }) }));
   async function subir(archivo: File) {
     setSubiendo(true);
@@ -45,13 +49,11 @@ export default function FondoEmpresa({
       <div className="flex flex-wrap items-center gap-4">
         <div className="h-20 w-36 shrink-0 rounded-lg ring-1 ring-slate-200" style={vista} aria-label="Vista previa del fondo" />
         <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {SUGERIDOS.map((c) => (
-              <button key={c} type="button" onClick={() => ponerColor(c)} className={`h-7 w-7 rounded-full ring-1 ring-slate-300 ${color === c ? "ring-2 ring-brand-500 ring-offset-1" : ""}`} style={{ backgroundColor: c }} aria-label={`Color ${c}`} />
-            ))}
-            <label className="relative h-7 w-7 cursor-pointer overflow-hidden rounded-full ring-1 ring-slate-300" title="Otro color" style={{ background: "conic-gradient(red, yellow, lime, cyan, blue, magenta, red)" }}>
-              <input type="color" className="absolute inset-0 cursor-pointer opacity-0" value={color ?? "#ffffff"} onChange={(e) => ponerColor(e.target.value)} />
+          <div className="flex items-center gap-2 text-sm text-navy-900">
+            <label className="relative inline-flex h-8 w-8 cursor-pointer rounded-full ring-1 ring-slate-300 hover:ring-2 hover:ring-brand-400" style={{ backgroundColor: color ?? "#ffffff" }} title="Elegir color">
+              <input type="color" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" defaultValue={color ?? "#ffffff"} onChange={(e) => elegir(e.target.value)} aria-label="Color de fondo" />
             </label>
+            Color de fondo
           </div>
           <div className="flex flex-wrap gap-3 text-sm">
             <label className="inline-flex cursor-pointer items-center gap-1 font-medium text-brand-600 hover:underline">

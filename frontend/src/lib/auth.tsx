@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { ApiError, get, session, setOnSessionExpired, type Usuario } from "./api";
+import { olvidarPortal } from "./portal";
 
 interface AuthState {
   usuario: Usuario | null;
@@ -49,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     const current = session.get();
     session.clear();
+    olvidarPortal();
     setUsuario(null);
     if (current) {
       await fetch("/api/auth/logout", {

@@ -9,7 +9,8 @@ from app.schemas.sucursal import SucursalRef
 
 
 class ConfigIn(BaseModel):
-    permitir_movil: bool = True
+    permitir_movil: bool = False
+    portal_historial: bool = True
     permitir_kiosco: bool = True
     validar_gps: bool = True
     validar_qr: bool = False

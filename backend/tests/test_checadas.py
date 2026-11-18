@@ -45,6 +45,7 @@ async def _setup(client, superadmin, con_pin=True):
     )
     assert r.status_code == 201
     e = auth(await login(client, "maria@caribe.mx"))
+    await _config(client, a, permitir_movil=True)  # de fábrica el portal no checa
     return a, e, suc, emp
 
 

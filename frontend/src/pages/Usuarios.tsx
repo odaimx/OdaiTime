@@ -166,21 +166,6 @@ export default function Usuarios() {
           onCerrar={() => setEditando(null)}
         >
           <form onSubmit={(e: FormEvent) => (e.preventDefault(), guardar())} className="form-2col">
-            {editando !== "nuevo" && (
-              <div className="completo">
-                <SelectorCategorias
-                  todas={cats.lista}
-                  valor={cats.asignadas[editando.id] ?? []}
-                  onCambio={(ids) => cats.asignar(editando.id, ids).then(cats.recargar)}
-                  puedeCrear={true}
-                  onCrear={async (nombre) => {
-                    const c = await post<Categoria>(`/categorias${query || "?"}${query ? "&" : ""}modelo=usuario`, { nombre, color: 7 });
-                    cats.recargar();
-                    return c;
-                  }}
-                />
-              </div>
-            )}
             <div>
               <label className="label">Nombre</label>
               <input className="input" required value={form.nombre} onChange={set("nombre")} />
@@ -220,6 +205,21 @@ export default function Usuarios() {
               </div>
             )}
 
+            {editando !== "nuevo" && (
+              <div>
+                <SelectorCategorias
+                  todas={cats.lista}
+                  valor={cats.asignadas[editando.id] ?? []}
+                  onCambio={(ids) => cats.asignar(editando.id, ids).then(cats.recargar)}
+                  puedeCrear={true}
+                  onCrear={async (nombre) => {
+                    const c = await post<Categoria>(`/categorias${query || "?"}${query ? "&" : ""}modelo=usuario`, { nombre, color: "#8a64de" });
+                    cats.recargar();
+                    return c;
+                  }}
+                />
+              </div>
+            )}
             {editando !== "nuevo" && editando.id !== yo?.id && (
               <div className="completo flex justify-end">
                 <button type="button" className="text-sm text-slate-500 hover:text-navy-900 hover:underline" onClick={() => alternar(editando)}>

@@ -58,7 +58,7 @@ async def test_categorias(client, superadmin):
         "/api/categorias",
         headers=a,
         params={"modelo": "empleado"},
-        json={"nombre": "Operativo", "color": 3},
+        json={"nombre": "Operativo", "color": "#22D3EE"},
     )
     assert r.status_code == 201, r.text
     cat = r.json()
@@ -110,4 +110,11 @@ async def test_fondo_y_correo(client, superadmin):
     )
     assert r.status_code == 200, r.text
     assert r.json()["tiene_password"] is True and "password" not in r.json()
+    from app.core.cifrado import descifrar, esta_cifrado
+    from app.db.session import SessionLocal
+    from app.models import ConfigCorreo
+
+    async with SessionLocal() as db:
+        guardada = (await db.get(ConfigCorreo, 1)).password
+    assert esta_cifrado(guardada) and descifrar(guardada) == "secreta"
     assert (await client.get("/api/correo", headers=a)).status_code == 403

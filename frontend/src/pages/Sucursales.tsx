@@ -175,21 +175,6 @@ export default function Sucursales() {
           ancho="md"
         >
           <form onSubmit={(e: FormEvent) => (e.preventDefault(), guardar())} className="space-y-4">
-            {editando !== "nueva" && (
-              <div className="completo">
-                <SelectorCategorias
-                  todas={cats.lista}
-                  valor={cats.asignadas[editando.id] ?? []}
-                  onCambio={(ids) => cats.asignar(editando.id, ids).then(cats.recargar)}
-                  puedeCrear={puedeEditar}
-                  onCrear={async (nombre) => {
-                    const c = await post<Categoria>(`/categorias${query || "?"}${query ? "&" : ""}modelo=sucursal`, { nombre, color: 7 });
-                    cats.recargar();
-                    return c;
-                  }}
-                />
-              </div>
-            )}
             <fieldset disabled={!puedeEditar} className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
@@ -230,6 +215,21 @@ export default function Sucursales() {
             <p className="text-xs text-slate-500">Tip: en Google Maps, clic derecho sobre la sucursal para copiar las coordenadas.</p>
             </fieldset>
 
+            {editando !== "nueva" && (
+              <div>
+                <SelectorCategorias
+                  todas={cats.lista}
+                  valor={cats.asignadas[editando.id] ?? []}
+                  onCambio={(ids) => cats.asignar(editando.id, ids).then(cats.recargar)}
+                  puedeCrear={puedeEditar}
+                  onCrear={async (nombre) => {
+                    const c = await post<Categoria>(`/categorias${query || "?"}${query ? "&" : ""}modelo=sucursal`, { nombre, color: "#8a64de" });
+                    cats.recargar();
+                    return c;
+                  }}
+                />
+              </div>
+            )}
             {editando !== "nueva" && puedeEditar && (
               <div className="flex justify-end">
                 <button type="button" className="text-sm text-slate-500 hover:text-navy-900 hover:underline" onClick={() => alternar(editando)}>

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr, Field
 
 from app.api.deps import DB, CurrentUser, require_roles
+from app.core.cifrado import cifrar
 from app.models import Rol
 from app.services import correo
 
@@ -66,7 +67,7 @@ async def guardar(data: CorreoIn, db: DB) -> CorreoOut:
     for k, v in data.model_dump(exclude={"password"}).items():
         setattr(c, k, v)
     if data.password:
-        c.password = data.password
+        c.password = cifrar(data.password)  # nunca se guarda en claro
     await db.commit()
     return _out(c)
 

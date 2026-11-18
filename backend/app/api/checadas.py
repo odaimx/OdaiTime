@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from sqlalchemy import select
 
 from app.api.deps import DB, CurrentUser, empresa_scope, require_roles, sucursales_permitidas
@@ -190,6 +191,21 @@ async def checar(
     return ChecadaOut.de(checada)
 
 
+class PortalOut(BaseModel):
+    checar: bool  # puede registrar su asistencia desde el portal
+    historial: bool  # puede ver su historial
+
+
+@router.get(
+    "/portal", response_model=PortalOut, dependencies=[Depends(require_roles(Rol.EMPLEADO))]
+)
+async def portal(user: CurrentUser, db: DB) -> PortalOut:
+    """Qué puede hacer el empleado en el portal, según la configuración de su sucursal."""
+    empleado = await _mi_empleado(db, user)
+    config, _ = await svc.config_efectiva(db, empleado.empresa_id, empleado.sucursal_id)
+    return PortalOut(checar=config.permitir_movil, historial=config.portal_historial)
+
+
 @router.get(
     "/mias", response_model=list[ChecadaOut], dependencies=[Depends(require_roles(Rol.EMPLEADO))]
 )
@@ -200,6 +216,11 @@ async def mias(
     hasta: date | None = None,
 ) -> list[ChecadaOut]:
     empleado = await _mi_empleado(db, user)
+    config, _ = await svc.config_efectiva(db, empleado.empresa_id, empleado.sucursal_id)
+    if not config.portal_historial:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "Tu empresa no tiene habilitada la consulta del historial"
+        )
     hasta = hasta or date.today()
     desde = desde or hasta - timedelta(days=14)
     ini, fin = _rango_utc(desde, hasta)
