@@ -9,7 +9,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Actividad, Usuario
 
-MODELOS = ("empleado", "sucursal", "turno", "checada", "config_checadas", "dispositivo")
+MODELOS = (
+    "empleado",
+    "sucursal",
+    "turno",
+    "checada",
+    "config_checadas",
+    "dispositivo",
+    "politica_asistencia",
+)
 
 ETIQUETAS: dict[str, dict[str, str]] = {
     "empleado": {
@@ -66,6 +74,13 @@ ETIQUETAS: dict[str, dict[str, str]] = {
         "offline_max_horas": "Horas máx. sin internet",
     },
     "dispositivo": {"nombre": "Nombre", "activo": "Activo", "sucursal": "Sucursal"},
+    "politica_asistencia": {
+        "retardos_por_falta": "Retardos que equivalen a una falta",
+        "retardo_falta_min": "Retardo que cuenta como falta (min)",
+        "minimo_extra_min": "Tiempo extra mínimo (min)",
+        "redondeo_extra_min": "Redondeo de tiempo extra (min)",
+        "festivo_opcional_pago": "Pago de festivo opcional trabajado",
+    },
 }
 
 

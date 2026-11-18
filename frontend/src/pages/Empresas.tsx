@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
-import { Badge, ErrorBox, Modal, PageHeader } from "../components/ui";
+import Registro, { useFormulario } from "../components/Registro";
+import { Badge, ErrorBox, PageHeader } from "../components/ui";
 import { get, patch, post, type Empresa, type TenantInfo } from "../lib/api";
 
 type Form = { nombre: string; slug: string; razon_social: string; rfc: string; max_empleados: string; licencia_vence: string; admin_nombre: string; admin_email: string; admin_password: string };
@@ -8,7 +9,7 @@ const VACIO: Form = { nombre: "", slug: "", razon_social: "", rfc: "", max_emple
 export default function Empresas() {
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [editando, setEditando] = useState<Empresa | "nueva" | null>(null);
-  const [form, setForm] = useState<Form>(VACIO);
+  const { form, setForm, cargar: cargarForm, sucio, descartar } = useFormulario<Form>(VACIO);
   const [error, setError] = useState<string | null>(null);
 
   const [SUFIJO, setSufijo] = useState<string | null>(null); // dominio de los clientes, p. ej. odai.lat
@@ -21,7 +22,7 @@ export default function Empresas() {
 
   function abrir(e: Empresa | "nueva") {
     setError(null);
-    setForm(
+    cargarForm(
       e === "nueva"
         ? VACIO
         : { ...VACIO, nombre: e.nombre, slug: e.slug, razon_social: e.razon_social ?? "", rfc: e.rfc ?? "", max_empleados: String(e.max_empleados), licencia_vence: e.licencia_vence ?? "" },
@@ -29,8 +30,7 @@ export default function Empresas() {
     setEditando(e);
   }
 
-  async function guardar(ev: FormEvent) {
-    ev.preventDefault();
+  async function guardar(): Promise<boolean> {
     setError(null);
     const datos = {
       nombre: form.nombre,
@@ -41,20 +41,23 @@ export default function Empresas() {
       licencia_vence: form.licencia_vence || null,
     };
     try {
-      if (editando === "nueva") {
-        await post("/empresas", {
-          ...datos,
-          admin: { nombre: form.admin_nombre, email: form.admin_email, password: form.admin_password },
-        });
-      } else if (editando) {
-        await patch(`/empresas/${editando.id}`, datos);
-      }
-      setEditando(null);
-      cargar();
+      const r =
+        editando === "nueva"
+          ? await post<Empresa>("/empresas", {
+              ...datos,
+              admin: { nombre: form.admin_nombre, email: form.admin_email, password: form.admin_password },
+            })
+          : await patch<Empresa>(`/empresas/${(editando as Empresa).id}`, datos);
+      abrir(r);
+      setEmpresas((lista) => (lista.some((x) => x.id === r.id) ? lista.map((x) => (x.id === r.id ? r : x)) : [...lista, r]));
+      return true;
     } catch (err) {
       setError((err as Error).message);
+      return false;
     }
   }
+
+  const indice = editando && editando !== "nueva" ? empresas.findIndex((x) => x.id === editando.id) : -1;
 
   async function alternar(e: Empresa) {
     await patch(`/empresas/${e.id}`, { activa: !e.activa });
@@ -84,12 +87,12 @@ export default function Empresas() {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {empresas.map((e) => (
-              <tr key={e.id}>
+              <tr key={e.id} className="cursor-pointer hover:bg-brand-50/50" onClick={() => abrir(e)}>
                 <td className="px-4 py-3">
                   <p className="font-medium text-navy-900">{e.nombre}</p>
                   {e.razon_social && <p className="text-xs text-slate-500">{e.razon_social}</p>}
                   {e.url ? (
-                    <a href={e.url} target="_blank" rel="noopener noreferrer" className="font-mono text-xs text-brand-600 hover:underline">
+                    <a href={e.url} target="_blank" rel="noopener noreferrer" onClick={(ev) => ev.stopPropagation()} className="font-mono text-xs text-brand-600 hover:underline">
                       {e.url.replace("https://", "")}
                     </a>
                   ) : (
@@ -103,8 +106,7 @@ export default function Empresas() {
                 </td>
                 <td className="px-4 py-3"><Badge ok={e.activa}>{e.activa ? "Activa" : "Inactiva"}</Badge></td>
                 <td className="space-x-3 px-4 py-3 text-right">
-                  <button className="text-brand-600 hover:underline" onClick={() => abrir(e)}>Editar</button>
-                  <button className="text-slate-500 hover:underline" onClick={() => alternar(e)}>{e.activa ? "Desactivar" : "Activar"}</button>
+                  <button className="text-slate-500 hover:underline" onClick={(ev) => (ev.stopPropagation(), alternar(e))}>{e.activa ? "Desactivar" : "Activar"}</button>
                 </td>
               </tr>
             ))}
@@ -116,8 +118,18 @@ export default function Empresas() {
       </div>
 
       {editando && (
-        <Modal title={editando === "nueva" ? "Nueva empresa" : "Editar empresa"} onClose={() => setEditando(null)}>
-          <form onSubmit={guardar} className="space-y-4">
+        <Registro
+          titulo={editando === "nueva" ? "Nueva empresa" : editando.nombre}
+          indice={indice >= 0 ? indice : undefined}
+          total={empresas.length}
+          onIr={(i) => abrir(empresas[i])}
+          sucio={sucio}
+          onGuardar={guardar}
+          onDescartar={descartar}
+          onCerrar={() => setEditando(null)}
+          ancho="md"
+        >
+          <form onSubmit={(ev: FormEvent) => (ev.preventDefault(), guardar())} className="space-y-4">
             <div>
               <label className="label">Nombre comercial</label>
               <input className="input" required value={form.nombre} onChange={set("nombre")} />
@@ -181,12 +193,9 @@ export default function Empresas() {
             )}
 
             <ErrorBox message={error} />
-            <div className="flex justify-end gap-3">
-              <button type="button" className="btn-secondary" onClick={() => setEditando(null)}>Cancelar</button>
-              <button type="submit" className="btn-primary">Guardar</button>
-            </div>
+            <button type="submit" className="sr-only">Guardar</button>
           </form>
-        </Modal>
+        </Registro>
       )}
     </>
   );

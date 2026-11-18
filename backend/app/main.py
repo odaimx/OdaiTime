@@ -3,11 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import (
     actividad,
+    asistencia,
     auth,
     checadas,
     dispositivos,
     empleados,
     empresas,
+    festivos,
     health,
     kiosco,
     licencia,
@@ -49,5 +51,7 @@ for r in (
     checadas.router,
     dispositivos.router,
     kiosco.router,
+    asistencia.router,
+    festivos.router,
 ):
     app.include_router(r, prefix="/api")

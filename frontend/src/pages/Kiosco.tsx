@@ -15,6 +15,7 @@ interface Estado {
   qr: { url: string; expira: string };
   ultimas: { nombre: string; tipo: string; momento: string }[];
   hora_servidor: string;
+  festivo_hoy: string | null;
 }
 
 const leerToken = () => {
@@ -235,6 +236,11 @@ function PantallaKiosco({ token, onDesvinculado }: { token: string; onDesvincula
           <p className="text-center text-lg text-slate-600">El kiosco está desactivado para esta sucursal.</p>
         ) : (
           <>
+            {estado.festivo_hoy && (
+              <p className="rounded-xl bg-sky-50 px-4 py-3 text-sm text-sky-800">
+                Hoy es <strong>{estado.festivo_hoy}</strong>. Solo puede checar el personal designado para trabajar.
+              </p>
+            )}
             <div>
               <h1 className="text-2xl font-bold">Checar con tu número</h1>
               <p className="mt-1 text-slate-500">{estado.config.pin ? "Escribe tu número de empleado y tu PIN." : "Escribe tu número de empleado."}</p>

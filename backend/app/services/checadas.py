@@ -261,6 +261,23 @@ async def guardar_foto(archivo: UploadFile, empresa_id: uuid.UUID) -> str:
     return str(rel)
 
 
+# --- Días festivos ---
+
+
+async def validar_festivo(db: AsyncSession, empleado: Empleado, dia: date) -> None:
+    """En día festivo solo registran entrada los empleados designados (art. 75 LFT)."""
+    from app.services import festivos as festivos_svc  # evita import circular
+
+    nombre = await festivos_svc.festivo_del_dia(db, empleado.empresa_id, dia)
+    if nombre and not await festivos_svc.designado(db, empleado.empresa_id, dia, empleado.id):
+        raise error(
+            "festivo_no_designado",
+            f"Hoy es día de descanso ({nombre}). Solo registran asistencia las personas "
+            "designadas por la empresa para trabajar.",
+            http=status.HTTP_403_FORBIDDEN,
+        )
+
+
 # --- Registro ---
 
 
@@ -307,6 +324,8 @@ async def registrar(
     tipo = siguiente_tipo(ultima, momento)
     tz = zona(sucursal)
     local = momento.astimezone(tz)
+    if tipo == "entrada":
+        await validar_festivo(db, empleado, local.date())
     turno = turno_del_dia(empleado, local.date(), tz)
     if tipo == "entrada" and turno and not offline:
         apertura = turno.inicio - timedelta(minutes=config.minutos_antes_entrada)

@@ -230,13 +230,21 @@ export default function Checar() {
           {estado.requiere.gps && <p className="rounded-xl bg-emerald-50 px-3 py-2 text-emerald-800">Se validará que estés dentro de tu sucursal (ubicación).</p>}
           {estado.requiere.foto && <p className="rounded-xl bg-brand-50 px-3 py-2 text-brand-700">Tu empresa pide una foto al checar.</p>}
           {qr && <p className="rounded-xl bg-accent-500/10 px-3 py-2 text-navy-900">Código del kiosco leído. Toca el botón para registrar.</p>}
+          {estado.festivo_hoy && estado.designado_festivo && <p className="rounded-xl bg-sky-50 px-3 py-2 text-sky-800">Hoy es {estado.festivo_hoy}: estás designado para trabajar.</p>}
           {pendientes > 0 && <p className="rounded-xl bg-amber-50 px-3 py-2 text-amber-800">{pendientes} checada(s) guardada(s) sin conexión; se enviarán al reconectar.</p>}
         </div>
       )}
 
       <ErrorBox message={error} />
 
-      {estado && !estado.permitir_movil && !qr ? (
+      {estado?.festivo_hoy && !estado.designado_festivo ? (
+        <div className="card space-y-2 p-6 text-center">
+          <p className="text-lg font-semibold text-navy-900">Hoy es día de descanso</p>
+          <p className="text-sm text-slate-600">
+            {estado.festivo_hoy}. No necesitas checar. Solo registra asistencia el personal que la empresa designó para trabajar.
+          </p>
+        </div>
+      ) : estado && !estado.permitir_movil && !qr ? (
         <p className="card p-6 text-center text-slate-600">En tu sucursal se checa en el kiosco de la entrada.</p>
       ) : necesitaQr ? (
         <div className="card space-y-3 p-6 text-center">

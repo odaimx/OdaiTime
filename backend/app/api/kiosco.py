@@ -28,6 +28,7 @@ from app.core.config import get_settings
 from app.core.security import verify_password
 from app.models import Checada, Dispositivo, Empleado, Empresa
 from app.services import checadas as svc
+from app.services import festivos as festivos_svc
 
 router = APIRouter(tags=["kiosco"])
 log = logging.getLogger(__name__)
@@ -157,6 +158,9 @@ async def estado(d: DispositivoActual, request: Request, db: DB) -> dict:
             for c in ultimas
         ],
         "hora_servidor": ahora.isoformat(),
+        "festivo_hoy": await festivos_svc.festivo_del_dia(
+            db, d.empresa_id, ahora.astimezone(tz).date()
+        ),
     }
 
 
@@ -275,6 +279,12 @@ async def registros_biometricos(lote: LoteBiometrico, d: DispositivoActual, db: 
         )
         tipo = svc.siguiente_tipo(anterior, momento)
         tz = svc.zona(d.sucursal)
+        if tipo == "entrada":
+            try:
+                await svc.validar_festivo(db, empleado, momento.astimezone(tz).date())
+            except HTTPException as exc:
+                errores.append({"numero": r.numero, "error": exc.detail["mensaje"]})
+                continue
         turno = svc.turno_del_dia(empleado, momento.astimezone(tz).date(), tz)
         db.add(
             Checada(

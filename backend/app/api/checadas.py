@@ -24,6 +24,7 @@ from app.schemas.checada import (
 )
 from app.services import bitacora
 from app.services import checadas as svc
+from app.services import festivos as festivos_svc
 
 router = APIRouter(prefix="/checadas", tags=["checadas"])
 
@@ -86,7 +87,11 @@ async def hoy(user: CurrentUser, db: DB) -> EstadoHoy:
         .where(Checada.empleado_id == empleado.id, Checada.momento >= inicio_dia)
         .order_by(Checada.momento)
     )
+    festivo = await festivos_svc.festivo_del_dia(db, empleado.empresa_id, local.date())
     return EstadoHoy(
+        festivo_hoy=festivo,
+        designado_festivo=bool(festivo)
+        and await festivos_svc.designado(db, empleado.empresa_id, local.date(), empleado.id),
         empleado=EmpleadoRef.model_validate(empleado),
         sucursal=SucursalChecar.model_validate(sucursal, from_attributes=True),
         turno=TurnoHoyOut(

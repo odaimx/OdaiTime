@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Bitacora from "../components/Bitacora";
 import { ArticuloLFT, FuenteLFT, TextoLFT } from "../components/LFT";
-import { Badge, ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
+import Registro, { useFormulario } from "../components/Registro";
+import { Badge, ErrorBox, PageHeader, useEmpresaScope } from "../components/ui";
 import { DIAS, DIAS_CORTOS, get, horas, hhmm, JORNADAS, patch, post, type TipoJornada, type Turno } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -36,7 +37,7 @@ export default function Turnos() {
   const { query, listo, selector } = useEmpresaScope();
   const [turnos, setTurnos] = useState<Turno[]>([]);
   const [editando, setEditando] = useState<Turno | "nuevo" | null>(null);
-  const [form, setForm] = useState<Form>(VACIO);
+  const { form, setForm, cargar: cargarForm, sucio, descartar } = useFormulario<Form>(VACIO);
   const [error, setError] = useState<string | null>(null);
 
   const cargar = useCallback(() => {
@@ -46,9 +47,9 @@ export default function Turnos() {
 
   function abrir(t: Turno | "nuevo") {
     setError(null);
-    if (t === "nuevo") setForm(VACIO);
+    if (t === "nuevo") cargarForm(VACIO);
     else
-      setForm({
+      cargarForm({
         nombre: t.nombre,
         tipo_jornada: t.tipo_jornada,
         tolerancia: String(t.tolerancia_minutos),
@@ -80,8 +81,7 @@ export default function Turnos() {
     setForm((f) => ({ ...f, dias: f.dias.map((d) => (d.activo ? { ...primero } : d)) }));
   }
 
-  async function guardar(ev: FormEvent) {
-    ev.preventDefault();
+  async function guardar(): Promise<boolean> {
     setError(null);
     const datos = {
       nombre: form.nombre,
@@ -102,19 +102,23 @@ export default function Turnos() {
           : [],
       ),
     };
-    if (datos.dias.length === 0) return setError("Marca al menos un día laborable");
+    if (datos.dias.length === 0) {
+      setError("Marca al menos un día laborable");
+      return false;
+    }
     try {
       const guardado =
         editando === "nuevo" ? await post<Turno>(`/turnos${query}`, datos) : await patch<Turno>(`/turnos/${(editando as Turno).id}${query}`, datos);
-      setEditando(null);
-      cargar();
-      if (guardado.advertencias.length) {
-        alert(`Turno guardado con observaciones de la Ley Federal del Trabajo:\n\n• ${guardado.advertencias.join("\n• ")}\n\nConsulta el texto oficial en diputados.gob.mx (Leyes Federales › LFT).`);
-      }
+      abrir(guardado);
+      setTurnos((lista) => (lista.some((x) => x.id === guardado.id) ? lista.map((x) => (x.id === guardado.id ? guardado : x)) : [...lista, guardado]));
+      return true;
     } catch (err) {
       setError((err as Error).message);
+      return false;
     }
   }
+
+  const indice = editando && editando !== "nuevo" ? turnos.findIndex((x) => x.id === editando.id) : -1;
 
   async function alternar(t: Turno) {
     await patch(`/turnos/${t.id}${query}`, { activo: !t.activo });
@@ -142,7 +146,7 @@ export default function Turnos() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         {turnos.map((t) => (
-          <div key={t.id} className={`card p-5 ${t.activo ? "" : "opacity-60"}`}>
+          <div key={t.id} onClick={() => abrir(t)} className={`card cursor-pointer p-5 transition hover:ring-brand-200 ${t.activo ? "" : "opacity-60"}`}>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="font-semibold text-navy-900">{t.nombre}</h2>
@@ -193,10 +197,7 @@ export default function Turnos() {
 
             {puedeEditar && (
               <div className="mt-4 flex gap-4 text-sm">
-                <button className="text-brand-600 hover:underline" onClick={() => abrir(t)}>
-                  Editar
-                </button>
-                <button className="text-slate-500 hover:underline" onClick={() => alternar(t)}>
+                <button className="text-slate-500 hover:underline" onClick={(e) => (e.stopPropagation(), alternar(t))}>
                   {t.activo ? "Desactivar" : "Activar"}
                 </button>
               </div>
@@ -208,8 +209,27 @@ export default function Turnos() {
       <FuenteLFT articulos="arts. 59 a 69: jornada, descansos y horas extra" className="mt-4" />
 
       {editando && (
-        <Modal title={editando === "nuevo" ? "Nuevo turno" : "Editar turno"} onClose={() => setEditando(null)} ancho="lg">
-          <form onSubmit={guardar} className="space-y-4">
+        <Registro
+          titulo={editando === "nuevo" ? "Nuevo turno" : editando.nombre}
+          indice={indice >= 0 ? indice : undefined}
+          total={turnos.length}
+          onIr={(i) => abrir(turnos[i])}
+          sucio={puedeEditar && sucio}
+          onGuardar={puedeEditar ? guardar : undefined}
+          onDescartar={descartar}
+          onCerrar={() => setEditando(null)}
+        >
+          <form onSubmit={(e: FormEvent) => (e.preventDefault(), guardar())} className="space-y-4">
+            {editando !== "nuevo" && editando.advertencias.length > 0 && !sucio && (
+              <ul className="space-y-1 rounded-lg bg-amber-50 p-3 text-xs text-amber-800 ring-1 ring-amber-200">
+                {editando.advertencias.map((a) => (
+                  <li key={a}>
+                    ⚠ <TextoLFT texto={a} />
+                  </li>
+                ))}
+              </ul>
+            )}
+            <fieldset disabled={!puedeEditar} className="space-y-4">
             <div>
               <label className="label">Nombre</label>
               <input className="input" required placeholder="Matutino recepción" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
@@ -295,6 +315,7 @@ export default function Turnos() {
               </p>
             </div>
 
+            </fieldset>
             {editando !== "nuevo" && (
               <details className="rounded-lg border border-slate-200 p-3">
                 <summary className="cursor-pointer text-sm font-medium text-navy-900">Historial de cambios</summary>
@@ -304,16 +325,11 @@ export default function Turnos() {
               </details>
             )}
             <ErrorBox message={error} />
-            <div className="flex justify-end gap-3">
-              <button type="button" className="btn-secondary" onClick={() => setEditando(null)}>
-                Cancelar
-              </button>
-              <button type="submit" className="btn-primary">
-                Guardar
-              </button>
-            </div>
+            <button type="submit" className="sr-only">
+              Guardar
+            </button>
           </form>
-        </Modal>
+        </Registro>
       )}
     </>
   );

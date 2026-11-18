@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Avatar from "../components/Avatar";
 import { FuenteLFT } from "../components/LFT";
 import Bitacora from "../components/Bitacora";
+import Registro from "../components/Registro";
 import FotoChecada from "../components/FotoChecada";
 import { Badge, ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
 import { fechaHora, get, hoyISO, ORIGENES, patch, post, type Checada, type Empleado, type Sucursal } from "../lib/api";
@@ -86,8 +87,8 @@ export default function Checadas() {
   return (
     <>
       <PageHeader
-        title="Checadas"
-        subtitle="Registros de entrada y salida de todas las sucursales"
+        title="Asistencias"
+        subtitle="Registros de entrada y salida (checadas) de todas las sucursales"
         action={
           <div className="flex flex-col gap-3 sm:flex-row">
             {selector}
@@ -230,7 +231,13 @@ export default function Checadas() {
       )}
 
       {sel && (
-        <Modal title={`${sel.tipo === "entrada" ? "Entrada" : "Salida"} · ${sel.empleado.nombre_completo}`} onClose={() => setSel(null)} ancho="lg">
+        <Registro
+          titulo={`${sel.tipo === "entrada" ? "Entrada" : "Salida"} · ${sel.empleado.nombre_completo}`}
+          indice={Math.max(checadas.findIndex((x) => x.id === sel.id), 0)}
+          total={checadas.length}
+          onIr={(i) => abrir(checadas[i])}
+          onCerrar={() => setSel(null)}
+        >
           <div className="space-y-5">
             <div className="flex flex-wrap gap-4">
               {sel.tiene_foto && <FotoChecada checadaId={sel.id} query={query} className="h-40 w-32" />}
@@ -291,7 +298,7 @@ export default function Checadas() {
               <Bitacora modelo="checada" registroId={sel.id} query={query} recargar={rev} />
             </div>
           </div>
-        </Modal>
+        </Registro>
       )}
     </>
   );

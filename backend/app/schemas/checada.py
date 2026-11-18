@@ -114,6 +114,8 @@ class EstadoHoy(BaseModel):
     requiere: Requisitos
     checadas_hoy: list[ChecadaOut]
     hora_servidor: datetime
+    festivo_hoy: str | None = None
+    designado_festivo: bool = False
 
 
 Motivo = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=300)]
