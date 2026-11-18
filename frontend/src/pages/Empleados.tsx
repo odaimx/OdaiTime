@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
+import Avatar from "../components/Avatar";
 import Bitacora from "../components/Bitacora";
+import Camara from "../components/Camara";
 import { AvisoLicencia, Badge, ErrorBox, Modal, PageHeader, UsoLicencia, useEmpresaScope } from "../components/ui";
 import {
+  api,
+  comprimir,
   descargar,
   errorLicencia,
   fechaCorta,
@@ -68,6 +72,15 @@ export default function Empleados() {
   const [importando, setImportando] = useState(false);
   const [lic, setLic] = useState<Licencia | null>(null);
   const [historial, setHistorial] = useState(0);
+  const [camaraFoto, setCamaraFoto] = useState(false);
+
+  async function guardarFoto(archivo: Blob) {
+    if (!sel) return;
+    setCamaraFoto(false);
+    const body = new FormData();
+    body.append("archivo", await comprimir(archivo, 1200), "foto.jpg");
+    await ejecutar(() => api<EmpleadoDetalle>(`/empleados/${sel.id}/foto${query}`, { method: "PUT", body }));
+  }
   const [aviso, setAviso] = useState<LimiteLicencia | null>(null);
 
   const cargarLicencia = useCallback(() => {
@@ -312,8 +325,13 @@ export default function Empleados() {
             {empleados.map((e) => (
               <tr key={e.id} className="cursor-pointer hover:bg-brand-50/50" onClick={() => abrirDetalle(e.id)}>
                 <td className="px-4 py-3">
-                  <p className="font-medium text-navy-900">{e.nombre_completo}</p>
-                  <p className="font-mono text-xs text-slate-500">#{e.numero}</p>
+                  <div className="flex items-center gap-3">
+                    <Avatar empleadoId={e.id} nombre={e.nombre_completo} version={e.foto_version} query={query} tam={36} />
+                    <div>
+                      <p className="font-medium text-navy-900">{e.nombre_completo}</p>
+                      <p className="font-mono text-xs text-slate-500">#{e.numero}</p>
+                    </div>
+                  </div>
                 </td>
                 <td className="hidden px-4 py-3 text-slate-600 md:table-cell">{e.puesto ?? "—"}</td>
                 <td className="hidden px-4 py-3 sm:table-cell">
@@ -353,6 +371,23 @@ export default function Empleados() {
         <Modal title={sel.nombre_completo} onClose={() => setSel(null)} ancho="lg">
           {vista === "detalle" && (
             <div className="space-y-5">
+              <div className="flex flex-wrap items-center gap-4">
+                <Avatar empleadoId={sel.id} nombre={sel.nombre_completo} version={sel.foto_version} query={query} tam={88} />
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                  <label className="cursor-pointer font-medium text-brand-600 hover:underline">
+                    {sel.foto_version ? "Cambiar foto" : "Subir foto"}
+                    <input type="file" accept="image/*" className="sr-only" onChange={(e) => e.target.files?.[0] && guardarFoto(e.target.files[0])} />
+                  </label>
+                  <button type="button" className="font-medium text-brand-600 hover:underline" onClick={() => setCamaraFoto(true)}>
+                    Tomar con la cámara
+                  </button>
+                  {sel.foto_version && (
+                    <button type="button" className="text-slate-500 hover:text-red-600 hover:underline" onClick={() => ejecutar(() => api<EmpleadoDetalle>(`/empleados/${sel.id}/foto${query}`, { method: "DELETE" }))}>
+                      Quitar
+                    </button>
+                  )}
+                </div>
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono text-xs text-slate-500">#{sel.numero}</span>
                 <Badge ok={sel.activo}>{sel.activo ? "Activo" : `Baja ${fechaCorta(sel.fecha_baja)}`}</Badge>
@@ -527,6 +562,7 @@ export default function Empleados() {
         />
       )}
       {aviso && <AvisoLicencia info={aviso} onClose={() => setAviso(null)} />}
+      {camaraFoto && <Camara titulo="Foto para la ficha" onFoto={guardarFoto} onCancelar={() => setCamaraFoto(false)} />}
     </>
   );
 }

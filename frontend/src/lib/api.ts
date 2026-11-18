@@ -261,6 +261,7 @@ export interface Empleado {
   turno_actual: Ref | null;
   tiene_acceso: boolean;
   tiene_pin: boolean;
+  foto_version: string | null;
   activo: boolean;
   fecha_baja: string | null;
   motivo_baja: string | null;
