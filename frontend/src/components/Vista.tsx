@@ -80,7 +80,9 @@ export interface ConfigVista<T> {
   /** Reporte PDF propio (con sus filtros); reemplaza al reporte genérico del menú ⋮. */
   reportePdf?: () => void;
   /** Borrar registros: aparece "Eliminar" en el menú ⋮ al seleccionar registros que se pueden borrar. */
-  eliminar?: { puede?: (r: T) => boolean; ejecutar: (filas: T[]) => Promise<void> };
+  eliminar?: { puede?: (r: T) => boolean; borrar: (r: T) => Promise<unknown>; despues?: () => void; nombre?: (r: T) => string };
+  /** Opciones del menú ⋮ que actúan sobre los registros seleccionados (p. ej. enviar un correo). */
+  accionesSeleccion?: { etiqueta: string; icono?: NombreIcono; puede?: (r: T) => boolean; onClick: (filas: T[]) => void }[];
   /** Agrupación con la que abre (p. ej. festivos por tipo). */
   agruparInicial?: string[];
   /** Los grupos abren desplegados. */
@@ -425,15 +427,27 @@ function MenuAcciones<T>({ vista }: { vista: EstadoVista<T> }) {
   const sel = vista.seleccion.size;
   const borrables = vista.config.eliminar && sel ? vista.ordenados.filter((r) => vista.seleccion.has(vista.config.clave(r)) && (vista.config.eliminar?.puede?.(r) ?? true)) : [];
   async function eliminar() {
+    const cfg = vista.config.eliminar;
     const n = borrables.length;
-    if (!vista.config.eliminar || !confirm(n === 1 ? "¿Eliminar el registro seleccionado?" : `¿Eliminar los ${n} registros seleccionados?`)) return;
-    try {
-      await vista.config.eliminar.ejecutar(borrables);
-      vista.setSeleccion(new Set());
-    } catch (err) {
-      alert((err as Error).message);
+    if (!cfg || !confirm(n === 1 ? "¿Eliminar el registro seleccionado?" : `¿Eliminar los ${n} registros seleccionados?`)) return;
+    // Uno por uno: los que tienen historial se rechazan con su motivo y los demás se borran.
+    const errores: string[] = [];
+    for (const r of borrables) {
+      try {
+        await cfg.borrar(r);
+      } catch (err) {
+        errores.push((err as Error).message);
+      }
     }
+    vista.setSeleccion(new Set());
+    cfg.despues?.();
+    if (errores.length) alert(`${n - errores.length} de ${n} eliminado(s).\n\n${errores.join("\n")}`);
   }
+  const seleccionados = sel ? vista.ordenados.filter((r) => vista.seleccion.has(vista.config.clave(r))) : [];
+  const deSeleccion: AccionMenu[] = (vista.config.accionesSeleccion ?? []).flatMap((a, i) => {
+    const filas = seleccionados.filter((r) => a.puede?.(r) ?? true);
+    return filas.length ? [{ etiqueta: `${a.etiqueta} (${filas.length})`, icono: a.icono, onClick: () => a.onClick(filas), separar: i === 0 }] : [];
+  });
   const opciones: AccionMenu[] = [
     ...propias,
     { etiqueta: sel ? `Exportar seleccionados (${sel})` : "Exportar", icono: "upload", onClick: () => exportarCsv(vista), separar: propias.length > 0 && !propias.some((o) => o.icono === "download") },
@@ -441,6 +455,7 @@ function MenuAcciones<T>({ vista }: { vista: EstadoVista<T> }) {
       ? { etiqueta: "Reporte PDF", icono: "printer", onClick: vista.config.reportePdf }
       : { etiqueta: sel ? `Reporte PDF de seleccionados (${sel})` : "Reporte PDF", icono: "printer", onClick: () => imprimir(vista) },
     ...(vista.config.ajustes ? [{ etiqueta: "Configuración", icono: "settings" as NombreIcono, onClick: () => setConfig(true), separar: true }] : []),
+    ...deSeleccion,
     ...(borrables.length ? [{ etiqueta: `Eliminar (${borrables.length})`, icono: "trash" as NombreIcono, onClick: eliminar, separar: true, peligro: true }] : []),
   ];
   return (
@@ -449,7 +464,7 @@ function MenuAcciones<T>({ vista }: { vista: EstadoVista<T> }) {
         ref={(el) => {
           menu.boton.current = el;
         }}
-        className={menu.abierto ? "btn-icono-activo h-10 w-9" : "btn-icono h-10 w-9"}
+        className={menu.abierto ? "btn-icono-activo" : "btn-icono"}
         onClick={menu.alternar}
         title="Acciones"
         aria-label="Acciones"
@@ -754,10 +769,10 @@ function Paginador<T>({ vista }: { vista: EstadoVista<T> }) {
       </button>
       {!vista.grupos && (
         <>
-          <button className="btn-icono h-9 w-10" disabled={pagina === 0} onClick={() => vista.setPagina(pagina - 1)} aria-label="Página anterior">
+          <button className="btn-icono" disabled={pagina === 0} onClick={() => vista.setPagina(pagina - 1)} aria-label="Página anterior">
             <Icono nombre="chevron-left" className="h-4 w-4" />
           </button>
-          <button className="btn-icono h-9 w-10" disabled={pagina >= paginas - 1} onClick={() => vista.setPagina(pagina + 1)} aria-label="Página siguiente">
+          <button className="btn-icono" disabled={pagina >= paginas - 1} onClick={() => vista.setPagina(pagina + 1)} aria-label="Página siguiente">
             <Icono nombre="chevron-right" className="h-4 w-4" />
           </button>
         </>

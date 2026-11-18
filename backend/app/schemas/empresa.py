@@ -41,6 +41,7 @@ class EmpresaCreate(EmpresaBase):
     slug: Slug | None = None  # si no se indica, se genera del nombre
     max_empleados: int | None = Field(default=None, ge=1, le=100000)
     licencia_vence: date | None = None
+    demo: bool = False
 
 
 class EmpresaUpdate(BaseModel):
@@ -51,6 +52,7 @@ class EmpresaUpdate(BaseModel):
     activa: bool | None = None
     max_empleados: int | None = Field(default=None, ge=1, le=100000)
     licencia_vence: date | None = None
+    demo: bool | None = None
 
 
 class EmpresaOut(EmpresaBase):
@@ -61,6 +63,7 @@ class EmpresaOut(EmpresaBase):
     activa: bool
     max_empleados: int
     licencia_vence: date | None
+    demo: bool = False
     created_at: datetime
     logo_version: str | None = None
     fondo_color: str | None = None

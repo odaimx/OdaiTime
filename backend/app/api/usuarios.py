@@ -1,13 +1,14 @@
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import func, select, update
 
 from app.api.deps import DB, CurrentUser, empresa_scope, require_roles
 from app.core.security import hash_password
 from app.models import Rol, Sesion, Sucursal, Usuario
 from app.schemas.usuario import UsuarioCreate, UsuarioOut, UsuarioUpdate
+from app.services import accesos
 
 router = APIRouter(
     prefix="/usuarios",
@@ -122,3 +123,40 @@ async def actualizar(
     await db.commit()
     await db.refresh(usuario, attribute_names=["empresa", "sucursales"])
     return usuario
+
+
+@router.delete("/{usuario_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def eliminar(
+    usuario_id: uuid.UUID, user: CurrentUser, db: DB, empresa_id: uuid.UUID | None = None
+) -> None:
+    """Borra un usuario. Sus registros (checadas manuales, actividades) quedan sin autor."""
+    usuario = await _get(db, usuario_id, empresa_scope(user, empresa_id))
+    if usuario.id == user.id:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "No puedes eliminarte a ti mismo")
+    if usuario.rol == Rol.SUPERADMIN:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "No se puede eliminar al superadmin")
+    await db.delete(usuario)
+    await db.commit()
+
+
+@router.post("/{usuario_id}/enviar-cambio-password", status_code=status.HTTP_202_ACCEPTED)
+async def enviar_cambio_password(
+    usuario_id: uuid.UUID,
+    request: Request,
+    user: CurrentUser,
+    db: DB,
+    empresa_id: uuid.UUID | None = None,
+) -> dict[str, str]:
+    """Envía al usuario un correo con el enlace para cambiar su contraseña."""
+    usuario = await _get(db, usuario_id, empresa_scope(user, empresa_id))
+    if not usuario.activo:
+        raise HTTPException(status.HTTP_409_CONFLICT, f"{usuario.nombre} está inactivo")
+    enviado, enlace = await accesos.enviar_enlace(db, request, usuario, "recuperar")
+    await db.commit()
+    if enviado:
+        return {"mensaje": f"Se envió el enlace a {usuario.email}.", "enlace": ""}
+    # Sin correo saliente configurado: se entrega el enlace para compartirlo a mano.
+    return {
+        "mensaje": "No hay correo saliente configurado; comparte este enlace.",
+        "enlace": enlace,
+    }

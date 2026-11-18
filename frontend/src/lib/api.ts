@@ -21,7 +21,7 @@ export interface Usuario {
   nombre: string;
   rol: Rol;
   activo: boolean;
-  empresa: { id: string; nombre: string; logo_version: string | null; fondo_color?: string | null; fondo_version?: string | null } | null;
+  empresa: { id: string; nombre: string; logo_version: string | null; fondo_color?: string | null; fondo_version?: string | null; demo?: boolean } | null;
   sucursales: SucursalRef[];
   ultimo_acceso: string | null;
 }
@@ -44,6 +44,7 @@ export interface Empresa {
   activa: boolean;
   max_empleados: number;
   licencia_vence: string | null;
+  demo?: boolean;
   slug: string;
   url: string | null;
   created_at: string;

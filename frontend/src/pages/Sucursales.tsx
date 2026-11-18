@@ -4,8 +4,9 @@ import Registro, { useFormulario } from "../components/Registro";
 import Icono from "../components/Iconos";
 import { columnaCategorias, filtrosCategorias, GestorCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
+import { imprimirSecciones } from "../lib/imprimir";
 import { Ayuda, Badge, ErrorBox, PageHeader, Plegable, useEmpresaScope } from "../components/ui";
-import { get, patch, post, ZONAS_MX, type Categoria, type Sucursal } from "../lib/api";
+import { api, get, patch, post, ZONAS_MX, type Categoria, type Sucursal } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 type Form = { clave: string; nombre: string; zona_horaria: string; direccion: string; latitud: string; longitud: string; radio_metros: string };
@@ -79,6 +80,7 @@ export default function Sucursales() {
     id: "sucursales",
     tituloReporte: "Sucursales",
     clave: (s) => s.id,
+    eliminar: puedeEditar ? { borrar: (s) => api(`/sucursales/${s.id}${query}`, { method: "DELETE" }), despues: cargar } : undefined,
     onAbrir: abrir,
     acciones: puedeEditar && listo && (
       <button className="btn-primary" onClick={() => abrir("nueva")}>
@@ -165,6 +167,26 @@ export default function Sucursales() {
       {editando && (
         <Registro
           titulo={editando === "nueva" ? "Nueva sucursal" : `${editando.clave} · ${editando.nombre}`}
+          onImprimir={
+            editando === "nueva"
+              ? undefined
+              : () =>
+                  imprimirSecciones(`Sucursal · ${editando.clave} ${editando.nombre}`, [
+                    {
+                      campos: [
+                        ["Clave", editando.clave],
+                        ["Nombre", editando.nombre],
+                        ["Zona horaria", editando.zona_horaria],
+                        ["Dirección", editando.direccion],
+                        ["Latitud", editando.latitud],
+                        ["Longitud", editando.longitud],
+                        ["Radio para checar", `${editando.radio_metros} m`],
+                        ["Estado", editando.activa ? "Activa" : "Inactiva"],
+                        ["Categorías", cats.de(editando.id).map((c) => c.nombre).join(", ")],
+                      ],
+                    },
+                  ])
+          }
           indice={indice >= 0 ? indice : undefined}
           total={enOrden.length}
           onIr={(i) => abrir(enOrden[i])}

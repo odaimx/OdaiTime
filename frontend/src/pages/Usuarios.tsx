@@ -3,8 +3,9 @@ import Registro, { useFormulario } from "../components/Registro";
 import Icono from "../components/Iconos";
 import { columnaCategorias, filtrosCategorias, GestorCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
+import { imprimirSecciones } from "../lib/imprimir";
 import { Badge, ErrorBox, PageHeader, useEmpresaScope } from "../components/ui";
-import { get, patch, post, ROLES, type Categoria, type Rol, type Sucursal, type Usuario } from "../lib/api";
+import { api, get, patch, post, ROLES, type Categoria, type Rol, type Sucursal, type Usuario } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 type Form = { nombre: string; email: string; password: string; rol: Rol; sucursal_ids: string[] };
@@ -30,6 +31,20 @@ export default function Usuarios() {
     get<Sucursal[]>(`/sucursales${query}`).then(setSucursales);
   }, [query, listo]);
   useEffect(cargar, [cargar]);
+
+  const [avisos, setAvisos] = useState<{ texto: string; enlace?: string }[]>([]);
+  async function enviarCambioPassword(filas: Usuario[]) {
+    const salida: { texto: string; enlace?: string }[] = [];
+    for (const u of filas) {
+      try {
+        const r = await post<{ mensaje: string; enlace: string }>(`/usuarios/${u.id}/enviar-cambio-password${query}`, {});
+        salida.push({ texto: `${u.nombre}: ${r.mensaje}`, enlace: r.enlace || undefined });
+      } catch (err) {
+        salida.push({ texto: `${u.nombre}: ${(err as Error).message}` });
+      }
+    }
+    setAvisos(salida);
+  }
 
   function abrir(u: Usuario | "nuevo") {
     setError(null);
@@ -72,6 +87,8 @@ export default function Usuarios() {
     id: "usuarios",
     tituloReporte: "Usuarios",
     clave: (u) => u.id,
+    eliminar: { puede: (u) => u.id !== yo?.id && u.rol !== "superadmin", borrar: (u) => api(`/usuarios/${u.id}${query}`, { method: "DELETE" }), despues: cargar },
+    accionesSeleccion: [{ etiqueta: "Enviar correo para cambiar contraseña", icono: "key-round", puede: (u) => u.activo, onClick: enviarCambioPassword }],
     onAbrir: abrir,
     acciones: listo && (
       <button className="btn-primary" onClick={() => abrir("nuevo")}>
@@ -151,12 +168,43 @@ export default function Usuarios() {
       />
       {gestorCats && <GestorCategorias modelo="usuario" query={query} puedeEditar={true} onCerrar={() => setGestorCats(false)} onCambio={cats.recargar} />}
 
+      {avisos.length > 0 && (
+        <div className="mb-4 space-y-1 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          {avisos.map((a) => (
+            <p key={a.texto}>
+              {a.texto}
+              {a.enlace && <input readOnly className="input mt-1 w-full bg-white text-xs" value={a.enlace} onFocus={(e) => e.target.select()} />}
+            </p>
+          ))}
+          <button className="text-xs underline" onClick={() => setAvisos([])}>
+            Cerrar
+          </button>
+        </div>
+      )}
       <Vista vista={vista} />
 
       {editando && (
         <Registro
           titulo={editando === "nuevo" ? "Nuevo usuario" : editando.nombre}
           subtitulo={editando !== "nuevo" ? editando.email : undefined}
+          onImprimir={
+            editando === "nuevo"
+              ? undefined
+              : () =>
+                  imprimirSecciones(`Usuario · ${editando.nombre}`, [
+                    {
+                      campos: [
+                        ["Nombre", editando.nombre],
+                        ["Correo", editando.email],
+                        ["Rol", ROLES[editando.rol]],
+                        ["Estado", editando.activo ? "Activo" : "Inactivo"],
+                        ["Sucursales", editando.rol === "admin_empresa" ? "Todas" : editando.sucursales.map((x) => `${x.clave} ${x.nombre}`).join(", ")],
+                        ["Último acceso", editando.ultimo_acceso ? new Date(editando.ultimo_acceso).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" }) : "Nunca"],
+                        ["Categorías", cats.de(editando.id).map((c) => c.nombre).join(", ")],
+                      ],
+                    },
+                  ])
+          }
           indice={indice >= 0 ? indice : undefined}
           total={enOrden.length}
           onIr={(i) => abrir(enOrden[i])}

@@ -36,15 +36,17 @@ interface Props {
   ancho?: "md" | "lg";
   /** Opciones del menú ⋮ del registro (p. ej. Imprimir ficha, Dar de baja). */
   acciones?: AccionRegistro[];
+  /** Reporte propio del registro para "Imprimir" (si no, se arma con los campos en pantalla). */
+  onImprimir?: () => void;
   /** Agrega "Imprimir" (copia de la ventana). Se apaga cuando la pantalla tiene su propio reporte. */
   imprimir?: boolean;
   children: ReactNode;
 }
 
-export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio = false, onGuardar, onDescartar, onCerrar, ancho = "lg", acciones = [], imprimir = true, children }: Props) {
+export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio = false, onGuardar, onDescartar, onCerrar, ancho = "lg", acciones = [], imprimir = true, onImprimir, children }: Props) {
   const [menu, setMenu] = useState(false);
   const cuerpo = useRef<HTMLDivElement>(null);
-  const opciones: AccionRegistro[] = [...acciones, ...(imprimir ? [{ etiqueta: "Imprimir", icono: "printer" as NombreIcono, onClick: () => cuerpo.current && imprimirFormulario(cuerpo.current, textoDe(titulo), textoDe(subtitulo)), separar: acciones.length > 0 }] : [])];
+  const opciones: AccionRegistro[] = [...acciones, ...(imprimir ? [{ etiqueta: "Imprimir", icono: "printer" as NombreIcono, onClick: onImprimir ?? (() => cuerpo.current && imprimirFormulario(cuerpo.current, textoDe(titulo), textoDe(subtitulo))), separar: acciones.length > 0 }] : [])];
   const [estado, setEstado] = useState<Estado>("guardado");
   const ocupado = useRef(false);
 
@@ -146,7 +148,7 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
                 disabled={!sucio || estado === "guardando"}
                 title={`${etiqueta} (Ctrl+S)`}
                 aria-label="Guardar"
-                className={`rounded-lg p-1.5 transition ${sucio ? "bg-brand-500 text-white hover:bg-brand-600" : "text-emerald-600"} disabled:cursor-default ${estado === "error" ? "bg-red-600 text-white" : ""}`}
+                className={`rounded-lg p-1.5 transition disabled:cursor-default ${estado === "error" || sucio ? "text-red-600 hover:text-red-700" : "text-emerald-600"}`}
               >
                 <Icono nombre={sucio || estado === "error" ? "cloud-upload" : "cloud-check"} className="h-5 w-5" />
               </button>
@@ -155,7 +157,7 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
                   <Icono nombre="undo-2" className="h-5 w-5" />
                 </button>
               )}
-              <span className={`hidden text-xs sm:inline ${estado === "error" ? "text-red-600" : sucio ? "text-brand-700" : "text-slate-400"}`}>{etiqueta}</span>
+              <span className={`hidden text-xs sm:inline ${estado === "error" || sucio ? "text-red-600" : "text-emerald-600"}`}>{etiqueta}</span>
             </>
           )}
 

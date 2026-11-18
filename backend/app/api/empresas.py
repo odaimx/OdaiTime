@@ -1,14 +1,14 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import DB, require_roles
 from app.core.config import get_settings
 from app.core.security import hash_password
 from app.core.tenant import slugify
-from app.models import Empresa, Rol, Usuario
+from app.models import Checada, Empleado, Empresa, Rol, Usuario
 from app.schemas.empresa import EmpresaCreate, EmpresaOut, EmpresaUpdate
 
 # Solo el operador del SaaS administra empresas (clientes).
@@ -88,6 +88,8 @@ async def actualizar(empresa_id: uuid.UUID, data: EmpresaUpdate, db: DB) -> Empr
     cambios = data.model_dump(exclude_unset=True)
     if cambios.get("max_empleados", 0) is None:
         cambios.pop("max_empleados")
+    if cambios.get("demo", False) is None:
+        cambios.pop("demo")
     for campo, valor in cambios.items():
         setattr(empresa, campo, valor)
     try:
@@ -98,3 +100,22 @@ async def actualizar(empresa_id: uuid.UUID, data: EmpresaUpdate, db: DB) -> Empr
             status.HTTP_409_CONFLICT, "Ya existe una empresa con ese RFC o subdominio"
         ) from None
     return empresa
+
+
+@router.delete("/{empresa_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def eliminar(empresa_id: uuid.UUID, db: DB) -> None:
+    """Borra una empresa con todos sus datos. Si tiene checadas, solo se permite si es demo."""
+    empresa = await _get(db, empresa_id)
+    checadas = await db.scalar(
+        select(func.count()).select_from(Checada).where(Checada.empresa_id == empresa.id)
+    )
+    if checadas and not empresa.demo:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"{empresa.nombre} ya tiene checadas registradas. Desactívala en su lugar.",
+        )
+    # Primero los empleados (con sus checadas y asignaciones) para no chocar con las
+    # referencias a sucursales y turnos al borrar en cascada.
+    await db.execute(delete(Empleado).where(Empleado.empresa_id == empresa.id))
+    await db.delete(empresa)
+    await db.commit()
