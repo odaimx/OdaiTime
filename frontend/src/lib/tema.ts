@@ -51,14 +51,24 @@ export function aplicarTema(colores: Colores) {
   set("--color-slate-400", ts ? mezcla(ts, 75, "white") : null);
 }
 
-export type Tema = { colores: Colores; imagen_version: string | null; demo: boolean };
+export type Enlaces = { url_tienda: string | null; url_soporte: string | null };
+export type Tema = {
+  colores: Colores;
+  imagen_version: string | null;
+  demo: boolean;
+  url_tienda: string;
+  url_soporte: string;
+  enlaces: Enlaces;
+};
 
 let pendiente: Promise<Tema> | null = null;
 
 /** Lee el tema guardado y lo aplica (se llama al arrancar la aplicación). */
 export async function cargarTema(): Promise<Tema> {
   const r = await fetch("/api/sistema/tema");
-  const t: Tema = r.ok ? await r.json() : { colores: {}, imagen_version: null, demo: false };
+  const t: Tema = r.ok
+    ? await r.json()
+    : { colores: {}, imagen_version: null, demo: false, url_tienda: "", url_soporte: "", enlaces: { url_tienda: null, url_soporte: null } };
   aplicarTema(t.colores);
   pendiente = Promise.resolve(t);
   return t;

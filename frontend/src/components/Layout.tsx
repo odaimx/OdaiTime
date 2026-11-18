@@ -162,8 +162,9 @@ export default function Layout() {
 
       {/* El contenido deja espacio para la barra de íconos (o para el menú fijo). */}
       <main style={estiloFondo(usuario.empresa)} className={`min-w-0 transition-[padding] duration-200 ${fijo ? "lg:pl-64" : "lg:pl-16"}`}>
-        <div className="flex min-h-screen flex-col p-4 sm:p-6 lg:p-8">
-          <div className="flex-1">
+        <div className="flex min-h-dvh flex-col p-4 sm:p-6 lg:p-8">
+          {/* Columna flexible: una página puede estirar una sección (p. ej. la imagen de inicio). */}
+          <div className="flex flex-1 flex-col">
             <Outlet />
           </div>
           <PiePagina />

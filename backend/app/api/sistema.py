@@ -1,4 +1,4 @@
-"""Configuración general de ODAITIME (todas las empresas): tema de colores e imagen de inicio."""
+"""Configuración general de ODAITIME (todas las empresas): tema, imagen de inicio y enlaces."""
 
 from datetime import UTC, datetime
 from typing import Annotated
@@ -26,10 +26,19 @@ class Colores(BaseModel):
     texto_suave: str | None = Field(default=None, pattern=HEX)  # texto secundario
 
 
+class Enlaces(BaseModel):
+    url_tienda: str | None = Field(default=None, max_length=300, pattern=r"^https?://\S+$")
+    url_soporte: str | None = Field(default=None, max_length=300, pattern=r"^https?://\S+$")
+
+
 class TemaOut(BaseModel):
     colores: Colores
     imagen_version: str | None
     demo: bool = False
+    url_tienda: str = ""
+    url_soporte: str = ""
+    # Valores guardados (vacío = se usa el del .env); solo para el formulario del superadmin.
+    enlaces: Enlaces = Enlaces()
 
 
 async def _config(db: DB) -> ConfigSistema:
@@ -41,27 +50,46 @@ async def _config(db: DB) -> ConfigSistema:
     return c
 
 
-def _out(c: ConfigSistema) -> TemaOut:
+def _out(c: ConfigSistema | None) -> TemaOut:
+    cfg = get_settings()
+    if c is None:
+        return TemaOut(
+            colores=Colores(),
+            imagen_version=None,
+            demo=cfg.demo,
+            url_tienda=cfg.licencia_url_compra,
+            url_soporte=cfg.url_soporte,
+        )
     return TemaOut(
         colores=Colores(**(c.colores or {})),
         imagen_version=c.imagen_actualizada.isoformat() if c.imagen_actualizada else None,
-        demo=get_settings().demo,
+        demo=cfg.demo,
+        url_tienda=c.url_tienda or cfg.licencia_url_compra,
+        url_soporte=c.url_soporte or cfg.url_soporte,
+        enlaces=Enlaces(url_tienda=c.url_tienda, url_soporte=c.url_soporte),
     )
 
 
 @router.get("/tema", response_model=TemaOut)
 async def tema(db: DB) -> TemaOut:
     """Público: los colores se aplican desde la pantalla de acceso."""
-    c = await db.get(ConfigSistema, 1)
-    if c is None:
-        return TemaOut(colores=Colores(), imagen_version=None, demo=get_settings().demo)
-    return _out(c)
+    return _out(await db.get(ConfigSistema, 1))
 
 
 @router.put("/tema", response_model=TemaOut, dependencies=_SUPER)
 async def guardar_tema(data: Colores, db: DB) -> TemaOut:
     c = await _config(db)
     c.colores = {k: v.lower() for k, v in data.model_dump().items() if v}
+    await db.commit()
+    return _out(c)
+
+
+@router.put("/enlaces", response_model=TemaOut, dependencies=_SUPER)
+async def guardar_enlaces(data: Enlaces, db: DB) -> TemaOut:
+    """Tienda en línea (cuando ya no hay cupo de empleados) y soporte de Odai."""
+    c = await _config(db)
+    c.url_tienda = data.url_tienda or None
+    c.url_soporte = data.url_soporte or None
     await db.commit()
     return _out(c)
 

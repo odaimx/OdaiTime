@@ -17,18 +17,17 @@ export default function Inicio() {
 
   if (!usuario) return null;
 
+  const esAdmin = usuario.rol === "admin_empresa" && !!usuario.empresa;
+  const hayTarjetas = esAdmin || usuario.sucursales.length > 0;
+
   return (
     <>
       <PageHeader icono="house" title={`Hola, ${usuario.nombre.split(" ")[0]}`} subtitle={`${ROLES[usuario.rol]}${usuario.empresa ? ` · ${usuario.empresa.nombre}` : ""}`} />
 
       {imagen && (
-        <div className="-mx-4 -mt-5 sm:-mx-6 lg:-mx-8">
-          {/* Ocupa todo el alto disponible entre el encabezado y el pie de página. */}
-          <img
-            src={`/api/sistema/imagen-inicio?v=${encodeURIComponent(imagen)}`}
-            alt=""
-            className="h-[calc(100dvh-12rem)] min-h-64 w-full object-cover sm:h-[calc(100dvh-9rem)] lg:h-[calc(100dvh-10rem)]"
-          />
+        // Llena todo el espacio libre hasta la línea del pie de página.
+        <div className={`relative -mx-4 -mt-5 min-h-64 flex-1 sm:-mx-6 lg:-mx-8 ${hayTarjetas ? "" : "-mb-6"}`}>
+          <img src={`/api/sistema/imagen-inicio?v=${encodeURIComponent(imagen)}`} alt="" className="absolute inset-0 h-full w-full object-cover" />
         </div>
       )}
 

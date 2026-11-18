@@ -417,6 +417,26 @@ export default function Empleados() {
   };
 
   /**
+   * Dos columnas en una sola rejilla: la foto ocupa los primeros renglones de la segunda columna
+   * y los campos de la derecha siguen justo debajo (sin renglones vacíos).
+   */
+  const dosColumnas = (foto: ReactNode, izq: ReactNode[], der: ReactNode[]) => (
+    <div className="grid grid-cols-1 gap-x-10 gap-y-2 md:grid-flow-row-dense md:grid-cols-2">
+      <div className="flex items-start md:col-start-2 md:row-span-3 md:justify-end">{foto}</div>
+      {izq.map((c, i) => (
+        <div key={`i${i}`} className="md:col-start-1">
+          {c}
+        </div>
+      ))}
+      {der.map((c, i) => (
+        <div key={`d${i}`} className="md:col-start-2">
+          {c}
+        </div>
+      ))}
+    </div>
+  );
+
+  /**
    * Campos del expediente en dos pestañas. `foto` va arriba en la segunda columna y `derecha`
    * son renglones extra de la segunda columna (estado, accesos, portal).
    */
@@ -444,17 +464,13 @@ export default function Empleados() {
 
       {pestana === "generales" ? (
         <>
-          <div className="grid grid-cols-1 gap-x-10 gap-y-2 md:grid-cols-2">
-            <div className="space-y-2">
-              {fila("numero", "Número *", { required: true, maxLength: 20 })}
-              {fila("nombre", "Nombre(s) *", { required: true })}
-              {fila("apellido_paterno", "Apellido paterno *", { required: true })}
-              {fila("apellido_materno", "Apellido materno")}
-            </div>
-            <div className="flex md:justify-end">{foto}</div>
-          </div>
-          {parejas(
+          {dosColumnas(
+            foto,
             [
+              fila("numero", "Número *", { required: true, maxLength: 20 }),
+              fila("nombre", "Nombre(s) *", { required: true }),
+              fila("apellido_paterno", "Apellido paterno *", { required: true }),
+              fila("apellido_materno", "Apellido materno"),
               fila("fecha_ingreso", "Fecha de ingreso *", { type: "date", required: true }),
               <Fila key="sucursal" etiqueta="Sucursal *" htmlFor="emp-sucursal">
                 <select id="emp-sucursal" className="input" required value={form.sucursal_id} onChange={set("sucursal_id")}>

@@ -34,9 +34,9 @@ const SISTEMAS: Sistema[] = [
   {
     clave: "odoo",
     nombre: "Odoo",
-    formato: "csv",
-    descripcion: "CSV de entradas de trabajo (hr.work.entry) día por día.",
-    marcador: "Nombre del tipo de entrada",
+    formato: "xlsx",
+    descripcion: "Plantilla definitiva de incidencias para Odoo 19/20: una fila por incidencia con fechas, horas, cantidad y códigos de integración (sin importes; Odoo calcula la nómina). Las ausencias de días seguidos van en un solo rango. En Excel o CSV.",
+    marcador: "Código de integración",
   },
   {
     clave: "generico",
@@ -190,6 +190,8 @@ function ExportarSistema({
   const [error, setError] = useState<string | null>(null);
   const [bajando, setBajando] = useState(false);
   const esContpaqi = sistema.clave === "contpaqi";
+  const esOdoo = sistema.clave === "odoo";
+  const [checadas, setChecadas] = useState(false);
   const [formato, setFormato] = useState<Sistema["formato"]>(sistema.formato);
   const [tipoPeriodo, setTipoPeriodo] = useState("Quincenal");
   const [ejercicio, setEjercicio] = useState(rango.hasta.slice(0, 4));
@@ -245,7 +247,11 @@ function ExportarSistema({
       if (ejercicio) p.set("ejercicio", ejercicio);
       if (numPeriodo) p.set("numero_periodo", numPeriodo);
     }
-    const ext = esContpaqi ? formato : sistema.formato;
+    if (esOdoo) {
+      p.set("formato", formato);
+      if (checadas) p.set("checadas", "true");
+    }
+    const ext = esContpaqi || esOdoo ? formato : sistema.formato;
     try {
       await descargar(`/reportes/nomina${query}${sep}${p}`, `nomina_${sistema.clave}_${rango.desde.replace(/-/g, "")}_${rango.hasta.replace(/-/g, "")}.${ext}`);
     } catch (e) {
@@ -308,9 +314,29 @@ function ExportarSistema({
             </select>
           </label>
           <button className="btn-primary ml-auto" disabled={bajando || sucio} title={sucio ? "Guarda las claves antes de exportar" : undefined} onClick={bajar}>
-            <Icono nombre="download" /> {bajando ? "Generando…" : `Descargar ${(esContpaqi ? formato : sistema.formato).toUpperCase()}`}
+            <Icono nombre="download" /> {bajando ? "Generando…" : `Descargar ${(esContpaqi || esOdoo ? formato : sistema.formato).toUpperCase()}`}
           </button>
         </div>
+
+        {esOdoo && (
+          <div className="flex flex-wrap items-end gap-4 rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+            <label className="text-xs font-medium text-slate-500">
+              Formato
+              <select className="input mt-1 w-40" value={formato} onChange={(e) => setFormato(e.target.value as Sistema["formato"])}>
+                {FORMATOS.filter(([k]) => k !== "txt").map(([k, l]) => (
+                  <option key={k} value={k}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2 pb-2 text-sm text-slate-700">
+              <input type="checkbox" checked={checadas} onChange={(e) => setChecadas(e.target.checked)} />
+              Incluir entradas y salidas
+              <Ayuda texto="Agrega una fila por cada checada (CHECK_IN / CHECK_OUT) para hr.attendance." />
+            </label>
+          </div>
+        )}
 
         {esContpaqi && (
           <div className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-slate-50/60 p-3">

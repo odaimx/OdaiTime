@@ -57,10 +57,12 @@ export default function Festivos() {
     }
   }
 
-  async function borrar(f: Festivo) {
-    if (!confirm(`¿Eliminar “${f.nombre}”?`)) return;
-    await api(`/festivos/${f.id}`, { method: "DELETE" });
-    cargar();
+  async function borrar(filas: Festivo[]) {
+    try {
+      for (const f of filas) await api(`/festivos/${f.id}`, { method: "DELETE" });
+    } finally {
+      cargar();
+    }
   }
 
   // Cuántos designados tiene cada festivo que aplica (para mostrarlo en la lista).
@@ -182,27 +184,8 @@ export default function Festivos() {
             <span className="text-slate-300">—</span>
           ),
       },
-      {
-        clave: "eliminar",
-        titulo: "",
-        fija: true,
-        valor: () => "",
-        render: (f) =>
-          f.editable ? (
-            <button
-              className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
-              title="Eliminar"
-              aria-label="Eliminar"
-              onClick={(e) => {
-                e.stopPropagation();
-                borrar(f);
-              }}
-            >
-              <Icono nombre="trash" className="h-4 w-4" />
-            </button>
-          ) : null,
-      },
     ],
+    eliminar: { puede: (f) => f.editable, ejecutar: borrar },
     filtros: [
       { clave: "aplican", titulo: "Aplican en la empresa", grupo: "aplica", prueba: (f) => f.aplica },
       { clave: "no_aplican", titulo: "No aplican", grupo: "aplica", prueba: (f) => !f.aplica },

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, LargeBinary
+from sqlalchemy import DateTime, Integer, LargeBinary, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, deferred, mapped_column
 
@@ -18,3 +18,6 @@ class ConfigSistema(Base):
     colores: Mapped[dict] = mapped_column(JSONB, default=dict)
     imagen_inicio: Mapped[bytes | None] = deferred(mapped_column(LargeBinary))
     imagen_actualizada: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Enlaces de Odai: tienda en línea (comprar más empleados) y soporte. Vacío = valor del .env.
+    url_tienda: Mapped[str | None] = mapped_column(String(300))
+    url_soporte: Mapped[str | None] = mapped_column(String(300))

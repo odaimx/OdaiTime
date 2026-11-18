@@ -79,6 +79,8 @@ export interface ConfigVista<T> {
   tituloReporte?: string;
   /** Reporte PDF propio (con sus filtros); reemplaza al reporte genérico del menú ⋮. */
   reportePdf?: () => void;
+  /** Borrar registros: aparece "Eliminar" en el menú ⋮ al seleccionar registros que se pueden borrar. */
+  eliminar?: { puede?: (r: T) => boolean; ejecutar: (filas: T[]) => Promise<void> };
   /** Agrupación con la que abre (p. ej. festivos por tipo). */
   agruparInicial?: string[];
   /** Los grupos abren desplegados. */
@@ -95,6 +97,8 @@ export interface AccionMenu {
   onClick: () => void;
   /** Línea separadora arriba de esta opción. */
   separar?: boolean;
+  /** Opción destructiva (en rojo). */
+  peligro?: boolean;
 }
 
 export type ColorTarjeta = "naranja" | "morado" | "azul" | "rojo" | "verde" | "gris";
@@ -419,6 +423,17 @@ function MenuAcciones<T>({ vista }: { vista: EstadoVista<T> }) {
   const [config, setConfig] = useState(false);
   const propias = vista.config.menuAcciones ?? [];
   const sel = vista.seleccion.size;
+  const borrables = vista.config.eliminar && sel ? vista.ordenados.filter((r) => vista.seleccion.has(vista.config.clave(r)) && (vista.config.eliminar?.puede?.(r) ?? true)) : [];
+  async function eliminar() {
+    const n = borrables.length;
+    if (!vista.config.eliminar || !confirm(n === 1 ? "¿Eliminar el registro seleccionado?" : `¿Eliminar los ${n} registros seleccionados?`)) return;
+    try {
+      await vista.config.eliminar.ejecutar(borrables);
+      vista.setSeleccion(new Set());
+    } catch (err) {
+      alert((err as Error).message);
+    }
+  }
   const opciones: AccionMenu[] = [
     ...propias,
     { etiqueta: sel ? `Exportar seleccionados (${sel})` : "Exportar", icono: "upload", onClick: () => exportarCsv(vista), separar: propias.length > 0 && !propias.some((o) => o.icono === "download") },
@@ -426,6 +441,7 @@ function MenuAcciones<T>({ vista }: { vista: EstadoVista<T> }) {
       ? { etiqueta: "Reporte PDF", icono: "printer", onClick: vista.config.reportePdf }
       : { etiqueta: sel ? `Reporte PDF de seleccionados (${sel})` : "Reporte PDF", icono: "printer", onClick: () => imprimir(vista) },
     ...(vista.config.ajustes ? [{ etiqueta: "Configuración", icono: "settings" as NombreIcono, onClick: () => setConfig(true), separar: true }] : []),
+    ...(borrables.length ? [{ etiqueta: `Eliminar (${borrables.length})`, icono: "trash" as NombreIcono, onClick: eliminar, separar: true, peligro: true }] : []),
   ];
   return (
     <>
@@ -446,7 +462,7 @@ function MenuAcciones<T>({ vista }: { vista: EstadoVista<T> }) {
             <Fragment key={o.etiqueta}>
               {o.separar && <hr className="my-1 border-slate-100" />}
               <button
-                className="menu-item"
+                className={`menu-item ${o.peligro ? "text-red-600 hover:!bg-red-50" : ""}`}
                 onClick={() => {
                   menu.cerrar();
                   o.onClick();
