@@ -102,3 +102,70 @@ async def test_tarjeta_usa_los_festivos_de_la_empresa(client, superadmin):
     ).json()
     assert det["dias"][0]["estado"] == "festivo"
     assert det["dias"][0]["festivo_obligatorio"] is False
+
+
+async def test_en_festivo_solo_checan_los_designados(client, superadmin):
+    from datetime import UTC, datetime
+    from zoneinfo import ZoneInfo
+
+    from tests.conftest import PASSWORD
+
+    await crear_empresa(client, superadmin, "Caribe", "admin@caribe.mx")
+    a = auth(await login(client, "admin@caribe.mx"))
+    suc = (
+        await client.post(
+            "/api/sucursales",
+            headers=a,
+            json={"clave": "C", "nombre": "Cancún", "zona_horaria": "America/Cancun"},
+        )
+    ).json()
+    emp = (
+        await client.post(
+            "/api/empleados",
+            headers=a,
+            json={
+                "numero": "1",
+                "nombre": "Ana",
+                "apellido_paterno": "Ruiz",
+                "fecha_ingreso": "2025-01-01",
+                "sucursal_id": suc["id"],
+            },
+        )
+    ).json()
+    await client.post(
+        f"/api/empleados/{emp['id']}/acceso",
+        headers=a,
+        json={"email": "ana@caribe.mx", "password": PASSWORD},
+    )
+    e = auth(await login(client, "ana@caribe.mx"))
+    # Sin GPS para simplificar.
+    cfg = (await client.get("/api/checadas/config", headers=a)).json()
+    cfg = {k: v for k, v in cfg.items() if k not in ("origen", "sucursal_id")}
+    await client.put("/api/checadas/config", headers=a, json={**cfg, "validar_gps": False})
+
+    # Hoy es festivo de la empresa.
+    hoy = datetime.now(UTC).astimezone(ZoneInfo("America/Cancun")).date()
+    r = await client.post(
+        "/api/festivos", headers=a, json={"fecha": str(hoy), "nombre": "Día de prueba"}
+    )
+    assert r.status_code == 201
+
+    estado = (await client.get("/api/checadas/hoy", headers=e)).json()
+    assert estado["festivo_hoy"] == "Día de prueba" and estado["designado_festivo"] is False
+    r = await client.post("/api/checadas", headers=e, data={})
+    assert r.status_code == 403 and r.json()["detail"]["codigo"] == "festivo_no_designado"
+
+    # La empresa la designa para trabajar.
+    r = await client.put(
+        "/api/festivos/designados", headers=a, json={"fecha": str(hoy), "empleado_ids": [emp["id"]]}
+    )
+    assert r.status_code == 200 and r.json()["empleado_ids"] == [emp["id"]]
+    assert (await client.get("/api/checadas/hoy", headers=e)).json()["designado_festivo"] is True
+    r = await client.post("/api/checadas", headers=e, data={})
+    assert r.status_code == 201, r.text
+
+    # Designar en un día que no es festivo no tiene sentido.
+    r = await client.put(
+        "/api/festivos/designados", headers=a, json={"fecha": "2030-07-10", "empleado_ids": []}
+    )
+    assert r.status_code == 422

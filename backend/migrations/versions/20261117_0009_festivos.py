@@ -65,6 +65,22 @@ def upgrade() -> None:
             primary_key=True,
         ),
     )
+    op.create_table(
+        "festivo_designados",
+        sa.Column(
+            "empresa_id",
+            sa.Uuid(),
+            sa.ForeignKey("empresas.id", ondelete="CASCADE"),
+            primary_key=True,
+        ),
+        sa.Column("fecha", sa.Date(), primary_key=True),
+        sa.Column(
+            "empleado_id",
+            sa.Uuid(),
+            sa.ForeignKey("empleados.id", ondelete="CASCADE"),
+            primary_key=True,
+        ),
+    )
     op.add_column(
         "politica_asistencia",
         sa.Column("festivo_opcional_pago", sa.String(10), nullable=False, server_default="doble"),
@@ -101,5 +117,6 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_column("politica_asistencia", "festivo_opcional_pago")
+    op.drop_table("festivo_designados")
     op.drop_table("empresa_festivos")
     op.drop_table("dias_festivos")

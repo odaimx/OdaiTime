@@ -6,7 +6,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import DiaFestivo, EmpresaFestivo
+from app.models import DiaFestivo, EmpresaFestivo, FestivoDesignado
 from app.services import calendario
 
 
@@ -58,3 +58,23 @@ async def aplicables(
     for f in propios:
         festivos.setdefault(f.fecha, f.nombre)
     return festivos, obligatorios
+
+
+async def festivo_del_dia(db: AsyncSession, empresa_id: uuid.UUID, dia: date) -> str | None:
+    fest, _ = await aplicables(db, empresa_id, dia, dia)
+    return fest.get(dia)
+
+
+async def designado(
+    db: AsyncSession, empresa_id: uuid.UUID, dia: date, empleado_id: uuid.UUID
+) -> bool:
+    return (
+        await db.scalar(
+            select(FestivoDesignado.empleado_id).where(
+                FestivoDesignado.empresa_id == empresa_id,
+                FestivoDesignado.fecha == dia,
+                FestivoDesignado.empleado_id == empleado_id,
+            )
+        )
+        is not None
+    )

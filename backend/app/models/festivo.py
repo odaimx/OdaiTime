@@ -27,6 +27,21 @@ class DiaFestivo(UUIDPkMixin, TimestampMixin, Base):
     fundamento: Mapped[str | None] = mapped_column(String(200))  # p. ej. "Art. 74, fr. I LFT"
 
 
+class FestivoDesignado(Base):
+    """Empleados que la empresa designa para trabajar en un día festivo (art. 75 LFT).
+    Los demás no pueden registrar entrada ese día."""
+
+    __tablename__ = "festivo_designados"
+
+    empresa_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("empresas.id", ondelete="CASCADE"), primary_key=True
+    )
+    fecha: Mapped[date] = mapped_column(Date, primary_key=True)
+    empleado_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("empleados.id", ondelete="CASCADE"), primary_key=True
+    )
+
+
 class EmpresaFestivo(Base):
     """Festivos opcionales del catálogo nacional que la empresa decidió aplicar."""
 

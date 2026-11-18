@@ -349,6 +349,8 @@ export interface EstadoHoy {
   requiere: { gps: boolean; foto: boolean; qr: boolean };
   checadas_hoy: Checada[];
   hora_servidor: string;
+  festivo_hoy: string | null;
+  designado_festivo: boolean;
 }
 
 export interface ConfigChecadas {

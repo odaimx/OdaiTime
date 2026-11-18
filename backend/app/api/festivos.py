@@ -7,9 +7,10 @@ from pydantic import BaseModel, StringConstraints
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 
-from app.api.deps import DB, CurrentUser, require_roles
-from app.models import DiaFestivo, EmpresaFestivo, Rol, Usuario
+from app.api.deps import DB, CurrentUser, require_roles, sucursales_permitidas
+from app.models import DiaFestivo, Empleado, EmpresaFestivo, FestivoDesignado, Rol, Usuario
 from app.services import calendario
+from app.services import festivos as festivos_svc
 
 router = APIRouter(prefix="/festivos", tags=["días festivos"])
 
@@ -110,6 +111,79 @@ async def listar(
         )
         for f in filas
     ]
+
+
+class DesignadosIn(BaseModel):
+    fecha: date
+    empleado_ids: list[uuid.UUID]
+
+
+class DesignadosOut(BaseModel):
+    fecha: date
+    festivo: str | None
+    empleado_ids: list[uuid.UUID]
+
+
+def _empresa_obligatoria(user: Usuario, empresa_id: uuid.UUID | None) -> uuid.UUID:
+    emp = _empresa(user, empresa_id)
+    if emp is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Indica empresa_id")
+    return emp
+
+
+@router.get(
+    "/designados", response_model=DesignadosOut, dependencies=[Depends(require_roles(*_LECTURA))]
+)
+async def ver_designados(
+    user: CurrentUser, db: DB, fecha: date, empresa_id: uuid.UUID | None = None
+) -> DesignadosOut:
+    """Personas designadas para trabajar en un día festivo (art. 75)."""
+    emp = _empresa_obligatoria(user, empresa_id)
+    ids = list(
+        await db.scalars(
+            select(FestivoDesignado.empleado_id).where(
+                FestivoDesignado.empresa_id == emp, FestivoDesignado.fecha == fecha
+            )
+        )
+    )
+    return DesignadosOut(
+        fecha=fecha, festivo=await festivos_svc.festivo_del_dia(db, emp, fecha), empleado_ids=ids
+    )
+
+
+@router.put(
+    "/designados", response_model=DesignadosOut, dependencies=[Depends(require_roles(*_LECTURA))]
+)
+async def guardar_designados(
+    data: DesignadosIn, user: CurrentUser, db: DB, empresa_id: uuid.UUID | None = None
+) -> DesignadosOut:
+    """Reemplaza la lista de designados del día. Un gerente solo modifica a los empleados de sus
+    sucursales; las designaciones de otras sucursales se conservan."""
+    emp = _empresa_obligatoria(user, empresa_id)
+    nombre = await festivos_svc.festivo_del_dia(db, emp, data.fecha)
+    if nombre is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "Esa fecha no es día festivo para la empresa"
+        )
+    q = select(Empleado.id).where(Empleado.empresa_id == emp)
+    permitidas = sucursales_permitidas(user)
+    if permitidas is not None:
+        q = q.where(Empleado.sucursal_id.in_(permitidas))
+    alcance = set(await db.scalars(q))
+    nuevos = set(data.empleado_ids)
+    if not nuevos <= alcance:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Empleado inválido")
+    await db.execute(
+        delete(FestivoDesignado).where(
+            FestivoDesignado.empresa_id == emp,
+            FestivoDesignado.fecha == data.fecha,
+            FestivoDesignado.empleado_id.in_(alcance),
+        )
+    )
+    for empleado_id in nuevos:
+        db.add(FestivoDesignado(empresa_id=emp, fecha=data.fecha, empleado_id=empleado_id))
+    await db.commit()
+    return await ver_designados(user, db, data.fecha, empresa_id)
 
 
 @router.post(
