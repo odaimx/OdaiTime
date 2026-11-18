@@ -51,10 +51,20 @@ export function aplicarTema(colores: Colores) {
   set("--color-slate-400", ts ? mezcla(ts, 75, "white") : null);
 }
 
+export type Tema = { colores: Colores; imagen_version: string | null; demo: boolean };
+
+let pendiente: Promise<Tema> | null = null;
+
 /** Lee el tema guardado y lo aplica (se llama al arrancar la aplicación). */
-export async function cargarTema(): Promise<{ colores: Colores; imagen_version: string | null }> {
+export async function cargarTema(): Promise<Tema> {
   const r = await fetch("/api/sistema/tema");
-  const t = r.ok ? await r.json() : { colores: {}, imagen_version: null };
+  const t: Tema = r.ok ? await r.json() : { colores: {}, imagen_version: null, demo: false };
   aplicarTema(t.colores);
+  pendiente = Promise.resolve(t);
   return t;
+}
+
+/** El último tema leído (sin volver a pedirlo si ya se cargó). */
+export function temaActual(): Promise<Tema> {
+  return pendiente ?? cargarTema();
 }

@@ -5,6 +5,7 @@ import { useAuth } from "../lib/auth";
 import { usePortal } from "../lib/portal";
 import Icono, { type NombreIcono } from "./Iconos";
 import { REPORTE } from "../lib/imprimir";
+import PiePagina from "./PiePagina";
 
 const NAV: { to: string; label: string; roles: Rol[]; icon: NombreIcono }[] = [
   { to: "/checar", label: "Checar", roles: ["empleado"], icon: "fingerprint-pattern" },
@@ -165,10 +166,7 @@ export default function Layout() {
           <div className="flex-1">
             <Outlet />
           </div>
-          <footer className="mt-10 flex flex-wrap justify-between gap-2 border-t border-slate-200 pt-4 text-xs text-slate-400">
-            <span>© {new Date().getFullYear()} ODAI. Todos los derechos reservados.</span>
-            <span>ODAITIME v{__VERSION__}</span>
-          </footer>
+          <PiePagina />
         </div>
       </main>
     </div>

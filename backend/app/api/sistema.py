@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.api.deps import DB, require_roles
+from app.core.config import get_settings
 from app.models import ConfigSistema, Rol
 from app.services import fotos
 
@@ -28,6 +29,7 @@ class Colores(BaseModel):
 class TemaOut(BaseModel):
     colores: Colores
     imagen_version: str | None
+    demo: bool = False
 
 
 async def _config(db: DB) -> ConfigSistema:
@@ -43,6 +45,7 @@ def _out(c: ConfigSistema) -> TemaOut:
     return TemaOut(
         colores=Colores(**(c.colores or {})),
         imagen_version=c.imagen_actualizada.isoformat() if c.imagen_actualizada else None,
+        demo=get_settings().demo,
     )
 
 
@@ -50,7 +53,7 @@ def _out(c: ConfigSistema) -> TemaOut:
 async def tema(db: DB) -> TemaOut:
     """Público: los colores se aplican desde la pantalla de acceso."""
     c = await db.get(ConfigSistema, 1)
-    return _out(c) if c else TemaOut(colores=Colores(), imagen_version=None)
+    return _out(c) if c else TemaOut(colores=Colores(), imagen_version=None, demo=get_settings().demo)
 
 
 @router.put("/tema", response_model=TemaOut, dependencies=_SUPER)

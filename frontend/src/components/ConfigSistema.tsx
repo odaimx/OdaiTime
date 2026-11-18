@@ -127,7 +127,7 @@ function ImagenInicio() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-slate-600">Aparece en la pantalla de Inicio de todas las empresas.</p>
-      <ImagenEditable className="block w-full" onCambiar={subir} onQuitar={version ? async () => setVersion((await api<{ imagen_version: string | null }>("/sistema/imagen-inicio", { method: "DELETE" })).imagen_version) : undefined}>
+      <ImagenEditable className="flex w-full" onCambiar={subir} onQuitar={version ? async () => setVersion((await api<{ imagen_version: string | null }>("/sistema/imagen-inicio", { method: "DELETE" })).imagen_version) : undefined}>
         <div className="flex aspect-[4/1] items-center justify-center overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200">
           {version ? <img src={`/api/sistema/imagen-inicio?v=${encodeURIComponent(version)}`} alt="Imagen de inicio" className="h-full w-full object-cover" /> : <span className="text-sm text-slate-400">Sin imagen · pasa el mouse para subirla</span>}
         </div>
