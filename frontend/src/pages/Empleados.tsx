@@ -241,17 +241,11 @@ export default function Empleados() {
     clave: (e) => e.id,
     onAbrir: (e) => abrirDetalle(e.id),
     acciones: listo && (
-      <>
-        <button className="btn-primary" onClick={abrirNuevo}>
-          <Icono nombre="plus" /> Nuevo
-        </button>
-        {esAdmin && (
-          <button className="btn-icono h-10 w-10" onClick={() => setImportando(true)} title="Importar desde Excel" aria-label="Importar desde Excel">
-            <Icono nombre="upload" />
-          </button>
-        )}
-      </>
+      <button className="btn-primary" onClick={abrirNuevo}>
+        <Icono nombre="plus" /> Nuevo
+      </button>
     ),
+    menuAcciones: esAdmin && listo ? [{ etiqueta: "Importar", icono: "download", onClick: () => setImportando(true), separar: false }] : [],
     extra: lic && <UsoLicencia lic={lic} compacto />,
     actividades: { modelo: "empleado", query, listo },
     vacio: "No hay empleados con esos filtros.",

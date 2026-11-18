@@ -63,6 +63,7 @@ const SVG = {
   "eye": `<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/> <circle cx="12" cy="12" r="3"/>`,
   "calendar-days": `<path d="M8 2v3"/> <path d="M16 2v3"/> <rect x="3" y="3" width="18" height="18" rx="2"/> <path d="M3 9h18"/> <path d="M8 13h.01"/> <path d="M12 13h.01"/> <path d="M16 13h.01"/> <path d="M8 17h.01"/> <path d="M12 17h.01"/> <path d="M16 17h.01"/>`,
   "user-round": `<circle cx="12" cy="8" r="5"/> <path d="M20 21a8 8 0 0 0-16 0"/>`,
+  "ellipsis-vertical": `<circle cx="12" cy="12" r="1"/> <circle cx="12" cy="5" r="1"/> <circle cx="12" cy="19" r="1"/>`,
   "sheet": `<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/> <line x1="3" x2="21" y1="9" y2="9"/> <line x1="3" x2="21" y1="15" y2="15"/> <line x1="9" x2="9" y1="9" y2="21"/> <line x1="15" x2="15" y1="9" y2="21"/>`,
 } as const;
 

@@ -67,10 +67,20 @@ export interface ConfigVista<T> {
   tarjetas?: { filtro: string; color: ColorTarjeta }[];
   /** Panel a la derecha de las tarjetas (periodo, indicadores). */
   panel?: ReactNode;
+  /** Opciones del botón ⋮ "Acciones" junto a Nuevo. "Exportar" se agrega siempre. */
+  menuAcciones?: AccionMenu[];
   /** Contenido entre la búsqueda y el paginador (p. ej. uso de la licencia). */
   extra?: ReactNode;
   /** Vista con la que abre la primera vez (luego se recuerda la que elija cada quien). */
   modoInicial?: "lista" | "kanban";
+}
+
+export interface AccionMenu {
+  etiqueta: string;
+  icono?: NombreIcono;
+  onClick: () => void;
+  /** Línea separadora arriba de esta opción. */
+  separar?: boolean;
 }
 
 export type ColorTarjeta = "naranja" | "morado" | "azul" | "rojo" | "verde" | "gris";
@@ -332,7 +342,10 @@ function BarraControl<T>({ vista }: { vista: EstadoVista<T> }) {
   const { config } = vista;
   return (
     <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center">
-      {config.acciones && <div className="flex items-center gap-2">{config.acciones}</div>}
+      <div className="flex items-center gap-2">
+        {config.acciones}
+        <MenuAcciones vista={vista} />
+      </div>
       <Buscador vista={vista} />
       <div className="flex flex-wrap items-center justify-between gap-3 xl:justify-end">
         {config.extra}
@@ -345,6 +358,48 @@ function BarraControl<T>({ vista }: { vista: EstadoVista<T> }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function MenuAcciones<T>({ vista }: { vista: EstadoVista<T> }) {
+  const menu = useFlotante(240, "izquierda");
+  const opciones: AccionMenu[] = [
+    ...(vista.config.menuAcciones ?? []),
+    { etiqueta: vista.seleccion.size ? `Exportar seleccionados (${vista.seleccion.size})` : "Exportar", icono: "upload", onClick: () => exportarCsv(vista), separar: (vista.config.menuAcciones ?? []).length > 0 && !(vista.config.menuAcciones ?? []).some((o) => o.icono === "download") },
+  ];
+  return (
+    <>
+      <button
+        ref={(el) => {
+          menu.boton.current = el;
+        }}
+        className={menu.abierto ? "btn-icono-activo h-10 w-9" : "btn-icono h-10 w-9"}
+        onClick={menu.alternar}
+        title="Acciones"
+        aria-label="Acciones"
+      >
+        <Icono nombre="ellipsis-vertical" className="h-4 w-4" />
+      </button>
+      {menu.render(
+        <div className="py-1">
+          {opciones.map((o) => (
+            <Fragment key={o.etiqueta}>
+              {o.separar && <hr className="my-1 border-slate-100" />}
+              <button
+                className="menu-item"
+                onClick={() => {
+                  menu.cerrar();
+                  o.onClick();
+                }}
+              >
+                <span className="w-4">{o.icono && <Icono nombre={o.icono} className="h-4 w-4" />}</span>
+                {o.etiqueta}
+              </button>
+            </Fragment>
+          ))}
+        </div>,
+      )}
+    </>
   );
 }
 
@@ -647,21 +702,24 @@ function Paginador<T>({ vista }: { vista: EstadoVista<T> }) {
   );
 }
 
-function BarraSeleccion<T>({ vista }: { vista: EstadoVista<T> }) {
+/** Exporta a CSV (se abre en Excel) las columnas visibles de los registros seleccionados, o de todos los filtrados. */
+function exportarCsv<T>(vista: EstadoVista<T>) {
   const { config } = vista;
-  function exportar() {
-    const filas = vista.ordenados.filter((r) => vista.seleccion.has(config.clave(r)));
-    const cols = vista.visibles;
+  const filas = vista.seleccion.size ? vista.ordenados.filter((r) => vista.seleccion.has(config.clave(r))) : vista.ordenados;
+  const cols = vista.visibles;
     const csv = [cols.map((c) => c.titulo), ...filas.map((r) => cols.map((c) => textoValor(c.valor(r))))]
       .map((f) => f.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
       .join("\r\n");
     const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${config.id}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
+  a.download = `${config.id}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function BarraSeleccion<T>({ vista }: { vista: EstadoVista<T> }) {
+  const exportar = () => exportarCsv(vista);
   return (
     <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg bg-brand-50 px-4 py-2 text-sm ring-1 ring-brand-200">
       <span className="font-medium text-brand-700">{vista.seleccion.size} seleccionado(s)</span>
