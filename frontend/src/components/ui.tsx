@@ -1,15 +1,46 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { get, type Empresa, type Licencia, type LimiteLicencia } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { FuentesOficiales } from "./LFT";
 
-export function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
+export interface Ajustes {
+  /** Título del modal, p. ej. "Reglas de la tarjeta de asistencia". */
+  titulo: string;
+  contenido: ReactNode;
+  ancho?: "md" | "lg" | "xl";
+}
+
+export function PageHeader({ title, subtitle, action, fuentes, ajustes }: { title: string; subtitle?: string; action?: ReactNode; fuentes?: string; ajustes?: Ajustes }) {
+  const [config, setConfig] = useState(false);
   return (
     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
       <div>
-        <h1 className="text-2xl font-semibold text-navy-900">{title}</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-semibold text-navy-900">
+          {title}
+          {ajustes && (
+            <button
+              type="button"
+              onClick={() => setConfig(true)}
+              title={`Configuración: ${ajustes.titulo}`}
+              aria-label="Configuración"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-brand-50 hover:text-brand-600"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z" />
+              </svg>
+            </button>
+          )}
+          {fuentes !== undefined && <FuentesOficiales articulos={fuentes || undefined} />}
+        </h1>
         {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
       </div>
       {action}
+      {ajustes && config && (
+        <Modal title={`Configuración · ${ajustes.titulo}`} onClose={() => setConfig(false)} ancho={ajustes.ancho ?? "lg"}>
+          {ajustes.contenido}
+        </Modal>
+      )}
     </div>
   );
 }
@@ -23,7 +54,7 @@ export function Modal({
   title: string;
   onClose: () => void;
   children: ReactNode;
-  ancho?: "md" | "lg";
+  ancho?: "md" | "lg" | "xl";
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -33,7 +64,7 @@ export function Modal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-navy-900/40 p-3 pt-6 sm:p-4 sm:pt-16" onMouseDown={onClose}>
-      <div className={`card w-full p-5 sm:p-6 ${ancho === "lg" ? "max-w-2xl" : "max-w-lg"}`} onMouseDown={(e) => e.stopPropagation()}>
+      <div className={`card w-full p-5 sm:p-6 ${ancho === "xl" ? "max-w-5xl" : ancho === "lg" ? "max-w-2xl" : "max-w-lg"}`} onMouseDown={(e) => e.stopPropagation()}>
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-navy-900">{title}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-navy-900" aria-label="Cerrar">

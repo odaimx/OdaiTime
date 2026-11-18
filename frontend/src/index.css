@@ -32,4 +32,27 @@
   .card {
     @apply rounded-xl bg-white shadow-sm ring-1 ring-slate-200;
   }
+
+  /* --- Vistas de lista / kanban / calendario (components/Vista.tsx) --- */
+  .popover {
+    @apply absolute z-40 rounded-xl bg-white p-2 shadow-xl ring-1 ring-slate-200;
+  }
+  .menu-titulo {
+    @apply flex items-center gap-2 px-3 pb-1 pt-2 text-sm font-semibold text-navy-900;
+  }
+  .menu-item {
+    @apply flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100;
+  }
+  .menu-item-activo {
+    @apply flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm font-medium text-brand-700 bg-brand-50 hover:bg-brand-100;
+  }
+  .faceta {
+    @apply inline-flex max-w-full items-center gap-1 overflow-hidden rounded-md bg-slate-100 text-xs text-navy-900 ring-1 ring-slate-200;
+  }
+  .btn-icono {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-navy-900;
+  }
+  .btn-icono-activo {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg border border-brand-500 bg-brand-50 text-brand-700;
+  }
 }

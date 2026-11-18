@@ -98,9 +98,70 @@ export default function Reportes() {
   const sinClave = conceptos.filter((c) => !c.codigo).length;
   const sucio = conceptos.some((c) => (c.codigo ?? "") !== (codigos[c.clave] ?? ""));
 
+  const claves = (
+      <section className="-mx-1 overflow-x-auto">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1">
+              {SISTEMAS.map((x) => (
+                <button key={x.clave} onClick={() => setSistema(x.clave)} className={`rounded-md px-3 py-1.5 text-sm font-medium ${sistema === x.clave ? "bg-white text-navy-900 shadow-sm" : "text-slate-600 hover:text-navy-900"}`}>
+                  {x.nombre}
+                </button>
+              ))}
+            </div>
+            <h2 className="font-semibold text-navy-900">Claves de nómina · {actual.nombre}</h2>
+            <p className="text-sm text-slate-500">Relaciona cada concepto de ODAITIME con la clave que usa tu sistema de nómina.</p>
+          </div>
+          {puedeEditar && (
+            <div className="flex items-center gap-3">
+              {guardado && !sucio && <span className="text-sm text-emerald-600">Guardado</span>}
+              <button className="btn-primary" disabled={!sucio} onClick={guardarClaves}>
+                Guardar claves
+              </button>
+            </div>
+          )}
+        </div>
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+            <tr>
+              <th className="px-6 py-3">Concepto ODAITIME</th>
+              <th className="px-3 py-3">Descripción</th>
+              <th className="px-3 py-3">Unidad</th>
+              <th className="px-6 py-3">Clave en {actual.nombre}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {conceptos.map((c) => (
+              <tr key={c.clave}>
+                <td className="px-6 py-2 font-mono text-xs font-semibold text-brand-600">{c.clave}</td>
+                <td className="px-3 py-2 text-navy-900">
+                  {c.descripcion.replace(/ \(art\. \d+\)/, "")}
+                  {ARTICULO[c.clave] && (
+                    <span className="ml-1 text-xs text-slate-500">
+                      (<ArticuloLFT art={ARTICULO[c.clave]} />)
+                    </span>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-slate-500">{UNIDADES[c.unidad] ?? c.unidad}</td>
+                <td className="px-6 py-2">
+                  <input
+                    className="input w-full max-w-xs font-mono"
+                    placeholder={sistema === "odoo" ? "Nombre del tipo de entrada" : "Clave"}
+                    disabled={!puedeEditar}
+                    value={codigos[c.clave] ?? ""}
+                    onChange={(e) => setCodigos({ ...codigos, [c.clave]: e.target.value })}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+  );
+
   return (
     <>
-      <PageHeader title="Reportes y nómina" subtitle="Descarga los reportes del periodo y el archivo de incidencias para tu sistema de nómina" action={selector} />
+      <PageHeader ajustes={{ titulo: "Claves de nómina", ancho: "xl", contenido: claves }} fuentes="arts. 66, 68, 71, 73 y 75" title="Reportes y nómina" subtitle="Descarga los reportes del periodo y el archivo de incidencias para tu sistema de nómina" action={selector} />
 
       <div className="mb-6 flex flex-wrap items-end gap-3">
         <div className="flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1">
@@ -182,7 +243,7 @@ export default function Reportes() {
           <p className="text-sm text-slate-600">{actual.ayuda}</p>
           {sistema !== "generico" && sinClave > 0 && (
             <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              {sinClave} concepto(s) sin clave de {actual.nombre}. Se exportan con la clave de ODAITIME; configúralas abajo.
+              {sinClave} concepto(s) sin clave de {actual.nombre}. Se exportan con la clave de ODAITIME; configúralas en el engrane ⚙ junto al título.
             </p>
           )}
           <button
@@ -197,57 +258,6 @@ export default function Reportes() {
         </section>
       </div>
 
-      <section className="card mt-6 overflow-x-auto">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-6">
-          <div>
-            <h2 className="font-semibold text-navy-900">Claves de nómina · {actual.nombre}</h2>
-            <p className="text-sm text-slate-500">Relaciona cada concepto de ODAITIME con la clave que usa tu sistema de nómina.</p>
-          </div>
-          {puedeEditar && (
-            <div className="flex items-center gap-3">
-              {guardado && !sucio && <span className="text-sm text-emerald-600">Guardado</span>}
-              <button className="btn-primary" disabled={!sucio} onClick={guardarClaves}>
-                Guardar claves
-              </button>
-            </div>
-          )}
-        </div>
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-6 py-3">Concepto ODAITIME</th>
-              <th className="px-3 py-3">Descripción</th>
-              <th className="px-3 py-3">Unidad</th>
-              <th className="px-6 py-3">Clave en {actual.nombre}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {conceptos.map((c) => (
-              <tr key={c.clave}>
-                <td className="px-6 py-2 font-mono text-xs font-semibold text-brand-600">{c.clave}</td>
-                <td className="px-3 py-2 text-navy-900">
-                  {c.descripcion.replace(/ \(art\. \d+\)/, "")}
-                  {ARTICULO[c.clave] && (
-                    <span className="ml-1 text-xs text-slate-500">
-                      (<ArticuloLFT art={ARTICULO[c.clave]} />)
-                    </span>
-                  )}
-                </td>
-                <td className="px-3 py-2 text-slate-500">{UNIDADES[c.unidad] ?? c.unidad}</td>
-                <td className="px-6 py-2">
-                  <input
-                    className="input w-full max-w-xs font-mono"
-                    placeholder={sistema === "odoo" ? "Nombre del tipo de entrada" : "Clave"}
-                    disabled={!puedeEditar}
-                    value={codigos[c.clave] ?? ""}
-                    onChange={(e) => setCodigos({ ...codigos, [c.clave]: e.target.value })}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
     </>
   );
 }

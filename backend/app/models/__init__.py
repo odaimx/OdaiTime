@@ -6,6 +6,7 @@ from app.models.empresa import Empresa
 from app.models.festivo import DiaFestivo, EmpresaFestivo, FestivoDesignado
 from app.models.nomina import ClaveNomina
 from app.models.sucursal import Sucursal
+from app.models.tarea import Tarea
 from app.models.turno import AsignacionTurno, Turno, TurnoDia
 from app.models.usuario import Rol, Sesion, Usuario, usuario_sucursales
 
@@ -26,6 +27,7 @@ __all__ = [
     "Rol",
     "Sesion",
     "Sucursal",
+    "Tarea",
     "Turno",
     "TurnoDia",
     "Usuario",

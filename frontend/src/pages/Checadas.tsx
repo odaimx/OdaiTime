@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Avatar from "../components/Avatar";
-import { FuenteLFT } from "../components/LFT";
 import Bitacora from "../components/Bitacora";
 import Registro from "../components/Registro";
 import FotoChecada from "../components/FotoChecada";
+import Vista, { useVista, type ConfigVista } from "../components/Vista";
 import { Badge, ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
+import ConfigChecadas from "./ConfigChecadas";
 import { fechaHora, get, hoyISO, ORIGENES, patch, post, type Checada, type Empleado, type Sucursal } from "../lib/api";
 
 const haceDias = (n: number) => {
@@ -20,9 +21,9 @@ const localInput = (iso: string) => {
 };
 
 export default function Checadas() {
-  const { query, listo, selector } = useEmpresaScope();
+  const { query, listo, selector, empresaId } = useEmpresaScope();
   const sep = query ? "&" : "?";
-  const [filtros, setFiltros] = useState({ desde: haceDias(6), hasta: hoyISO(), sucursal_id: "", anuladas: false });
+  const [filtros, setFiltros] = useState({ desde: haceDias(6), hasta: hoyISO() });
   const [checadas, setChecadas] = useState<Checada[]>([]);
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
@@ -35,8 +36,7 @@ export default function Checadas() {
 
   const cargar = useCallback(() => {
     if (!listo) return;
-    const p = new URLSearchParams({ desde: filtros.desde, hasta: filtros.hasta, incluir_anuladas: String(filtros.anuladas) });
-    if (filtros.sucursal_id) p.set("sucursal_id", filtros.sucursal_id);
+    const p = new URLSearchParams({ desde: filtros.desde, hasta: filtros.hasta, incluir_anuladas: "true" });
     get<Checada[]>(`/checadas${query}${sep}${p}`).then(setChecadas).catch((e) => setError(e.message));
   }, [listo, query, sep, filtros]);
   useEffect(cargar, [cargar]);
@@ -72,6 +72,90 @@ export default function Checadas() {
     }
   }
 
+  const config: ConfigVista<Checada> = {
+    id: "asistencias",
+    clave: (c) => c.id,
+    onAbrir: abrir,
+    vacio: "No hay checadas en ese periodo.",
+    ordenInicial: { clave: "momento", dir: "desc" },
+    columnas: [
+      {
+        clave: "empleado",
+        titulo: "Empleado",
+        fija: true,
+        buscable: true,
+        valor: (c) => c.empleado.nombre_completo,
+        render: (c) => (
+          <div className={`flex items-center gap-3 ${c.estado === "anulada" ? "opacity-50" : ""}`}>
+            <Avatar empleadoId={c.empleado.id} nombre={c.empleado.nombre_completo} version={c.empleado.foto_actualizada} query={query} tam={32} />
+            <div className="min-w-0">
+              <p className="truncate font-medium text-navy-900">{c.empleado.nombre_completo}</p>
+              <p className="font-mono text-xs text-slate-500">#{c.empleado.numero}</p>
+            </div>
+          </div>
+        ),
+      },
+      { clave: "numero", titulo: "Número", buscable: true, visible: false, valor: (c) => c.empleado.numero },
+      {
+        clave: "tipo",
+        titulo: "Tipo",
+        agrupable: true,
+        valor: (c) => (c.tipo === "entrada" ? "Entrada" : "Salida"),
+        render: (c) => (
+          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${c.tipo === "entrada" ? "bg-emerald-50 text-emerald-700" : "bg-sky-50 text-sky-700"}`}>{c.tipo === "entrada" ? "Entrada" : "Salida"}</span>
+        ),
+      },
+      { clave: "momento", titulo: "Fecha y hora", valor: (c) => c.momento, render: (c) => <span className="whitespace-nowrap tabular-nums">{fechaHora(c.momento)}</span> },
+      { clave: "dia", titulo: "Día", agrupable: true, visible: false, valor: (c) => c.momento.slice(0, 10) },
+      { clave: "origen", titulo: "Origen", agrupable: true, valor: (c) => ORIGENES[c.origen] },
+      { clave: "sucursal", titulo: "Sucursal", buscable: true, agrupable: true, valor: (c) => c.sucursal.nombre, render: (c) => <span className="font-mono text-xs font-semibold text-brand-600">{c.sucursal.clave}</span> },
+      {
+        clave: "obs",
+        titulo: "Observaciones",
+        valor: (c) => [c.retardo_minutos ? `Retardo ${c.retardo_minutos} min` : "", c.offline ? "Sin conexión" : "", c.corregida ? "Corregida" : "", c.estado === "anulada" ? "Anulada" : ""].filter(Boolean).join(", "),
+        render: (c) => (
+          <span className="space-x-1">
+            {c.retardo_minutos ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">Retardo {c.retardo_minutos} min</span> : null}
+            {c.offline && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">Sin conexión</span>}
+            {c.corregida && <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs text-brand-700">Corregida</span>}
+            {c.estado === "anulada" && <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-700">Anulada</span>}
+          </span>
+        ),
+      },
+    ],
+    filtros: [
+      { clave: "entradas", titulo: "Entradas", grupo: "tipo", prueba: (c) => c.tipo === "entrada" },
+      { clave: "salidas", titulo: "Salidas", grupo: "tipo", prueba: (c) => c.tipo === "salida" },
+      { clave: "retardos", titulo: "Con retardo", grupo: "obs", prueba: (c) => !!c.retardo_minutos },
+      { clave: "offline", titulo: "Sin conexión", grupo: "obs", prueba: (c) => c.offline },
+      { clave: "corregidas", titulo: "Corregidas", grupo: "obs", prueba: (c) => c.corregida },
+      { clave: "hoy", titulo: "Hoy", grupo: "fecha", prueba: (c) => new Date(c.momento).toLocaleDateString("en-CA") === hoyISO() },
+      { clave: "validas", titulo: "Válidas", grupo: "estado", prueba: (c) => c.estado !== "anulada" },
+      { clave: "anuladas", titulo: "Anuladas", grupo: "estado", prueba: (c) => c.estado === "anulada" },
+    ],
+    filtrosIniciales: ["validas"],
+    tarjetas: [
+      { filtro: "hoy", color: "verde" },
+      { filtro: "retardos", color: "naranja" },
+      { filtro: "corregidas", color: "morado" },
+      { filtro: "offline", color: "azul" },
+    ],
+    panel: (
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="text-xs font-medium text-slate-500">
+          Desde
+          <input type="date" className="input mt-1 w-40" value={filtros.desde} onChange={(e) => setFiltros({ ...filtros, desde: e.target.value })} />
+        </label>
+        <label className="text-xs font-medium text-slate-500">
+          Hasta
+          <input type="date" className="input mt-1 w-40" value={filtros.hasta} onChange={(e) => setFiltros({ ...filtros, hasta: e.target.value })} />
+        </label>
+      </div>
+    ),
+  };
+  const vista = useVista(config, checadas);
+  const enOrden = vista.ordenados;
+
   async function crearManual(e: FormEvent) {
     e.preventDefault();
     setError(null);
@@ -87,6 +171,8 @@ export default function Checadas() {
   return (
     <>
       <PageHeader
+        ajustes={{ titulo: "Asistencias", ancho: "xl", contenido: <ConfigChecadas incrustado scope={{ query, empresaId }} /> }}
+        fuentes="registro de jornada: art. 132, fracción XXXIV"
         title="Asistencias"
         subtitle="Registros de entrada y salida (checadas) de todas las sucursales"
         action={
@@ -108,84 +194,10 @@ export default function Checadas() {
         }
       />
 
-      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-[10rem_10rem_14rem_auto]">
-        <label className="text-xs font-medium text-slate-500">
-          Desde
-          <input type="date" className="input mt-1" value={filtros.desde} onChange={(e) => setFiltros({ ...filtros, desde: e.target.value })} />
-        </label>
-        <label className="text-xs font-medium text-slate-500">
-          Hasta
-          <input type="date" className="input mt-1" value={filtros.hasta} onChange={(e) => setFiltros({ ...filtros, hasta: e.target.value })} />
-        </label>
-        <label className="col-span-2 text-xs font-medium text-slate-500 sm:col-span-1">
-          Sucursal
-          <select className="input mt-1" value={filtros.sucursal_id} onChange={(e) => setFiltros({ ...filtros, sucursal_id: e.target.value })}>
-            <option value="">Todas</option>
-            {sucursales.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.clave} — {s.nombre}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="col-span-2 flex items-end gap-2 pb-2 text-sm text-slate-600 sm:col-span-1">
-          <input type="checkbox" className="accent-brand-500" checked={filtros.anuladas} onChange={(e) => setFiltros({ ...filtros, anuladas: e.target.checked })} />
-          Incluir anuladas
-        </label>
-      </div>
-
       <ErrorBox message={!sel && !manual ? error : null} />
 
-      <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-4 py-3">Empleado</th>
-              <th className="px-4 py-3">Tipo</th>
-              <th className="px-4 py-3">Fecha y hora</th>
-              <th className="hidden px-4 py-3 md:table-cell">Origen</th>
-              <th className="hidden px-4 py-3 sm:table-cell">Sucursal</th>
-              <th className="px-4 py-3">Observaciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {checadas.map((c) => (
-              <tr key={c.id} onClick={() => abrir(c)} className={`cursor-pointer hover:bg-brand-50/50 ${c.estado === "anulada" ? "opacity-50" : ""}`}>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <Avatar empleadoId={c.empleado.id} nombre={c.empleado.nombre_completo} version={c.empleado.foto_actualizada} query={query} tam={36} />
-                    <div>
-                      <p className="font-medium text-navy-900">{c.empleado.nombre_completo}</p>
-                      <p className="font-mono text-xs text-slate-500">#{c.empleado.numero}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-4 py-3 capitalize">{c.tipo}</td>
-                <td className="whitespace-nowrap px-4 py-3 tabular-nums text-slate-700">{fechaHora(c.momento)}</td>
-                <td className="hidden px-4 py-3 text-slate-600 md:table-cell">{ORIGENES[c.origen]}</td>
-                <td className="hidden px-4 py-3 sm:table-cell">
-                  <span className="font-mono text-xs font-semibold text-brand-600">{c.sucursal.clave}</span>
-                </td>
-                <td className="space-x-1 px-4 py-3">
-                  {c.retardo_minutos ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">Retardo {c.retardo_minutos} min</span> : null}
-                  {c.offline && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">Sin conexión</span>}
-                  {c.corregida && <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs text-brand-700">Corregida</span>}
-                  {c.estado === "anulada" && <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-700">Anulada</span>}
-                </td>
-              </tr>
-            ))}
-            {checadas.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
-                  No hay checadas en ese periodo.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      <p className="mt-2 text-xs text-slate-500">{checadas.length} registro(s)</p>
-      <FuenteLFT articulos="registro de jornada: art. 132, fracción XXXIV" className="mt-3" />
+      <Vista vista={vista} />
+
 
       {manual && (
         <Modal title="Registrar checada manual" onClose={() => setManual(false)}>
@@ -233,9 +245,9 @@ export default function Checadas() {
       {sel && (
         <Registro
           titulo={`${sel.tipo === "entrada" ? "Entrada" : "Salida"} · ${sel.empleado.nombre_completo}`}
-          indice={Math.max(checadas.findIndex((x) => x.id === sel.id), 0)}
-          total={checadas.length}
-          onIr={(i) => abrir(checadas[i])}
+          indice={Math.max(enOrden.findIndex((x) => x.id === sel.id), 0)}
+          total={enOrden.length}
+          onIr={(i) => abrir(enOrden[i])}
           onCerrar={() => setSel(null)}
         >
           <div className="space-y-5">

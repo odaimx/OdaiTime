@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router";
-import { ROLES, urlLogo, type Rol } from "../lib/api";
-import { LFT_URL, STPS_URL } from "./LFT";
+import { get, hoyISO, ROLES, urlLogo, type Rol, type Tarea } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 const NAV: { to: string; label: string; roles: Rol[]; icon: string }[] = [
@@ -13,10 +12,10 @@ const NAV: { to: string; label: string; roles: Rol[]; icon: string }[] = [
   { to: "/empleados", label: "Empleados", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "M15 7a3 3 0 11-6 0 3 3 0 016 0zM4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1" },
   { to: "/asistencia", label: "Tarjeta de asistencia", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2zM8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" },
   { to: "/checadas", label: "Asistencias", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" },
+  { to: "/actividades", label: "Actividades", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "M12 7v5l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" },
   { to: "/reportes", label: "Reportes y nómina", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "M9 17v-6m3 6V7m3 10v-3M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z" },
   { to: "/turnos", label: "Turnos", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "M12 7v5l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" },
   { to: "/festivos", label: "Días festivos", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2zM12 14l1 2 2 .3-1.5 1.4.4 2.1-1.9-1-1.9 1 .4-2.1L9 16.3l2-.3z" },
-  { to: "/checadas/configuracion", label: "Config. asistencias", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z" },
   { to: "/usuarios", label: "Usuarios", roles: ["superadmin", "admin_empresa"], icon: "M16 19v-1a4 4 0 00-4-4H6a4 4 0 00-4 4v1M9 10a3 3 0 100-6 3 3 0 000 6zm13 9v-1a4 4 0 00-3-3.9M16 4.1a3 3 0 010 5.8" },
 ];
 
@@ -33,6 +32,18 @@ const FIJO_KEY = "odaitime.menuFijo";
 export default function Layout() {
   const { usuario, logout } = useAuth();
   const [abierto, setAbierto] = useState(false); // móvil: panel abierto
+  const [pendientes, setPendientes] = useState(0); // mis actividades vencidas o de hoy
+  const ubicacion = useLocation();
+  useEffect(() => {
+    if (!usuario?.empresa || usuario.rol === "empleado") return;
+    const leer = () =>
+      get<Tarea[]>(`/tareas/mias?hasta=${hoyISO()}`)
+        .then((l) => setPendientes(l.length))
+        .catch(() => {});
+    leer();
+    const t = setInterval(leer, 120_000);
+    return () => clearInterval(t);
+  }, [usuario, ubicacion.pathname]);
   const [hover, setHover] = useState(false); // escritorio: el mouse está encima
   const [fijo, setFijo] = useState(() => {
     try {
@@ -124,21 +135,17 @@ export default function Layout() {
                 }`
               }
             >
-              <Icon d={n.icon} />
+              <span className="relative">
+                <Icon d={n.icon} />
+                {n.to === "/actividades" && pendientes > 0 && (
+                  <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">{pendientes}</span>
+                )}
+              </span>
               <span className={oculto}>{n.label}</span>
             </NavLink>
           ))}
         </nav>
 
-        <div className={`space-y-1 whitespace-nowrap px-6 pb-3 text-xs text-slate-400 ${oculto}`}>
-          <p className="font-semibold uppercase tracking-wide text-slate-500">Fuentes oficiales</p>
-          <a href={LFT_URL} target="_blank" rel="noopener noreferrer" className="block hover:text-white">
-            Ley Federal del Trabajo ↗
-          </a>
-          <a href={STPS_URL} target="_blank" rel="noopener noreferrer" className="block hover:text-white">
-            Secretaría del Trabajo (STPS) ↗
-          </a>
-        </div>
         <div className={`whitespace-nowrap border-t border-navy-700 py-4 ${expandido ? "px-4" : "px-4 lg:px-2"}`}>
           <div className={oculto}>
             {usuario.empresa?.logo_version && (

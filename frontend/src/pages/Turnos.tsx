@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Bitacora from "../components/Bitacora";
-import { ArticuloLFT, FuenteLFT, TextoLFT } from "../components/LFT";
+import { ArticuloLFT, TextoLFT } from "../components/LFT";
+import Vista, { useVista, type ConfigVista } from "../components/Vista";
 import Registro, { useFormulario } from "../components/Registro";
 import { Badge, ErrorBox, PageHeader, useEmpresaScope } from "../components/ui";
 import { DIAS, DIAS_CORTOS, get, horas, hhmm, JORNADAS, patch, post, type TipoJornada, type Turno } from "../lib/api";
@@ -118,18 +119,112 @@ export default function Turnos() {
     }
   }
 
-  const indice = editando && editando !== "nuevo" ? turnos.findIndex((x) => x.id === editando.id) : -1;
 
   async function alternar(t: Turno) {
     await patch(`/turnos/${t.id}${query}`, { activo: !t.activo });
     cargar();
   }
 
+  const config: ConfigVista<Turno> = {
+    id: "turnos",
+    clave: (t) => t.id,
+    onAbrir: abrir,
+    modoInicial: "kanban",
+    actividades: { modelo: "turno", query, listo },
+    vacio: "Aún no hay turnos.",
+    ordenInicial: { clave: "nombre", dir: "asc" },
+    columnas: [
+      { clave: "nombre", titulo: "Turno", fija: true, buscable: true, valor: (t) => t.nombre, className: "font-medium text-navy-900" },
+      { clave: "jornada", titulo: "Jornada", agrupable: true, valor: (t) => JORNADAS[t.tipo_jornada].label },
+      { clave: "horas", titulo: "Horas por semana", alinear: "derecha", valor: (t) => t.minutos_semana, render: (t) => horas(t.minutos_semana) },
+      { clave: "max", titulo: "Máximo legal", alinear: "derecha", visible: false, valor: (t) => t.semana_max_minutos, render: (t) => horas(t.semana_max_minutos) },
+      { clave: "dias", titulo: "Días laborales", alinear: "derecha", valor: (t) => t.dias.length },
+      { clave: "quebrado", titulo: "Turno quebrado", agrupable: true, valor: (t) => t.dias.some((d) => d.entrada2 && d.salida2) },
+      { clave: "tolerancia", titulo: "Tolerancia (min)", alinear: "derecha", valor: (t) => t.tolerancia_minutos },
+      {
+        clave: "advertencias",
+        titulo: "Advertencias LFT",
+        valor: (t) => t.advertencias.length,
+        render: (t) => (t.advertencias.length ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">⚠ {t.advertencias.length}</span> : <span className="text-slate-300">—</span>),
+      },
+      { clave: "estado", titulo: "Estado", agrupable: true, valor: (t) => (t.activo ? "Activo" : "Inactivo"), render: (t) => <Badge ok={t.activo}>{t.activo ? "Activo" : "Inactivo"}</Badge> },
+    ],
+    filtros: [
+      { clave: "advertencias", titulo: "Con advertencias de la LFT", grupo: "lft", prueba: (t) => t.advertencias.length > 0 },
+      { clave: "quebrados", titulo: "Turnos quebrados", grupo: "tipo", prueba: (t) => t.dias.some((d) => d.entrada2 && d.salida2) },
+      { clave: "activos", titulo: "Activos", grupo: "estado", prueba: (t) => t.activo },
+      { clave: "inactivos", titulo: "Inactivos", grupo: "estado", prueba: (t) => !t.activo },
+    ],
+    filtrosIniciales: ["activos"],
+    kanban: (t) => (
+      <div className={`p-2 pb-6 ${t.activo ? "" : "opacity-60"}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="font-semibold text-navy-900">{t.nombre}</h2>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {JORNADAS[t.tipo_jornada].label} · {horas(t.minutos_semana)} de {horas(t.semana_max_minutos)} por semana · tolerancia {t.tolerancia_minutos} min
+          </p>
+        </div>
+        <Badge ok={t.activo}>{t.activo ? "Activo" : "Inactivo"}</Badge>
+      </div>
+
+      <div className="mt-4 grid grid-cols-7 gap-1 text-center text-xs">
+        {DIAS_CORTOS.map((corto, i) => {
+          const d = t.dias.find((x) => x.dia_semana === i);
+          return (
+            <div key={i} className={`rounded-md px-0.5 py-2 ${d ? "bg-brand-50 text-navy-900" : "bg-slate-50 text-slate-400"}`}>
+              <p className="font-semibold">{corto}</p>
+              {d ? (
+                <p className="mt-1 leading-tight">
+                  {hhmm(d.entrada)}
+                  <br />
+                  {hhmm(d.salida)}
+                  {d.entrada2 && d.salida2 && (
+                    <>
+                      <span className="my-0.5 block border-t border-brand-200" aria-label="y" />
+                      {hhmm(d.entrada2)}
+                      <br />
+                      {hhmm(d.salida2)}
+                    </>
+                  )}
+                </p>
+              ) : (
+                <p className="mt-1 leading-tight">Des&shy;canso</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {t.advertencias.length > 0 && (
+        <ul className="mt-4 space-y-1 rounded-lg bg-amber-50 p-3 text-xs text-amber-800 ring-1 ring-amber-200">
+          {t.advertencias.map((a) => (
+            <li key={a}>
+              ⚠ <TextoLFT texto={a} />
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {puedeEditar && (
+        <div className="mt-4 flex gap-4 text-sm">
+          <button className="text-slate-500 hover:underline" onClick={(e) => (e.stopPropagation(), alternar(t))}>
+            {t.activo ? "Desactivar" : "Activar"}
+          </button>
+        </div>
+      )}
+      </div>
+    ),
+  };
+  const vista = useVista(config, turnos);
+  const enOrden = vista.ordenados;
+  const indice = editando && editando !== "nuevo" ? enOrden.findIndex((x) => x.id === editando.id) : -1;
+
   const semanaForm = form.dias.filter((d) => d.activo).reduce((s, d) => s + minutosDia(d), 0);
 
   return (
     <>
-      <PageHeader
+      <PageHeader fuentes="arts. 59 a 69: jornada, descansos y horas extra"
         title="Turnos"
         subtitle="Horarios semanales reutilizables, revisados contra la jornada máxima de la Ley Federal del Trabajo"
         action={
@@ -144,76 +239,14 @@ export default function Turnos() {
         }
       />
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {turnos.map((t) => (
-          <div key={t.id} onClick={() => abrir(t)} className={`card cursor-pointer p-5 transition hover:ring-brand-200 ${t.activo ? "" : "opacity-60"}`}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="font-semibold text-navy-900">{t.nombre}</h2>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  {JORNADAS[t.tipo_jornada].label} · {horas(t.minutos_semana)} de {horas(t.semana_max_minutos)} por semana · tolerancia {t.tolerancia_minutos} min
-                </p>
-              </div>
-              <Badge ok={t.activo}>{t.activo ? "Activo" : "Inactivo"}</Badge>
-            </div>
-
-            <div className="mt-4 grid grid-cols-7 gap-1 text-center text-xs">
-              {DIAS_CORTOS.map((corto, i) => {
-                const d = t.dias.find((x) => x.dia_semana === i);
-                return (
-                  <div key={i} className={`rounded-md px-0.5 py-2 ${d ? "bg-brand-50 text-navy-900" : "bg-slate-50 text-slate-400"}`}>
-                    <p className="font-semibold">{corto}</p>
-                    {d ? (
-                      <p className="mt-1 leading-tight">
-                        {hhmm(d.entrada)}
-                        <br />
-                        {hhmm(d.salida)}
-                        {d.entrada2 && d.salida2 && (
-                          <>
-                            <span className="my-0.5 block border-t border-brand-200" aria-label="y" />
-                            {hhmm(d.entrada2)}
-                            <br />
-                            {hhmm(d.salida2)}
-                          </>
-                        )}
-                      </p>
-                    ) : (
-                      <p className="mt-1 leading-tight">Des&shy;canso</p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {t.advertencias.length > 0 && (
-              <ul className="mt-4 space-y-1 rounded-lg bg-amber-50 p-3 text-xs text-amber-800 ring-1 ring-amber-200">
-                {t.advertencias.map((a) => (
-                  <li key={a}>
-                    ⚠ <TextoLFT texto={a} />
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            {puedeEditar && (
-              <div className="mt-4 flex gap-4 text-sm">
-                <button className="text-slate-500 hover:underline" onClick={(e) => (e.stopPropagation(), alternar(t))}>
-                  {t.activo ? "Desactivar" : "Activar"}
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
-        {turnos.length === 0 && <p className="card p-10 text-center text-slate-500 lg:col-span-2">Aún no hay turnos.</p>}
-      </div>
-      <FuenteLFT articulos="arts. 59 a 69: jornada, descansos y horas extra" className="mt-4" />
+      <Vista vista={vista} />
 
       {editando && (
         <Registro
           titulo={editando === "nuevo" ? "Nuevo turno" : editando.nombre}
           indice={indice >= 0 ? indice : undefined}
-          total={turnos.length}
-          onIr={(i) => abrir(turnos[i])}
+          total={enOrden.length}
+          onIr={(i) => abrir(enOrden[i])}
           sucio={puedeEditar && sucio}
           onGuardar={puedeEditar ? guardar : undefined}
           onDescartar={descartar}

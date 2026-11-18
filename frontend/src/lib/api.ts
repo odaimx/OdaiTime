@@ -547,3 +547,37 @@ export interface ConceptoNomina {
   unidad: string;
   codigo: string | null;
 }
+
+// --- Actividades programadas (como las de Odoo) ---
+
+export type TipoTarea = "llamada" | "reunion" | "correo" | "tarea" | "recordatorio";
+
+export interface Tarea {
+  id: string;
+  modelo: string | null;
+  registro_id: string | null;
+  registro_nombre: string | null;
+  tipo: TipoTarea;
+  resumen: string;
+  nota: string | null;
+  fecha: string;
+  hora: string | null;
+  asignado: Ref | null;
+  hecha_en: string | null;
+  comentario: string | null;
+  created_at: string;
+}
+
+export interface ResumenTarea {
+  pendientes: number;
+  proxima: string;
+}
+
+/** Días entre hoy y la fecha (negativo = vencida). */
+export function diasHasta(iso: string): number {
+  const [y, m, d] = iso.split("-").map(Number);
+  const hoy = new Date();
+  const a = Date.UTC(y, m - 1, d);
+  const b = Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  return Math.round((a - b) / 86_400_000);
+}

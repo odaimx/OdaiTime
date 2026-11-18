@@ -15,6 +15,7 @@ from app.api import (
     licencia,
     reportes,
     sucursales,
+    tareas,
     tenant,
     turnos,
     usuarios,
@@ -55,5 +56,6 @@ for r in (
     asistencia.router,
     festivos.router,
     reportes.router,
+    tareas.router,
 ):
     app.include_router(r, prefix="/api")
