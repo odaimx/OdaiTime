@@ -21,6 +21,8 @@ class Colores(BaseModel):
     acento: str | None = Field(default=None, pattern=HEX)  # azul secundario
     marino: str | None = Field(default=None, pattern=HEX)  # menú, encabezados y botón principal
     titulos: str | None = Field(default=None, pattern=HEX)  # beige: títulos y menú lateral
+    texto: str | None = Field(default=None, pattern=HEX)  # texto principal
+    texto_suave: str | None = Field(default=None, pattern=HEX)  # texto secundario
 
 
 class TemaOut(BaseModel):

@@ -84,7 +84,7 @@ export default function Exportaciones() {
     modoInicial: "kanban",
     fuentes: "arts. 66, 68, 71, 73 y 75",
     columnas: [
-      { clave: "nombre", titulo: "Sistema de nómina", fija: true, buscable: true, valor: (s) => s.nombre, className: "font-medium text-navy-900" },
+      { clave: "nombre", titulo: "Sistema de nómina", fija: true, buscable: true, valor: (s) => s.nombre, className: "font-medium text-tinta-900" },
       { clave: "formato", titulo: "Archivo", agrupable: true, valor: (s) => s.formato.toUpperCase() },
       { clave: "descripcion", titulo: "Contenido", valor: (s) => s.descripcion, className: "text-slate-600" },
       {
@@ -106,7 +106,7 @@ export default function Exportaciones() {
           <Icono nombre={s.formato === "csv" ? "file-text" : "sheet"} className="h-6 w-6" />
         </span>
         <div className="min-w-0">
-          <p className="font-semibold text-navy-900">{s.nombre}</p>
+          <p className="font-semibold text-tinta-900">{s.nombre}</p>
           <p className="line-clamp-2 text-xs text-slate-500">{s.descripcion}</p>
           <p className="mt-1 text-xs">
             <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600">{s.formato.toUpperCase()}</span>
@@ -249,7 +249,7 @@ function ExportarSistema({
                   setPreset(k);
                   setRango(periodo(k));
                 }}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium ${preset === k ? "bg-white text-navy-900 shadow-sm" : "text-slate-600 hover:text-navy-900"}`}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium ${preset === k ? "bg-white text-tinta-900 shadow-sm" : "text-slate-600 hover:text-tinta-900"}`}
               >
                 {l}
               </button>
@@ -287,10 +287,10 @@ function ExportarSistema({
         <ErrorBox message={error} />
 
         <section>
-          <h3 className="mb-2 text-sm font-semibold text-navy-900">Vista previa de la prenómina</h3>
+          <h3 className="mb-2 text-sm font-semibold text-tinta-900">Vista previa de la prenómina</h3>
           <div className="overflow-x-auto rounded-lg border border-slate-200">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-left font-medium text-navy-900">
+              <thead className="bg-slate-50 text-left font-medium text-tinta-900">
                 <tr>
                   <th className="px-3 py-2">Empleado</th>
                   {usados.map((c) => (
@@ -314,10 +314,10 @@ function ExportarSistema({
                   return (
                     <tr key={f.empleado.id}>
                       <td className="whitespace-nowrap px-3 py-2">
-                        <span className="font-mono text-xs text-slate-500">#{f.empleado.numero}</span> <span className="text-navy-900">{f.empleado.nombre_completo}</span>
+                        <span className="font-mono text-xs text-slate-500">#{f.empleado.numero}</span> <span className="text-tinta-900">{f.empleado.nombre_completo}</span>
                       </td>
                       {usados.map((c) => (
-                        <td key={c.clave} className={`px-3 py-2 text-right tabular-nums ${v[c.clave] ? "text-navy-900" : "text-slate-300"}`}>
+                        <td key={c.clave} className={`px-3 py-2 text-right tabular-nums ${v[c.clave] ? "text-tinta-900" : "text-slate-300"}`}>
                           {v[c.clave] ?? 0}
                         </td>
                       ))}
@@ -338,12 +338,12 @@ function ExportarSistema({
         </section>
 
         <section>
-          <h3 className="mb-2 text-sm font-semibold text-navy-900">Claves de nómina en {sistema.nombre}</h3>
+          <h3 className="mb-2 text-sm font-semibold text-tinta-900">Claves de nómina en {sistema.nombre}</h3>
           <div className="grid grid-cols-1 gap-x-6 gap-y-3 md:grid-cols-2">
             {conceptos.map((c) => (
               <label key={c.clave} className="flex items-center gap-3">
                 <span className="w-12 shrink-0 font-mono text-xs font-semibold text-brand-600">{c.clave}</span>
-                <span className="min-w-0 flex-1 text-sm text-navy-900">
+                <span className="min-w-0 flex-1 text-sm text-tinta-900">
                   {c.descripcion.replace(/ \(art\. \d+\)/, "")}
                   {ARTICULO[c.clave] && (
                     <span className="ml-1 text-xs text-slate-500">

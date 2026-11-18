@@ -86,7 +86,7 @@ export default function ReporteEmpleados({ empleados, categorias, catsDe, onCerr
   const par = (l: string[]) => l.map((v) => [v, v] as [string, string]);
 
   return (
-    <Modal title="Reporte de empleados" onClose={onCerrar} ancho="xl">
+    <Modal title="Reporte PDF de empleados" onClose={onCerrar} ancho="xl">
       <div className="space-y-5">
         <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-3">
           {select(
@@ -125,7 +125,7 @@ export default function ReporteEmpleados({ empleados, categorias, catsDe, onCerr
           <p className="label">Columnas</p>
           <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
             {columnas.map((c) => (
-              <label key={c.clave} className="flex items-center gap-2 text-sm text-navy-900">
+              <label key={c.clave} className="flex items-center gap-2 text-sm text-tinta-900">
                 <input type="checkbox" className="accent-brand-500" checked={cols.includes(c.clave)} onChange={() => setCols((l) => (l.includes(c.clave) ? l.filter((x) => x !== c.clave) : [...l, c.clave]))} />
                 {c.titulo}
               </label>

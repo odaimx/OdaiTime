@@ -71,7 +71,7 @@ export function FuentesOficiales({ articulos, oscuro = false, enGrupo = false }:
       </button>
       {abierto && (
         <div className={`absolute top-10 z-40 w-72 ${enGrupo ? "right-0" : "left-0"} rounded-xl bg-white p-4 text-sm shadow-xl ring-1 ring-slate-200`}>
-          <p className="mb-1 font-semibold text-navy-900">Fuentes oficiales</p>
+          <p className="mb-1 font-semibold text-tinta-900">Fuentes oficiales</p>
           {articulos && <p className="mb-3 text-xs text-slate-500">Aplica: {articulos}</p>}
           <ul className="space-y-2">
             <li>

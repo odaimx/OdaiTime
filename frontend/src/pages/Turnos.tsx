@@ -4,7 +4,7 @@ import { ArticuloLFT, TextoLFT } from "../components/LFT";
 import Icono from "../components/Iconos";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
 import Registro, { useFormulario } from "../components/Registro";
-import { Badge, ErrorBox, PageHeader, useEmpresaScope } from "../components/ui";
+import { Badge, ErrorBox, PageHeader, useEmpresaScope, Plegable } from "../components/ui";
 import { DIAS, DIAS_CORTOS, get, horas, hhmm, JORNADAS, patch, post, type TipoJornada, type Turno } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -142,7 +142,7 @@ export default function Turnos() {
     vacio: "Aún no hay turnos.",
     ordenInicial: { clave: "nombre", dir: "asc" },
     columnas: [
-      { clave: "nombre", titulo: "Turno", fija: true, buscable: true, valor: (t) => t.nombre, className: "font-medium text-navy-900" },
+      { clave: "nombre", titulo: "Turno", fija: true, buscable: true, valor: (t) => t.nombre, className: "font-medium text-tinta-900" },
       { clave: "jornada", titulo: "Jornada", agrupable: true, valor: (t) => JORNADAS[t.tipo_jornada].label },
       { clave: "horas", titulo: "Horas por semana", alinear: "derecha", valor: (t) => t.minutos_semana, render: (t) => horas(t.minutos_semana) },
       { clave: "max", titulo: "Máximo legal", alinear: "derecha", visible: false, valor: (t) => t.semana_max_minutos, render: (t) => horas(t.semana_max_minutos) },
@@ -168,7 +168,7 @@ export default function Turnos() {
       <div className={`p-2 pb-6 ${t.activo ? "" : "opacity-60"}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="font-semibold text-navy-900">{t.nombre}</h2>
+          <h2 className="font-semibold text-tinta-900">{t.nombre}</h2>
           <p className="mt-0.5 text-xs text-slate-500">
             {JORNADAS[t.tipo_jornada].label} · {horas(t.minutos_semana)} de {horas(t.semana_max_minutos)} por semana · tolerancia {t.tolerancia_minutos} min
           </p>
@@ -180,7 +180,7 @@ export default function Turnos() {
         {DIAS_CORTOS.map((corto, i) => {
           const d = t.dias.find((x) => x.dia_semana === i);
           return (
-            <div key={i} className={`rounded-md px-0.5 py-2 ${d ? "bg-brand-50 text-navy-900" : "bg-slate-50 text-slate-400"}`}>
+            <div key={i} className={`rounded-md px-0.5 py-2 ${d ? "bg-brand-50 text-tinta-900" : "bg-slate-50 text-slate-400"}`}>
               <p className="font-semibold">{corto}</p>
               {d ? (
                 <p className="mt-1 leading-tight">
@@ -304,7 +304,7 @@ export default function Turnos() {
                 {form.dias.map((d, i) => (
                   <div key={i} className="space-y-2 px-3 py-2">
                     <div className="grid grid-cols-2 items-center gap-2 sm:grid-cols-[6.5rem_1fr_1fr_4.5rem_3.5rem]">
-                      <label className="col-span-2 flex items-center gap-2 text-sm text-navy-900 sm:col-span-1">
+                      <label className="col-span-2 flex items-center gap-2 text-sm text-tinta-900 sm:col-span-1">
                         <input type="checkbox" className="accent-brand-500" checked={d.activo} onChange={(e) => setDia(i, { activo: e.target.checked })} />
                         {DIAS[i]}
                       </label>
@@ -342,7 +342,7 @@ export default function Turnos() {
                 ))}
               </div>
               <p className="mt-2 text-xs text-slate-500">
-                Total semanal: <strong className="text-navy-900">{horas(semanaForm)}</strong>. Si la salida es menor que la entrada, el turno termina al día siguiente.
+                Total semanal: <strong className="text-tinta-900">{horas(semanaForm)}</strong>. Si la salida es menor que la entrada, el turno termina al día siguiente.
                 En turno quebrado el empleado checa al salir y al regresar; el tiempo entre horarios no cuenta como trabajado (<ArticuloLFT art="64" />).
                 Tope semanal: <ArticuloLFT art="59" />.
               </p>
@@ -350,12 +350,7 @@ export default function Turnos() {
 
             </fieldset>
             {editando !== "nuevo" && (
-              <details className="rounded-lg border border-slate-200 p-3">
-                <summary className="cursor-pointer text-sm font-medium text-navy-900">Historial de cambios</summary>
-                <div className="mt-3">
-                  <Bitacora modelo="turno" registroId={editando.id} query={query} />
-                </div>
-              </details>
+              <Plegable titulo="Historial de cambios"><Bitacora modelo="turno" registroId={editando.id} query={query} /></Plegable>
             )}
             <ErrorBox message={error} />
             <button type="submit" className="sr-only">

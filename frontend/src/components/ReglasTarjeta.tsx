@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, get, type PoliticaAsistencia } from "../lib/api";
 import { ArticuloLFT } from "./LFT";
+import { Ayuda } from "./ui";
 
 /** Reglas de la tarjeta de asistencia (retardos, tiempo extra, festivos opcionales).
  * Se abre desde el engrane de Configuración en la Tarjeta de asistencia. */
@@ -30,38 +31,38 @@ export default function ReglasTarjeta({ query, esAdmin }: { query: string; esAdm
               <fieldset disabled={!esAdmin} className="space-y-4">
                 <legend className="sr-only">Reglas de la tarjeta de asistencia</legend>
                 <div>
-                  <h2 className="font-semibold text-navy-900">Reglas de la tarjeta de asistencia</h2>
+                  <h2 className="font-semibold text-tinta-900">Reglas de la tarjeta de asistencia</h2>
                   <p className="mt-1 text-sm text-slate-500">
                     Aplican a toda la empresa. Los retardos no están en la LFT: dependen de tu reglamento interior de trabajo (<ArticuloLFT art="423" />).
                   </p>
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <label className="text-sm font-medium text-navy-900">
+                  <label className="text-sm font-medium text-tinta-900">
                     Retardos que equivalen a una falta
+                    <Ayuda texto="Cuántos retardos en el periodo cuentan como una falta. 0 = no se convierten." />
                     <input type="number" min={0} max={31} className="input mt-1" value={politica.retardos_por_falta} onChange={(e) => setPolitica({ ...politica, retardos_por_falta: Number(e.target.value) })} />
-                    <span className="mt-1 block text-xs font-normal text-slate-500">0 = no se convierten</span>
                   </label>
-                  <label className="text-sm font-medium text-navy-900">
+                  <label className="text-sm font-medium text-tinta-900">
                     Retardo que cuenta como falta (min)
+                    <Ayuda texto="Si llega con más minutos de retardo que este valor, el día cuenta como falta. 0 = no aplica." />
                     <input type="number" min={0} max={480} className="input mt-1" value={politica.retardo_falta_min} onChange={(e) => setPolitica({ ...politica, retardo_falta_min: Number(e.target.value) })} />
-                    <span className="mt-1 block text-xs font-normal text-slate-500">0 = no aplica</span>
                   </label>
-                  <label className="text-sm font-medium text-navy-900">
+                  <label className="text-sm font-medium text-tinta-900">
                     Tiempo extra mínimo a contar (min)
+                    <Ayuda texto="Si el tiempo extra del día es menor, no se cuenta." />
                     <input type="number" min={0} max={240} className="input mt-1" value={politica.minimo_extra_min} onChange={(e) => setPolitica({ ...politica, minimo_extra_min: Number(e.target.value) })} />
                   </label>
-                  <label className="text-sm font-medium text-navy-900 sm:col-span-2">
+                  <label className="text-sm font-medium text-tinta-900 sm:col-span-2">
                     Si se trabaja un festivo opcional (no obligatorio por ley)
+                    <Ayuda texto={<>Los obligatorios del art. 74 siempre se pagan con salario doble adicional (art. 75).</>} />
                     <select className="input mt-1" value={politica.festivo_opcional_pago} onChange={(e) => setPolitica({ ...politica, festivo_opcional_pago: e.target.value as "doble" | "normal" })}>
                       <option value="doble">Pagar salario doble adicional (igual que un obligatorio)</option>
                       <option value="normal">Pagar como día normal</option>
                     </select>
-                    <span className="mt-1 block text-xs font-normal text-slate-500">
-                      Los obligatorios del <ArticuloLFT art="74" /> siempre se pagan con salario doble adicional (<ArticuloLFT art="75" />).
-                    </span>
                   </label>
-                  <label className="text-sm font-medium text-navy-900">
+                  <label className="text-sm font-medium text-tinta-900">
                     Contar tiempo extra en bloques de (min)
+                    <Ayuda texto="El tiempo extra se redondea hacia abajo a bloques de estos minutos (p. ej. 30 → 1 h 20 min cuenta como 1 h)." />
                     <input type="number" min={1} max={120} className="input mt-1" value={politica.redondeo_extra_min} onChange={(e) => setPolitica({ ...politica, redondeo_extra_min: Number(e.target.value) })} />
                   </label>
                 </div>

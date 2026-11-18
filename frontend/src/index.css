@@ -13,6 +13,7 @@
   --color-navy-800: #243a63;
   --color-navy-700: #2f4878;
   --color-navy-950: #13204a; /* encabezado de las pantallas */
+  --color-tinta-900: #1a2c4f; /* texto principal (configurable en el tema) */
   --color-oro-300: #ecd9b2;
   --color-oro-400: #e2c68f; /* títulos sobre el encabezado */
   --color-oro-500: #d2b16f;
@@ -25,13 +26,13 @@
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 bg-navy-900 text-white hover:bg-navy-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy-900;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 border border-slate-300 bg-white text-navy-900 hover:bg-slate-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 border border-slate-300 bg-white text-tinta-900 hover:bg-slate-50;
   }
   .input {
-    @apply block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-navy-900 placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none;
+    @apply block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-tinta-900 placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none;
   }
   .label {
-    @apply mb-1 block text-sm font-medium text-navy-900;
+    @apply mb-1 block text-sm font-medium text-tinta-900;
   }
   .card {
     @apply rounded-xl bg-white shadow-sm ring-1 ring-slate-200;
@@ -42,7 +43,7 @@
     @apply absolute z-40 rounded-xl bg-white p-2 shadow-xl ring-1 ring-slate-200;
   }
   .menu-titulo {
-    @apply flex items-center gap-2 px-3 pb-1 pt-2 text-sm font-semibold text-navy-900;
+    @apply flex items-center gap-2 px-3 pb-1 pt-2 text-sm font-semibold text-tinta-900;
   }
   .menu-item {
     @apply flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100;
@@ -51,30 +52,30 @@
     @apply flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm font-medium text-brand-700 bg-brand-50 hover:bg-brand-100;
   }
   .faceta {
-    @apply inline-flex max-w-full items-center gap-1 overflow-hidden rounded-md bg-slate-100 text-xs text-navy-900 ring-1 ring-slate-200;
+    @apply inline-flex max-w-full items-center gap-1 overflow-hidden rounded-md bg-slate-100 text-xs text-tinta-900 ring-1 ring-slate-200;
   }
   .btn-icono {
-    @apply inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-100 text-navy-900 transition hover:bg-slate-200 disabled:opacity-40 disabled:hover:bg-slate-100;
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-100 text-tinta-900 transition hover:bg-slate-200 disabled:opacity-40 disabled:hover:bg-slate-100;
   }
   .btn-icono-activo {
-    @apply inline-flex h-9 w-9 items-center justify-center rounded-md bg-brand-50 text-navy-900 ring-1 ring-brand-500;
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-md bg-brand-50 text-tinta-900 ring-1 ring-brand-500;
   }
   /* Grupo de botones de vista (lista, kanban, calendario, fuentes) */
   .grupo-vistas {
     @apply flex items-center gap-0.5 rounded-lg bg-slate-100 p-0.5;
   }
   .btn-vista {
-    @apply inline-flex h-9 w-11 items-center justify-center rounded-md text-navy-900 transition hover:bg-slate-200;
+    @apply inline-flex h-9 w-11 items-center justify-center rounded-md text-tinta-900 transition hover:bg-slate-200;
   }
   .btn-vista-activo {
-    @apply inline-flex h-9 w-11 items-center justify-center rounded-md bg-brand-50 text-navy-900 ring-1 ring-brand-500;
+    @apply inline-flex h-9 w-11 items-center justify-center rounded-md bg-brand-50 text-tinta-900 ring-1 ring-brand-500;
   }
   /* Encabezado azul marino de cada pantalla */
   .banda .input {
     @apply border-white/30 bg-white/5 text-white focus:border-oro-400 focus:ring-oro-400/30;
   }
   .banda .input option {
-    @apply text-navy-900;
+    @apply text-tinta-900;
   }
 }
 
@@ -123,6 +124,11 @@
     max-width: none;
     box-shadow: none;
     border: 0;
+  }
+  body.imprimiendo-registro .registro-hoja,
+  body.imprimiendo-registro .registro-hoja * {
+    overflow: visible !important;
+    max-height: none !important;
   }
   body.imprimiendo-registro .no-imprimir {
     display: none !important;

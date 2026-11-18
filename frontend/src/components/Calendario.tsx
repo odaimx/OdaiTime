@@ -16,7 +16,6 @@ const ESCALAS: [Escala, string][] = [
   ["semana", "Semana"],
   ["mes", "Mes"],
   ["anio", "Año"],
-  ["lista", "Lista"],
 ];
 const DIAS = ["LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB", "DOM"];
 const DIAS_MINI = ["L", "M", "M", "J", "V", "S", "D"];
@@ -56,7 +55,8 @@ function leerPrefs(): { escala: Escala; finde: boolean; panel: boolean } {
 export default function Calendario({ query, modelo }: { query: string; modelo?: string }) {
   const { usuario } = useAuth();
   const inicial = leerPrefs();
-  const [escala, setEscala] = useState<Escala>(inicial.escala);
+  const [escala, setEscala] = useState<Escala>(inicial.escala === "lista" ? "mes" : inicial.escala);
+  const [enLista, setEnLista] = useState(false); // vista de lista (ícono a la derecha, como en las demás vistas)
   const [finde, setFinde] = useState(inicial.finde);
   const [panel, setPanel] = useState(inicial.panel);
   const [ref, setRef] = useState(() => new Date());
@@ -94,9 +94,9 @@ export default function Calendario({ query, modelo }: { query: string; modelo?: 
       const c = cuadriculaMes(ref.getFullYear(), ref.getMonth());
       return [c[0], c[41]];
     }
-    if (escala === "lista") return [new Date(ref.getFullYear(), ref.getMonth(), 1), new Date(ref.getFullYear(), ref.getMonth() + 1, 0)];
+    if (enLista) return [new Date(ref.getFullYear(), ref.getMonth(), 1), new Date(ref.getFullYear(), ref.getMonth() + 1, 0)];
     return [new Date(ref.getFullYear(), 0, 1), new Date(ref.getFullYear(), 11, 31)];
-  }, [escala, ref]);
+  }, [escala, ref, enLista]);
 
   const verPendientes = useCallback(() => {
     get<Tarea[]>(`/tareas/mias${query}`).then(setPendientes);
@@ -127,18 +127,21 @@ export default function Calendario({ query, modelo }: { query: string; modelo?: 
   }, [visibles]);
 
   function mover(n: number) {
-    if (escala === "dia") setRef(sumar(ref, n));
+    if (enLista) setRef(new Date(ref.getFullYear(), ref.getMonth() + n, 1));
+    else if (escala === "dia") setRef(sumar(ref, n));
     else if (escala === "semana") setRef(sumar(ref, 7 * n));
-    else if (escala === "mes" || escala === "lista") setRef(new Date(ref.getFullYear(), ref.getMonth() + n, 1));
+    else if (escala === "mes" || enLista) setRef(new Date(ref.getFullYear(), ref.getMonth() + n, 1));
     else setRef(new Date(ref.getFullYear() + n, ref.getMonth(), 1));
   }
 
   const titulo =
-    escala === "dia"
+    enLista
+      ? ref.toLocaleDateString("es-MX", { month: "long", year: "numeric" })
+      : escala === "dia"
       ? ref.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
       : escala === "semana"
         ? `${desde.toLocaleDateString("es-MX", { day: "numeric", month: "short" })} – ${hasta.toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })}`
-        : escala === "mes" || escala === "lista"
+        : escala === "mes" || enLista
           ? ref.toLocaleDateString("es-MX", { month: "long", year: "numeric" })
           : String(ref.getFullYear());
 
@@ -162,9 +165,9 @@ export default function Calendario({ query, modelo }: { query: string; modelo?: 
           <button className="btn-icono" onClick={() => mover(1)} aria-label="Siguiente">
             <Icono nombre="arrow-right" />
           </button>
-          <div className="relative">
+          <div className={`relative ${enLista ? "hidden" : ""}`}>
             <button
-              className={`inline-flex h-9 items-center gap-1 rounded-md px-3 text-sm font-medium text-navy-900 ${menuEscala ? "bg-brand-50 ring-1 ring-brand-500" : "bg-slate-100 hover:bg-slate-200"}`}
+              className={`inline-flex h-9 items-center gap-1 rounded-md px-3 text-sm font-medium text-tinta-900 ${menuEscala ? "bg-brand-50 ring-1 ring-brand-500" : "bg-slate-100 hover:bg-slate-200"}`}
               onClick={() => setMenuEscala((a) => !a)}
             >
               {ESCALAS.find(([k]) => k === escala)?.[1]}
@@ -177,7 +180,7 @@ export default function Calendario({ query, modelo }: { query: string; modelo?: 
                   {ESCALAS.map(([k, l]) => (
                     <button
                       key={k}
-                      className={escala === k ? "menu-item font-semibold text-navy-900" : "menu-item"}
+                      className={escala === k ? "menu-item font-semibold text-tinta-900" : "menu-item"}
                       onClick={() => {
                         setEscala(k);
                         setMenuEscala(false);
@@ -188,7 +191,7 @@ export default function Calendario({ query, modelo }: { query: string; modelo?: 
                     </button>
                   ))}
                   <hr className="my-1 border-slate-100" />
-                  <button className="menu-item font-medium text-navy-900" onClick={() => setFinde((f) => !f)}>
+                  <button className="menu-item font-medium text-tinta-900" onClick={() => setFinde((f) => !f)}>
                     <span className="w-4">{finde && <Icono nombre="check" className="h-3.5 w-3.5" />}</span>
                     Mostrar fines de semana
                   </button>
@@ -196,15 +199,23 @@ export default function Calendario({ query, modelo }: { query: string; modelo?: 
               </>
             )}
           </div>
-          <button className="inline-flex h-9 items-center rounded-md bg-slate-100 px-3 text-sm font-medium text-navy-900 hover:bg-slate-200" onClick={() => setRef(new Date())}>
+          <button className="inline-flex h-9 items-center rounded-md bg-slate-100 px-3 text-sm font-medium text-tinta-900 hover:bg-slate-200" onClick={() => setRef(new Date())}>
             Hoy
           </button>
-          <h2 className="ml-2 text-base font-semibold capitalize text-navy-900 sm:text-lg">{titulo}</h2>
+          <h2 className="ml-2 text-base font-semibold capitalize text-tinta-900 sm:text-lg">{titulo}</h2>
         </div>
         <div className="flex items-center gap-1.5">
           <button className="btn-primary h-9 py-0" onClick={() => nueva(iso(ref))}>
             <Icono nombre="calendar-plus" /> Actividad
           </button>
+          <div className="grupo-vistas" role="group" aria-label="Tipo de vista">
+            <button className={!enLista ? "btn-vista-activo" : "btn-vista"} onClick={() => setEnLista(false)} title="Calendario" aria-label="Calendario" aria-pressed={!enLista}>
+              <Icono nombre="calendar" />
+            </button>
+            <button className={enLista ? "btn-vista-activo" : "btn-vista"} onClick={() => setEnLista(true)} title="Lista" aria-label="Lista" aria-pressed={enLista}>
+              <Icono nombre="list" />
+            </button>
+          </div>
           <button className={panel ? "btn-icono-activo" : "btn-icono"} onClick={() => setPanel((p) => !p)} title="Panel lateral" aria-label="Panel lateral">
             <Icono nombre="panel-right" />
           </button>
@@ -213,12 +224,12 @@ export default function Calendario({ query, modelo }: { query: string; modelo?: 
 
       <div className="flex">
         <div className="min-w-0 flex-1">
-          {escala === "mes" && <VistaMes refDate={ref} finde={finde} porDia={porDia} onNueva={nueva} onAbrir={abrir} />}
-          {(escala === "semana" || escala === "dia") && (
+          {enLista && <VistaLista tareas={visibles} onAbrir={abrir} />}
+          {!enLista && escala === "mes" && <VistaMes refDate={ref} finde={finde} porDia={porDia} onNueva={nueva} onAbrir={abrir} />}
+          {!enLista && (escala === "semana" || escala === "dia") && (
             <VistaHoras dias={escala === "dia" ? [ref] : Array.from({ length: 7 }, (_, i) => sumar(desde, i)).filter((d) => finde || !finDeSemana(d))} porDia={porDia} onNueva={nueva} onAbrir={abrir} />
           )}
-          {escala === "lista" && <VistaLista tareas={visibles} onAbrir={abrir} />}
-          {escala === "anio" && (
+          {!enLista && escala === "anio" && (
             <VistaAnio
               anio={ref.getFullYear()}
               porDia={porDia}
@@ -241,8 +252,8 @@ export default function Calendario({ query, modelo }: { query: string; modelo?: 
               }}
             />
             <div className="mt-6 space-y-2">
-              <p className="text-sm font-semibold text-navy-900">Mis calendarios</p>
-              <label className="flex items-center gap-2 text-sm text-navy-900">
+              <p className="text-sm font-semibold text-tinta-900">Mis calendarios</p>
+              <label className="flex items-center gap-2 text-sm text-tinta-900">
                 <input type="checkbox" className="accent-brand-500" checked={soloMias} onChange={(e) => setSoloMias(e.target.checked)} />
                 Solo mis actividades
               </label>
@@ -255,7 +266,7 @@ export default function Calendario({ query, modelo }: { query: string; modelo?: 
                 ))}
             </div>
             <div className="mt-6 space-y-2">
-              <p className="text-sm font-semibold text-navy-900">Tipos de actividad</p>
+              <p className="text-sm font-semibold text-tinta-900">Tipos de actividad</p>
               {(Object.keys(TIPOS) as TipoTarea[]).map((k) => (
                 <label key={k} className="flex items-center gap-2 text-sm text-slate-700">
                   <input type="checkbox" className="accent-brand-500" checked={!ocultosTipo.has(k)} onChange={() => setOcultosTipo((s) => alternar(s, k))} />
@@ -272,8 +283,8 @@ export default function Calendario({ query, modelo }: { query: string; modelo?: 
               ) : (
                 <div>
                   <div className="mb-2 flex items-center justify-between">
-                    <p className="text-sm font-semibold text-navy-900">Mis pendientes ({pendientes.length})</p>
-                    <button className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-navy-900" onClick={() => setPendientes(null)} aria-label="Ocultar pendientes">
+                    <p className="text-sm font-semibold text-tinta-900">Mis pendientes ({pendientes.length})</p>
+                    <button className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-tinta-900" onClick={() => setPendientes(null)} aria-label="Ocultar pendientes">
                       <Icono nombre="x" className="h-4 w-4" />
                     </button>
                   </div>
@@ -284,7 +295,7 @@ export default function Calendario({ query, modelo }: { query: string; modelo?: 
                         <button className="flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-slate-50" onClick={() => abrir(t)}>
                           <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${TIPOS[t.tipo].punto}`} />
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-medium text-navy-900">{t.resumen}</span>
+                            <span className="block truncate text-sm font-medium text-tinta-900">{t.resumen}</span>
                             <span className="block truncate text-xs text-slate-500">{t.registro_nombre ?? "General"}</span>
                             <span className={`text-xs ${colorFecha(t.fecha)}`}>{textoFecha(t.fecha)}</span>
                           </span>
@@ -338,7 +349,7 @@ function Evento({ t, onAbrir, compacto = true }: { t: Tarea; onAbrir: (t: Tarea)
 function NumeroDia({ d, tenue = false }: { d: Date; tenue?: boolean }) {
   const hoy = iso(d) === hoyISO();
   return (
-    <span className={`inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1 text-sm ${hoy ? "bg-red-500 font-semibold text-white" : tenue ? "text-slate-300" : "text-navy-900"}`}>{d.getDate()}</span>
+    <span className={`inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1 text-sm ${hoy ? "bg-red-500 font-semibold text-white" : tenue ? "text-slate-300" : "text-tinta-900"}`}>{d.getDate()}</span>
   );
 }
 
@@ -361,7 +372,7 @@ function VistaMes({
   const plantilla = { gridTemplateColumns: `2rem repeat(${cols}, minmax(0, 1fr))` };
   return (
     <div>
-      <div className="grid border-b border-slate-200 text-center text-xs font-semibold text-navy-900" style={plantilla}>
+      <div className="grid border-b border-slate-200 text-center text-xs font-semibold text-tinta-900" style={plantilla}>
         <div />
         {DIAS.slice(0, cols).map((d) => (
           <div key={d} className="py-2">
@@ -421,7 +432,7 @@ function VistaHoras({
         <div className="border-r border-slate-200 pt-1 text-center text-[10px] text-slate-500">S{semanaIso(dias[0])}</div>
         {dias.map((d) => (
           <div key={iso(d)} className="border-r border-slate-200 py-1.5 text-center">
-            <p className="text-xs font-semibold text-navy-900">{DIAS[(d.getDay() + 6) % 7]}</p>
+            <p className="text-xs font-semibold text-tinta-900">{DIAS[(d.getDay() + 6) % 7]}</p>
             <NumeroDia d={d} />
           </div>
         ))}
@@ -491,7 +502,7 @@ function VistaLista({ tareas, onAbrir }: { tareas: Tarea[]; onAbrir: (t: Tarea) 
   let dia = "";
   return (
     <table className="w-full text-sm">
-      <thead className="border-b border-slate-200 text-left font-medium text-navy-900">
+      <thead className="border-b border-slate-200 text-left font-medium text-tinta-900">
         <tr>
           <th className="px-4 py-2.5">Hora</th>
           <th className="px-3 py-2.5">Actividad</th>
@@ -509,7 +520,7 @@ function VistaLista({ tareas, onAbrir }: { tareas: Tarea[]; onAbrir: (t: Tarea) 
             <Fragment key={t.id}>
               {nuevoDia && (
                 <tr key={`d-${t.fecha}`} className="bg-slate-50">
-                  <td colSpan={5} className={`px-4 py-2 text-xs font-semibold capitalize ${t.fecha === hoyISO() ? "text-red-600" : "text-navy-900"}`}>
+                  <td colSpan={5} className={`px-4 py-2 text-xs font-semibold capitalize ${t.fecha === hoyISO() ? "text-red-600" : "text-tinta-900"}`}>
                     {d.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" })}
                   </td>
                 </tr>
@@ -519,7 +530,7 @@ function VistaLista({ tareas, onAbrir }: { tareas: Tarea[]; onAbrir: (t: Tarea) 
                 <td className="px-3 py-2">
                   <span className="inline-flex items-center gap-2">
                     <span className={`h-2 w-2 rounded-full ${TIPOS[t.tipo].punto}`} />
-                    <span className={`font-medium text-navy-900 ${t.hecha_en ? "line-through opacity-60" : ""}`}>{t.resumen}</span>
+                    <span className={`font-medium text-tinta-900 ${t.hecha_en ? "line-through opacity-60" : ""}`}>{t.resumen}</span>
                     <span className="text-xs text-slate-500">{TIPOS[t.tipo].label}</span>
                   </span>
                 </td>
@@ -548,7 +559,7 @@ function VistaAnio({ anio, porDia, onDia }: { anio: number; porDia: Record<strin
     <div className="grid grid-cols-1 gap-6 p-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
       {Array.from({ length: 12 }, (_, m) => (
         <div key={m}>
-          <p className="mb-2 text-center text-sm font-semibold capitalize text-navy-900">{new Date(anio, m, 1).toLocaleDateString("es-MX", { month: "long" })}</p>
+          <p className="mb-2 text-center text-sm font-semibold capitalize text-tinta-900">{new Date(anio, m, 1).toLocaleDateString("es-MX", { month: "long" })}</p>
           <Mes anio={anio} mes={m} porDia={porDia} onElegir={onDia} />
         </div>
       ))}
@@ -563,7 +574,7 @@ function Mes({ anio, mes, porDia, onElegir, seleccion }: { anio: number; mes: nu
   return (
     <div className="grid grid-cols-7 gap-y-0.5 text-center text-xs">
       {DIAS_MINI.map((d, i) => (
-        <span key={i} className="py-1 font-semibold text-navy-900">
+        <span key={i} className="py-1 font-semibold text-tinta-900">
           {d}
         </span>
       ))}
@@ -576,7 +587,7 @@ function Mes({ anio, mes, porDia, onElegir, seleccion }: { anio: number; mes: nu
           <button
             key={k}
             onClick={() => onElegir(d)}
-            className={`relative mx-auto flex h-7 w-7 items-center justify-center rounded-full transition ${hoy ? "bg-red-500 font-semibold text-white" : k === sel ? "bg-brand-100 font-semibold text-brand-700" : fuera ? "text-slate-300" : "text-navy-900 hover:bg-slate-100"}`}
+            className={`relative mx-auto flex h-7 w-7 items-center justify-center rounded-full transition ${hoy ? "bg-red-500 font-semibold text-white" : k === sel ? "bg-brand-100 font-semibold text-brand-700" : fuera ? "text-slate-300" : "text-tinta-900 hover:bg-slate-100"}`}
           >
             {d.getDate()}
             {tiene && !hoy && <span className="absolute bottom-0.5 h-1 w-1 rounded-full bg-brand-500" />}
@@ -599,7 +610,7 @@ function MiniMes({ valor, porDia, onElegir }: { valor: Date; porDia: Record<stri
         <button className="rounded p-1 text-slate-500 hover:bg-slate-100" onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() + 1, 1))} aria-label="Mes siguiente">
           <Icono nombre="chevron-right" className="h-4 w-4" />
         </button>
-        <span className="ml-1 text-sm font-semibold text-navy-900">{mes.toLocaleDateString("es-MX", { month: "short", year: "numeric" })}</span>
+        <span className="ml-1 text-sm font-semibold text-tinta-900">{mes.toLocaleDateString("es-MX", { month: "short", year: "numeric" })}</span>
       </div>
       <Mes anio={mes.getFullYear()} mes={mes.getMonth()} porDia={porDia} onElegir={onElegir} seleccion={valor} />
     </div>

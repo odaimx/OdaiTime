@@ -89,8 +89,8 @@ export default function Usuarios() {
         valor: (u) => u.nombre,
         render: (u) => (
           <div className="flex items-center gap-3">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-500/15 text-xs font-semibold text-navy-900">{u.nombre.slice(0, 2).toUpperCase()}</span>
-            <span className="truncate font-medium text-navy-900">{u.nombre}</span>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-500/15 text-xs font-semibold text-tinta-900">{u.nombre.slice(0, 2).toUpperCase()}</span>
+            <span className="truncate font-medium text-tinta-900">{u.nombre}</span>
           </div>
         ),
       },
@@ -113,9 +113,9 @@ export default function Usuarios() {
     filtrosIniciales: ["activos"],
     kanban: (u) => (
       <div className="flex items-center gap-3">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-accent-500/15 font-semibold text-navy-900">{u.nombre.slice(0, 2).toUpperCase()}</span>
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-accent-500/15 font-semibold text-tinta-900">{u.nombre.slice(0, 2).toUpperCase()}</span>
         <div className="min-w-0">
-          <p className="truncate font-semibold text-navy-900">{u.nombre}</p>
+          <p className="truncate font-semibold text-tinta-900">{u.nombre}</p>
           <p className="truncate text-xs text-slate-500">{u.email}</p>
           <span className="mt-1 inline-block rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700">{ROLES[u.rol]}</span>
           {!u.activo && <span className="ml-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-500">Inactivo</span>}
@@ -197,7 +197,7 @@ export default function Usuarios() {
                     <label key={s.id} className="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-slate-50">
                       <input type="checkbox" className="accent-brand-500" checked={form.sucursal_ids.includes(s.id)} onChange={() => toggleSucursal(s.id)} />
                       <span className="font-mono text-xs text-brand-600">{s.clave}</span>
-                      <span className="text-navy-900">{s.nombre}</span>
+                      <span className="text-tinta-900">{s.nombre}</span>
                     </label>
                   ))}
                   {sucursales.length === 0 && <p className="px-2 py-1 text-sm text-slate-500">Primero da de alta sucursales.</p>}
@@ -222,7 +222,7 @@ export default function Usuarios() {
             )}
             {editando !== "nuevo" && editando.id !== yo?.id && (
               <div className="completo flex justify-end">
-                <button type="button" className="text-sm text-slate-500 hover:text-navy-900 hover:underline" onClick={() => alternar(editando)}>
+                <button type="button" className="text-sm text-slate-500 hover:text-tinta-900 hover:underline" onClick={() => alternar(editando)}>
                   {editando.activo ? "Desactivar usuario" : "Activar usuario"}
                 </button>
               </div>

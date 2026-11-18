@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import Bitacora from "../components/Bitacora";
-import { Badge, ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
+import { Badge, ErrorBox, Modal, PageHeader, useEmpresaScope, Plegable } from "../components/ui";
 import { api, fechaHora, get, patch, post, type ConfigChecadas as Config, type Dispositivo, type Sucursal } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -24,7 +24,7 @@ function Opcion({ checked, onChange, titulo, children, extra }: { checked: boole
       <label className="flex flex-1 basis-72 cursor-pointer items-start gap-3">
         <input type="checkbox" className="mt-0.5 h-5 w-5 accent-brand-500" checked={checked} onChange={(e) => onChange(e.target.checked)} />
         <span>
-          <span className="block font-medium text-navy-900">{titulo}</span>
+          <span className="block font-medium text-tinta-900">{titulo}</span>
           <span className="block text-sm text-slate-500">{children}</span>
         </span>
       </label>
@@ -127,7 +127,7 @@ export default function ConfigChecadas({ incrustado = false, scope }: { incrusta
             role="tab"
             aria-selected={pestana === k}
             onClick={() => setPestana(k)}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${pestana === k ? "border-brand-500 text-navy-900" : "border-transparent text-slate-500 hover:text-navy-900"}`}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${pestana === k ? "border-brand-500 text-tinta-900" : "border-transparent text-slate-500 hover:text-tinta-900"}`}
           >
             {l}
           </button>
@@ -139,7 +139,7 @@ export default function ConfigChecadas({ incrustado = false, scope }: { incrusta
           {pestana === "config" && (
           <>
           <div className="card flex flex-wrap items-end justify-between gap-4 p-5">
-            <label className="min-w-64 flex-1 text-sm font-medium text-navy-900">
+            <label className="min-w-64 flex-1 text-sm font-medium text-tinta-900">
               Aplicar a
               <select className="input mt-1" value={alcance} onChange={(e) => setAlcance(e.target.value)}>
                 <option value="">Toda la empresa (general)</option>
@@ -172,7 +172,7 @@ export default function ConfigChecadas({ incrustado = false, scope }: { incrusta
             <form onSubmit={guardar} className="space-y-5">
               <fieldset disabled={bloqueado} className="card space-y-1 p-5">
                 <legend className="sr-only">Dónde se puede checar</legend>
-                <h2 className="mb-2 font-semibold text-navy-900">Dónde se puede checar</h2>
+                <h2 className="mb-2 font-semibold text-tinta-900">Dónde se puede checar</h2>
                 <Opcion checked={config.permitir_movil} onChange={(v) => set("permitir_movil", v)} titulo="Checar desde el portal (celular)">
                   El empleado con acceso al portal registra su entrada y salida desde su teléfono. Si está apagado, el portal es solo de consulta.
                 </Opcion>
@@ -186,7 +186,7 @@ export default function ConfigChecadas({ incrustado = false, scope }: { incrusta
 
               <fieldset disabled={bloqueado} className="card p-5">
                 <legend className="sr-only">Validaciones</legend>
-                <h2 className="mb-2 font-semibold text-navy-900">Validaciones</h2>
+                <h2 className="mb-2 font-semibold text-tinta-900">Validaciones</h2>
                 <Opcion
                   checked={config.validar_gps}
                   onChange={(v) => set("validar_gps", v)}
@@ -221,17 +221,17 @@ export default function ConfigChecadas({ incrustado = false, scope }: { incrusta
 
               <fieldset disabled={bloqueado} className="card space-y-4 p-5">
                 <legend className="sr-only">Reglas</legend>
-                <h2 className="font-semibold text-navy-900">Reglas</h2>
+                <h2 className="font-semibold text-tinta-900">Reglas</h2>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                  <label className="text-sm font-medium text-navy-900">
+                  <label className="text-sm font-medium text-tinta-900">
                     Checar desde (min antes de la entrada)
                     <input type="number" min={0} max={720} className="input mt-1" value={config.minutos_antes_entrada} onChange={(e) => set("minutos_antes_entrada", Number(e.target.value))} />
                   </label>
-                  <label className="text-sm font-medium text-navy-900">
+                  <label className="text-sm font-medium text-tinta-900">
                     Ignorar checada repetida (min)
                     <input type="number" min={0} max={120} className="input mt-1" value={config.ignorar_repetida_min} onChange={(e) => set("ignorar_repetida_min", Number(e.target.value))} />
                   </label>
-                  <label className="text-sm font-medium text-navy-900">
+                  <label className="text-sm font-medium text-tinta-900">
                     Máx. horas sin internet
                     <input type="number" min={1} max={168} className="input mt-1" disabled={!config.permitir_offline} value={config.offline_max_horas} onChange={(e) => set("offline_max_horas", Number(e.target.value))} />
                   </label>
@@ -255,7 +255,7 @@ export default function ConfigChecadas({ incrustado = false, scope }: { incrusta
           {pestana === "dispositivos" && esAdmin && (
             <section className="card space-y-4 p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="font-semibold text-navy-900">Dispositivos</h2>
+                <h2 className="font-semibold text-tinta-900">Dispositivos</h2>
                 <button
                   className="btn-primary"
                   onClick={() => {
@@ -272,7 +272,7 @@ export default function ConfigChecadas({ incrustado = false, scope }: { incrusta
                 {dispositivos.map((d) => (
                   <li key={d.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3">
                     <div>
-                      <p className="font-medium text-navy-900">{d.nombre}</p>
+                      <p className="font-medium text-tinta-900">{d.nombre}</p>
                       <p className="text-xs text-slate-500">
                         {d.tipo === "kiosco" ? "Kiosco" : "Reloj biométrico"} · {d.sucursal.clave}
                         {d.ultima_conexion && ` · última conexión ${fechaHora(d.ultima_conexion)}`}
@@ -304,16 +304,17 @@ export default function ConfigChecadas({ incrustado = false, scope }: { incrusta
                 ))}
               </ul>
               <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                <strong className="text-navy-900">Relojes biométricos (huella / rostro):</strong> el sistema ya recibe sus registros. La conexión con cada modelo (ZKTeco y compatibles) se configura en la etapa final.
+                <strong className="text-tinta-900">Relojes biométricos (huella / rostro):</strong> el sistema ya recibe sus registros. La conexión con cada modelo (ZKTeco y compatibles) se configura en la etapa final.
               </div>
             </section>
           )}
         </div>
 
         {pestana === "config" && registroBitacora && (
-          <aside className="card min-w-0 flex-[1_1_300px] p-5">
-            <h2 className="mb-4 font-semibold text-navy-900">Historial de cambios</h2>
-            <Bitacora key={registroBitacora} modelo="config_checadas" registroId={registroBitacora} query={query} recargar={rev} />
+          <aside className="min-w-0 flex-[1_1_300px]">
+            <Plegable titulo="Historial de cambios">
+              <Bitacora key={registroBitacora} modelo="config_checadas" registroId={registroBitacora} query={query} recargar={rev} />
+            </Plegable>
           </aside>
         )}
       </div>
@@ -362,7 +363,7 @@ export default function ConfigChecadas({ incrustado = false, scope }: { incrusta
             {codigo.tipo === "kiosco" ? (
               <ol className="list-decimal space-y-1 pl-5 text-left text-sm text-slate-600">
                 <li>
-                  En la tablet, abre <strong className="font-mono text-navy-900">{location.origin}/kiosco</strong>
+                  En la tablet, abre <strong className="font-mono text-tinta-900">{location.origin}/kiosco</strong>
                 </li>
                 <li>Escribe este código:</li>
               </ol>

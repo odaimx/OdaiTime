@@ -159,7 +159,7 @@ export function RelojActividad({
                     <Icono nombre={TIPOS[t.tipo].icono} className="h-3.5 w-3.5" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-navy-900">{t.resumen}</p>
+                    <p className="truncate text-sm font-medium text-tinta-900">{t.resumen}</p>
                     <p className={`text-xs ${colorFecha(t.fecha)}`}>
                       {textoFecha(t.fecha)} {horaCorta(t.hora)} {t.asignado && <span className="text-slate-500">· {t.asignado.nombre}</span>}
                     </p>
@@ -182,7 +182,7 @@ export function RelojActividad({
                     <button className="font-medium text-emerald-700 hover:underline" onClick={() => setTerminando(t.id)}>
                       ✓ Hecha
                     </button>
-                    <button className="text-slate-500 hover:text-navy-900 hover:underline" onClick={() => (flot.cerrar(), setForm(t))}>
+                    <button className="text-slate-500 hover:text-tinta-900 hover:underline" onClick={() => (flot.cerrar(), setForm(t))}>
                       Editar
                     </button>
                   </div>
@@ -289,7 +289,7 @@ export function FormActividad({
       <form onSubmit={guardar} className="space-y-4" onClick={(e) => e.stopPropagation()}>
         {tarea?.registro_nombre && (
           <p className="text-sm text-slate-500">
-            Sobre: <span className="font-medium text-navy-900">{tarea.registro_nombre}</span>
+            Sobre: <span className="font-medium text-tinta-900">{tarea.registro_nombre}</span>
           </p>
         )}
         <div className="flex flex-wrap gap-2">

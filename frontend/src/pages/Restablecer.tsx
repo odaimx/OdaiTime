@@ -72,7 +72,7 @@ export default function Restablecer() {
         )}
         {aviso && (
           <div className="space-y-3">
-            <p className="text-sm text-navy-900">{aviso.mensaje}</p>
+            <p className="text-sm text-tinta-900">{aviso.mensaje}</p>
             <a href={aviso.url} className="btn-primary w-full">
               Ir a mi empresa
             </a>
@@ -81,12 +81,12 @@ export default function Restablecer() {
         {enlace && !aviso && (
           <form onSubmit={guardar} className="space-y-4">
             <div>
-              <h1 className="text-xl font-semibold text-navy-900">{enlace.tipo === "invitacion" ? `Bienvenido, ${enlace.nombre.split(" ")[0]}` : "Nueva contraseña"}</h1>
+              <h1 className="text-xl font-semibold text-tinta-900">{enlace.tipo === "invitacion" ? `Bienvenido, ${enlace.nombre.split(" ")[0]}` : "Nueva contraseña"}</h1>
               <p className="mt-1 text-sm text-slate-500">
                 {enlace.tipo === "invitacion" ? "Crea tu contraseña para entrar al portal" : "Escribe tu nueva contraseña"}
                 {enlace.empresa && ` de ${enlace.empresa}`}.
               </p>
-              <p className="mt-2 text-sm font-medium text-navy-900">{enlace.email}</p>
+              <p className="mt-2 text-sm font-medium text-tinta-900">{enlace.email}</p>
             </div>
             <div>
               <label className="label" htmlFor="pw">

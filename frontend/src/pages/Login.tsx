@@ -82,7 +82,7 @@ export default function Login() {
         <form onSubmit={recuperando ? recuperar : onSubmit} className="card w-full max-w-sm space-y-5 p-8">
           <div>
             <img src="/logo.png" alt="ODAI" className="mb-6 h-8 w-auto lg:hidden" />
-            <h1 className="text-xl font-semibold text-navy-900">{recuperando ? "Recuperar contraseña" : "Iniciar sesión"}</h1>
+            <h1 className="text-xl font-semibold text-tinta-900">{recuperando ? "Recuperar contraseña" : "Iniciar sesión"}</h1>
             {tenant?.empresa_id && tenant.logo_version && (
               <img src={urlLogo(tenant.empresa_id, tenant.logo_version)} alt={tenant.nombre ?? ""} className="mb-5 max-h-16 max-w-[12rem] object-contain" />
             )}
@@ -101,7 +101,7 @@ export default function Login() {
 
           {redirigir && (
             <div className="space-y-3 rounded-lg bg-brand-50 p-4 ring-1 ring-brand-200">
-              <p className="text-sm text-navy-900">{redirigir.mensaje} Inicia sesión desde:</p>
+              <p className="text-sm text-tinta-900">{redirigir.mensaje} Inicia sesión desde:</p>
               <p className="break-all font-mono text-sm font-semibold text-brand-700">{redirigir.url.replace("https://", "")}</p>
               <a href={redirigir.url} className="btn-primary w-full">
                 Ir a mi empresa
@@ -133,7 +133,7 @@ export default function Login() {
               <button type="submit" className="btn-primary w-full" disabled={enviando || !!recuperado}>
                 {enviando ? "Enviando…" : "Enviarme el enlace"}
               </button>
-              <button type="button" className="w-full text-sm text-slate-500 hover:text-navy-900 hover:underline" onClick={() => (setRecuperando(false), setError(null))}>
+              <button type="button" className="w-full text-sm text-slate-500 hover:text-tinta-900 hover:underline" onClick={() => (setRecuperando(false), setError(null))}>
                 Volver a iniciar sesión
               </button>
             </>

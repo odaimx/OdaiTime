@@ -3,7 +3,7 @@ import { api } from "../lib/api";
 import { aplicarTema, cargarTema, COLORES_ODAI, type Colores } from "../lib/tema";
 import CorreoSaliente from "./CorreoSaliente";
 import Icono from "./Iconos";
-import { ErrorBox } from "./ui";
+import { ErrorBox, ImagenEditable } from "./ui";
 
 type Pestana = "tema" | "inicio" | "correo";
 
@@ -26,7 +26,7 @@ export default function ConfigSistema() {
             role="tab"
             aria-selected={pestana === k}
             onClick={() => setPestana(k)}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${pestana === k ? "border-brand-500 text-navy-900" : "border-transparent text-slate-500 hover:text-navy-900"}`}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${pestana === k ? "border-brand-500 text-tinta-900" : "border-transparent text-slate-500 hover:text-tinta-900"}`}
           >
             {l}
           </button>
@@ -44,6 +44,8 @@ const ETIQUETAS: Record<keyof Colores, [string, string]> = {
   acento: ["Color de acento", "Avisos e información secundaria"],
   marino: ["Azul principal", "Menú lateral, encabezados y botón principal"],
   titulos: ["Color de títulos", "Títulos del encabezado y letras del menú"],
+  texto: ["Texto principal", "Textos, etiquetas y datos de las pantallas"],
+  texto_suave: ["Texto secundario", "Ayudas, fechas y textos tenues"],
 };
 
 function Tema() {
@@ -85,7 +87,7 @@ function Tema() {
               <input type="color" className="absolute inset-0 h-full w-full cursor-pointer opacity-0" value={colores[k]} onChange={(e) => cambiar(k, e.target.value)} aria-label={ETIQUETAS[k][0]} />
             </span>
             <span className="min-w-0">
-              <span className="block text-sm font-medium text-navy-900">{ETIQUETAS[k][0]}</span>
+              <span className="block text-sm font-medium text-tinta-900">{ETIQUETAS[k][0]}</span>
               <span className="block text-xs text-slate-500">{ETIQUETAS[k][1]}</span>
               <span className="font-mono text-xs text-slate-400">{colores[k]}</span>
             </span>
@@ -125,21 +127,12 @@ function ImagenInicio() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-slate-600">Aparece en la pantalla de Inicio de todas las empresas.</p>
-      <div className="flex aspect-[3/1] items-center justify-center overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200">
-        {version ? <img src={`/api/sistema/imagen-inicio?v=${encodeURIComponent(version)}`} alt="Imagen de inicio" className="h-full w-full object-cover" /> : <span className="text-sm text-slate-400">Sin imagen</span>}
-      </div>
+      <ImagenEditable className="block w-full" onCambiar={subir} onQuitar={version ? async () => setVersion((await api<{ imagen_version: string | null }>("/sistema/imagen-inicio", { method: "DELETE" })).imagen_version) : undefined}>
+        <div className="flex aspect-[4/1] items-center justify-center overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200">
+          {version ? <img src={`/api/sistema/imagen-inicio?v=${encodeURIComponent(version)}`} alt="Imagen de inicio" className="h-full w-full object-cover" /> : <span className="text-sm text-slate-400">Sin imagen · pasa el mouse para subirla</span>}
+        </div>
+      </ImagenEditable>
       <ErrorBox message={error} />
-      <div className="flex justify-end gap-3">
-        {version && (
-          <button type="button" className="btn-secondary" onClick={async () => setVersion((await api<{ imagen_version: string | null }>("/sistema/imagen-inicio", { method: "DELETE" })).imagen_version)}>
-            Quitar
-          </button>
-        )}
-        <label className="btn-primary cursor-pointer">
-          <Icono nombre="image" /> {version ? "Cambiar imagen" : "Subir imagen"}
-          <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(e) => e.target.files?.[0] && subir(e.target.files[0])} />
-        </label>
-      </div>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import Registro, { useFormulario } from "../components/Registro";
 import Icono from "../components/Iconos";
 import { columnaCategorias, filtrosCategorias, GestorCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
-import { Badge, ErrorBox, PageHeader, useEmpresaScope } from "../components/ui";
+import { Ayuda, Badge, ErrorBox, PageHeader, Plegable, useEmpresaScope } from "../components/ui";
 import { get, patch, post, ZONAS_MX, type Categoria, type Sucursal } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -97,7 +97,7 @@ export default function Sucursales() {
         valor: (s) => s.nombre,
         render: (s) => (
           <div className="min-w-0">
-            <p className="truncate font-medium text-navy-900">{s.nombre}</p>
+            <p className="truncate font-medium text-tinta-900">{s.nombre}</p>
             {s.direccion && <p className="truncate text-xs text-slate-500">{s.direccion}</p>}
           </div>
         ),
@@ -125,7 +125,7 @@ export default function Sucursales() {
       <div className="space-y-1 pr-6">
         <div className="flex items-center gap-2">
           <span className="rounded bg-brand-50 px-1.5 py-0.5 font-mono text-xs font-semibold text-brand-700">{s.clave}</span>
-          <p className="truncate font-semibold text-navy-900">{s.nombre}</p>
+          <p className="truncate font-semibold text-tinta-900">{s.nombre}</p>
         </div>
         <p className="truncate text-xs text-slate-500">{s.direccion ?? "Sin dirección"}</p>
         <p className="text-xs text-slate-600">{zonaLabel(s.zona_horaria)}</p>
@@ -200,7 +200,10 @@ export default function Sucursales() {
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
-                <label className="label">Latitud</label>
+                <label className="label">
+                  Latitud
+                  <Ayuda texto="En Google Maps, clic derecho sobre la sucursal para copiar las coordenadas." />
+                </label>
                 <input className="input" type="number" step="any" min={-90} max={90} placeholder="21.1619" value={form.latitud} onChange={set("latitud")} />
               </div>
               <div>
@@ -208,11 +211,13 @@ export default function Sucursales() {
                 <input className="input" type="number" step="any" min={-180} max={180} placeholder="-86.8515" value={form.longitud} onChange={set("longitud")} />
               </div>
               <div>
-                <label className="label">Radio (m)</label>
+                <label className="label">
+                  Radio (m)
+                  <Ayuda texto="Distancia máxima desde las coordenadas para aceptar una checada con GPS." />
+                </label>
                 <input className="input" type="number" min={10} max={5000} value={form.radio_metros} onChange={set("radio_metros")} />
               </div>
             </div>
-            <p className="text-xs text-slate-500">Tip: en Google Maps, clic derecho sobre la sucursal para copiar las coordenadas.</p>
             </fieldset>
 
             {editando !== "nueva" && (
@@ -232,18 +237,13 @@ export default function Sucursales() {
             )}
             {editando !== "nueva" && puedeEditar && (
               <div className="flex justify-end">
-                <button type="button" className="text-sm text-slate-500 hover:text-navy-900 hover:underline" onClick={() => alternar(editando)}>
+                <button type="button" className="text-sm text-slate-500 hover:text-tinta-900 hover:underline" onClick={() => alternar(editando)}>
                   {editando.activa ? "Desactivar sucursal" : "Activar sucursal"}
                 </button>
               </div>
             )}
             {editando !== "nueva" && (
-              <details className="rounded-lg border border-slate-200 p-3">
-                <summary className="cursor-pointer text-sm font-medium text-navy-900">Historial de cambios</summary>
-                <div className="mt-3">
-                  <Bitacora modelo="sucursal" registroId={editando.id} query={query} />
-                </div>
-              </details>
+              <Plegable titulo="Historial de cambios"><Bitacora modelo="sucursal" registroId={editando.id} query={query} /></Plegable>
             )}
             <ErrorBox message={error} />
             <button type="submit" className="sr-only">Guardar</button>

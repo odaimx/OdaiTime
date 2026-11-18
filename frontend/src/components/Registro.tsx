@@ -93,13 +93,47 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
     return () => window.removeEventListener("keydown", onKey);
   }, [cerrar, ir, guardar, indice]);
 
+  const menuAcciones = (
+    <>
+            {opciones.length > 0 && (
+              <div className="relative">
+                <button type="button" onClick={() => setMenu((m) => !m)} title="Acciones" aria-label="Acciones" className={`rounded-lg p-1.5 ${menu ? "bg-white text-tinta-900 ring-1 ring-brand-500" : "text-slate-600 hover:bg-white hover:text-tinta-900"}`}>
+                  <Icono nombre="ellipsis-vertical" className="h-5 w-5" />
+                </button>
+                {menu && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setMenu(false)} />
+                    <div className="popover left-0 top-10 w-56 p-1">
+                      {opciones.map((o) => (
+                        <div key={o.etiqueta}>
+                          {o.separar && <hr className="my-1 border-slate-100" />}
+                          <button
+                            type="button"
+                            className={`menu-item ${o.peligro ? "text-red-600" : ""}`}
+                            onClick={() => {
+                              setMenu(false);
+                              o.onClick();
+                            }}
+                          >
+                            <span className="w-4">{o.icono && <Icono nombre={o.icono} className="h-4 w-4" />}</span>
+                            {o.etiqueta}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+    </>
+  );
+
   const conFlechas = indice !== undefined && total !== undefined && total > 1 && onIr;
   const etiqueta = { guardado: "Guardado", sucio: "Cambios sin guardar", guardando: "Guardando…", error: "No se pudo guardar" }[estado];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-navy-900/40 p-3 pt-6 sm:p-4 sm:pt-12" onMouseDown={cerrar}>
-      <div className={`registro-hoja card w-full ${ancho === "lg" ? "max-w-5xl" : "max-w-2xl"}`} onMouseDown={(e) => e.stopPropagation()}>
-        <div className="no-imprimir flex items-center gap-2 rounded-t-xl border-b border-slate-200 bg-slate-100/70 px-4 py-2.5 sm:px-5">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-navy-900/40 p-3 pt-6 sm:p-4 sm:pt-12" onMouseDown={cerrar}>
+      <div className={`registro-hoja card flex max-h-[calc(100dvh-3rem)] w-full flex-col sm:max-h-[calc(100dvh-6rem)] ${ancho === "lg" ? "max-w-5xl" : "max-w-2xl"}`} onMouseDown={(e) => e.stopPropagation()}>
+        <div className="no-imprimir flex shrink-0 items-center gap-2 rounded-t-xl border-b border-slate-200 bg-slate-100/70 px-4 py-2.5 sm:px-5">
+          {menuAcciones}
           {onGuardar && (
             <>
               <button
@@ -113,7 +147,7 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
                 <Icono nombre={sucio || estado === "error" ? "cloud-upload" : "cloud-check"} className="h-5 w-5" />
               </button>
               {sucio && onDescartar && (
-                <button type="button" onClick={onDescartar} title="Descartar cambios" aria-label="Descartar cambios" className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-navy-900">
+                <button type="button" onClick={onDescartar} title="Descartar cambios" aria-label="Descartar cambios" className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-tinta-900">
                   <Icono nombre="undo-2" className="h-5 w-5" />
                 </button>
               )}
@@ -135,45 +169,17 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
                 </button>
               </>
             )}
-            {opciones.length > 0 && (
-              <div className="relative ml-1">
-                <button type="button" onClick={() => setMenu((m) => !m)} title="Acciones" aria-label="Acciones" className={`rounded-lg p-1.5 ${menu ? "bg-white text-navy-900 ring-1 ring-brand-500" : "text-slate-600 hover:bg-white hover:text-navy-900"}`}>
-                  <Icono nombre="ellipsis-vertical" className="h-5 w-5" />
-                </button>
-                {menu && (
-                  <>
-                    <div className="fixed inset-0 z-30" onClick={() => setMenu(false)} />
-                    <div className="popover right-0 top-10 w-56 p-1">
-                      {opciones.map((o) => (
-                        <div key={o.etiqueta}>
-                          {o.separar && <hr className="my-1 border-slate-100" />}
-                          <button
-                            type="button"
-                            className={`menu-item ${o.peligro ? "text-red-600" : ""}`}
-                            onClick={() => {
-                              setMenu(false);
-                              o.onClick();
-                            }}
-                          >
-                            <span className="w-4">{o.icono && <Icono nombre={o.icono} className="h-4 w-4" />}</span>
-                            {o.etiqueta}
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
               </div>
             )}
-            <button type="button" onClick={cerrar} aria-label="Cerrar" className="ml-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-navy-900">
+            <button type="button" onClick={cerrar} aria-label="Cerrar" className="ml-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-tinta-900">
               <Icono nombre="x" className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        <div className="p-5 sm:p-8">
+        <div className="overflow-y-auto p-5 sm:p-8">
           <div className="mb-5">
-            <h2 className="text-lg font-semibold text-navy-900">{titulo}</h2>
+            <h2 className="text-lg font-semibold text-tinta-900">{titulo}</h2>
             {subtitulo && <div className="mt-1 text-sm text-slate-500">{subtitulo}</div>}
           </div>
           {children}
