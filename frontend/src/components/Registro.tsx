@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import Icono from "./Iconos";
+import Icono, { type NombreIcono } from "./Iconos";
 
 /**
  * Ventana de un registro al estilo Odoo, compartida por todas las pantallas:
@@ -10,6 +10,14 @@ import Icono from "./Iconos";
  */
 
 type Estado = "guardado" | "sucio" | "guardando" | "error";
+
+export interface AccionRegistro {
+  etiqueta: string;
+  icono?: NombreIcono;
+  onClick: () => void;
+  peligro?: boolean;
+  separar?: boolean;
+}
 
 interface Props {
   titulo: ReactNode;
@@ -25,10 +33,16 @@ interface Props {
   onDescartar?: () => void;
   onCerrar: () => void;
   ancho?: "md" | "lg";
+  /** Opciones del menú ⋮ del registro (p. ej. Imprimir ficha, Dar de baja). */
+  acciones?: AccionRegistro[];
+  /** Agrega "Imprimir" (copia de la ventana). Se apaga cuando la pantalla tiene su propio reporte. */
+  imprimir?: boolean;
   children: ReactNode;
 }
 
-export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio = false, onGuardar, onDescartar, onCerrar, ancho = "lg", children }: Props) {
+export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio = false, onGuardar, onDescartar, onCerrar, ancho = "lg", acciones = [], imprimir = true, children }: Props) {
+  const [menu, setMenu] = useState(false);
+  const opciones: AccionRegistro[] = [...acciones, ...(imprimir ? [{ etiqueta: "Imprimir", icono: "printer" as NombreIcono, onClick: imprimirRegistro, separar: acciones.length > 0 }] : [])];
   const [estado, setEstado] = useState<Estado>("guardado");
   const ocupado = useRef(false);
 
@@ -85,7 +99,7 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-navy-900/40 p-3 pt-6 sm:p-4 sm:pt-12" onMouseDown={cerrar}>
       <div className={`registro-hoja card w-full ${ancho === "lg" ? "max-w-5xl" : "max-w-2xl"}`} onMouseDown={(e) => e.stopPropagation()}>
-        <div className="no-imprimir flex items-center gap-2 border-b border-slate-100 px-4 py-3 sm:px-5">
+        <div className="no-imprimir flex items-center gap-2 rounded-t-xl border-b border-slate-200 bg-slate-100/70 px-4 py-2.5 sm:px-5">
           {onGuardar && (
             <>
               <button
@@ -121,9 +135,36 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
                 </button>
               </>
             )}
-            <button type="button" onClick={imprimirRegistro} title="Reporte PDF de este registro" aria-label="Reporte PDF" className="ml-1 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-navy-900">
-              <Icono nombre="printer" className="h-5 w-5" />
-            </button>
+            {opciones.length > 0 && (
+              <div className="relative ml-1">
+                <button type="button" onClick={() => setMenu((m) => !m)} title="Acciones" aria-label="Acciones" className={`rounded-lg p-1.5 ${menu ? "bg-white text-navy-900 ring-1 ring-brand-500" : "text-slate-600 hover:bg-white hover:text-navy-900"}`}>
+                  <Icono nombre="ellipsis-vertical" className="h-5 w-5" />
+                </button>
+                {menu && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setMenu(false)} />
+                    <div className="popover right-0 top-10 w-56 p-1">
+                      {opciones.map((o) => (
+                        <div key={o.etiqueta}>
+                          {o.separar && <hr className="my-1 border-slate-100" />}
+                          <button
+                            type="button"
+                            className={`menu-item ${o.peligro ? "text-red-600" : ""}`}
+                            onClick={() => {
+                              setMenu(false);
+                              o.onClick();
+                            }}
+                          >
+                            <span className="w-4">{o.icono && <Icono nombre={o.icono} className="h-4 w-4" />}</span>
+                            {o.etiqueta}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
             <button type="button" onClick={cerrar} aria-label="Cerrar" className="ml-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-navy-900">
               <Icono nombre="x" className="h-5 w-5" />
             </button>

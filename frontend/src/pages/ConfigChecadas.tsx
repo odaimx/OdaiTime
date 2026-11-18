@@ -34,6 +34,7 @@ function Opcion({ checked, onChange, titulo, children, extra }: { checked: boole
 }
 
 export default function ConfigChecadas({ incrustado = false, scope }: { incrustado?: boolean; scope?: { query: string; empresaId: string | null } } = {}) {
+  const [pestana, setPestana] = useState<"config" | "dispositivos">("config");
   const { usuario } = useAuth();
   const esAdmin = usuario?.rol === "superadmin" || usuario?.rol === "admin_empresa";
   const propio = useEmpresaScope();
@@ -113,9 +114,30 @@ export default function ConfigChecadas({ incrustado = false, scope }: { incrusta
         subtitle="Elige cómo checan tus empleados y qué se valida. Cada sucursal puede usar la configuración general o una propia."
         action={selector}
       />}
+      <div className="mb-5 flex gap-1 border-b border-slate-200" role="tablist">
+        {(
+          [
+            ["config", "Configuración"],
+            ["dispositivos", "Dispositivos"],
+          ] as const
+        ).map(([k, l]) => (
+          <button
+            key={k}
+            type="button"
+            role="tab"
+            aria-selected={pestana === k}
+            onClick={() => setPestana(k)}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${pestana === k ? "border-brand-500 text-navy-900" : "border-transparent text-slate-500 hover:text-navy-900"}`}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
 
       <div className="flex flex-wrap items-start gap-6">
         <div className="min-w-0 flex-[999_1_560px] space-y-5">
+          {pestana === "config" && (
+          <>
           <div className="card flex flex-wrap items-end justify-between gap-4 p-5">
             <label className="min-w-64 flex-1 text-sm font-medium text-navy-900">
               Aplicar a
@@ -227,8 +249,10 @@ export default function ConfigChecadas({ incrustado = false, scope }: { incrusta
               )}
             </form>
           )}
+          </>
+          )}
 
-          {esAdmin && (
+          {pestana === "dispositivos" && esAdmin && (
             <section className="card space-y-4 p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="font-semibold text-navy-900">Dispositivos</h2>
@@ -286,7 +310,7 @@ export default function ConfigChecadas({ incrustado = false, scope }: { incrusta
           )}
         </div>
 
-        {registroBitacora && (
+        {pestana === "config" && registroBitacora && (
           <aside className="card min-w-0 flex-[1_1_300px] p-5">
             <h2 className="mb-4 font-semibold text-navy-900">Historial de cambios</h2>
             <Bitacora key={registroBitacora} modelo="config_checadas" registroId={registroBitacora} query={query} recargar={rev} />

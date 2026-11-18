@@ -3,6 +3,7 @@ import LogoEmpresa from "../components/LogoEmpresa";
 import { useEffect, useState } from "react";
 import { PageHeader, UsoLicencia } from "../components/ui";
 import { get, ROLES, type Licencia } from "../lib/api";
+import { cargarTema } from "../lib/tema";
 import { useAuth } from "../lib/auth";
 
 type Ready = { status: string; checks: Record<string, string> };
@@ -11,6 +12,12 @@ export default function Inicio() {
   const { usuario, refrescar } = useAuth();
   const [ready, setReady] = useState<Ready | null>(null);
   const [lic, setLic] = useState<Licencia | null>(null);
+  const [imagen, setImagen] = useState<string | null>(null);
+  useEffect(() => {
+    cargarTema()
+      .then((t) => setImagen(t.imagen_version))
+      .catch(() => {});
+  }, []);
   const verLicencia = usuario?.rol === "admin_empresa" || usuario?.rol === "gerente_sucursal";
 
   useEffect(() => {
@@ -18,17 +25,24 @@ export default function Inicio() {
   }, [verLicencia]);
 
   useEffect(() => {
+    if (usuario?.rol !== "superadmin") return;
     fetch("/api/health/ready")
       .then((r) => r.json())
       .then(setReady)
       .catch(() => setReady({ status: "error", checks: {} }));
-  }, []);
+  }, [usuario?.rol]);
 
   if (!usuario) return null;
 
   return (
     <>
       <PageHeader icono="house" title={`Hola, ${usuario.nombre.split(" ")[0]}`} subtitle={`${ROLES[usuario.rol]}${usuario.empresa ? ` · ${usuario.empresa.nombre}` : ""}`} />
+
+      {imagen && (
+        <div className="mb-6 overflow-hidden rounded-xl shadow-sm ring-1 ring-slate-200">
+          <img src={`/api/sistema/imagen-inicio?v=${encodeURIComponent(imagen)}`} alt="" className="aspect-[3/1] w-full object-cover" />
+        </div>
+      )}
 
       <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
         {usuario.rol === "admin_empresa" && usuario.empresa && (
@@ -63,6 +77,7 @@ export default function Inicio() {
           </div>
         )}
 
+        {usuario.rol === "superadmin" && (
         <div className="card p-6">
           <h2 className="text-sm font-medium text-slate-500">Estado del sistema</h2>
           {!ready && <p className="mt-3 text-sm text-slate-500">Verificando…</p>}
@@ -77,6 +92,7 @@ export default function Inicio() {
             </ul>
           )}
         </div>
+        )}
       </div>
     </>
   );

@@ -4,7 +4,7 @@ import { estiloFondo, get, hoyISO, urlLogo, type Rol, type Tarea } from "../lib/
 import { useAuth } from "../lib/auth";
 import { usePortal } from "../lib/portal";
 import Icono, { type NombreIcono } from "./Iconos";
-import { REPORTE } from "./Vista";
+import { REPORTE } from "../lib/imprimir";
 
 const NAV: { to: string; label: string; roles: Rol[]; icon: NombreIcono }[] = [
   { to: "/checar", label: "Checar", roles: ["empleado"], icon: "fingerprint-pattern" },
@@ -104,8 +104,13 @@ export default function Layout() {
       >
         <div className={`flex items-start justify-between py-6 ${expandido ? "px-6" : "px-6 lg:px-3"}`}>
           <div className={oculto}>
-            <img src="/logo.png" alt="ODAI" className="h-8 w-auto" />
-            <p className="mt-2 text-xs font-medium tracking-[0.2em] text-accent-500">TIME</p>
+            {usuario.empresa?.logo_version ? (
+              <div className="flex h-12 w-44 items-center justify-center rounded-lg bg-white p-1.5">
+                <img src={urlLogo(usuario.empresa.id, usuario.empresa.logo_version)} alt={usuario.empresa.nombre} className="max-h-full max-w-full object-contain" />
+              </div>
+            ) : (
+              <p className="max-w-44 truncate text-base font-semibold text-oro-300">{usuario.empresa?.nombre ?? "Odai"}</p>
+            )}
           </div>
           <button onClick={() => setAbierto(false)} className="text-oro-400 hover:text-oro-300 lg:hidden" aria-label="Cerrar menú">
             ✕
@@ -147,12 +152,9 @@ export default function Layout() {
         </nav>
 
         <div className={`whitespace-nowrap border-t border-navy-700 py-4 ${expandido ? "px-4" : "px-4 lg:px-2"}`}>
-          <div className={oculto}>
-            {usuario.empresa?.logo_version && (
-              <div className="mb-3 flex h-12 items-center justify-center rounded-lg bg-white p-1.5">
-                <img src={urlLogo(usuario.empresa.id, usuario.empresa.logo_version)} alt={usuario.empresa.nombre} className="max-h-full max-w-full object-contain" />
-              </div>
-            )}
+          <div className={`flex items-end gap-2 ${oculto}`}>
+            <img src="/logo.png" alt="ODAI" className="h-7 w-auto" />
+            <span className="pb-0.5 text-xs font-medium tracking-[0.2em] text-accent-500">TIME</span>
           </div>
         </div>
       </aside>

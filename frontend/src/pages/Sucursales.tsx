@@ -82,7 +82,7 @@ export default function Sucursales() {
     onAbrir: abrir,
     acciones: puedeEditar && listo && (
       <button className="btn-primary" onClick={() => abrir("nueva")}>
-        <Icono nombre="plus" /> Nuevo
+        <Icono nombre="map-pin-plus" /> Nuevo
       </button>
     ),
     actividades: { modelo: "sucursal", query, listo },

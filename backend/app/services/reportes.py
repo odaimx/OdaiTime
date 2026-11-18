@@ -109,8 +109,6 @@ def _tabla(ws: Worksheet, fila: int, encabezados: list[str], filas: Iterable[lis
             for i in range(1, len(encabezados) + 1):
                 ws.cell(row=n, column=i).fill = _SUAVE
     ws.freeze_panes = ws.cell(row=fila + 1, column=3)
-    if n > fila:
-        ws.auto_filter.ref = f"A{fila}:{get_column_letter(len(encabezados))}{n}"
     for i, h in enumerate(encabezados, start=1):
         ancho = max(
             [len(str(h))]

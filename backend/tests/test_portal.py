@@ -118,3 +118,24 @@ async def test_fondo_y_correo(client, superadmin):
         guardada = (await db.get(ConfigCorreo, 1)).password
     assert esta_cifrado(guardada) and descifrar(guardada) == "secreta"
     assert (await client.get("/api/correo", headers=a)).status_code == 403
+
+
+async def test_tema_e_imagen_de_inicio(client, superadmin):
+    r = await client.put(
+        "/api/sistema/tema", headers=superadmin, json={"marca": "#123ABC", "titulos": "#e2c68f"}
+    )
+    assert r.status_code == 200, r.text
+    tema = (await client.get("/api/sistema/tema")).json()  # público
+    assert tema["colores"]["marca"] == "#123abc" and tema["colores"]["acento"] is None
+    img = BytesIO()
+    Image.new("RGB", (800, 400), (10, 20, 30)).save(img, "JPEG")
+    r = await client.put(
+        "/api/sistema/imagen-inicio",
+        headers=superadmin,
+        files={"archivo": ("i.jpg", img.getvalue(), "image/jpeg")},
+    )
+    assert r.json()["imagen_version"]
+    assert (await client.get("/api/sistema/imagen-inicio")).status_code == 200
+    await crear_empresa(client, superadmin, "Caribe", "admin@caribe.mx")
+    a = auth(await login(client, "admin@caribe.mx"))
+    assert (await client.put("/api/sistema/tema", headers=a, json={})).status_code == 403

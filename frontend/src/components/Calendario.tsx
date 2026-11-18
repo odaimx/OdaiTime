@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { get, hoyISO, type Ref, type Tarea, type TipoTarea } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { colorFecha, FormActividad, textoFecha, TIPOS } from "./Actividades";
@@ -10,12 +10,13 @@ import Icono from "./Iconos";
  * (mis actividades, responsables y tipos) en el panel de la derecha.
  */
 
-type Escala = "dia" | "semana" | "mes" | "anio";
+type Escala = "dia" | "semana" | "mes" | "anio" | "lista";
 const ESCALAS: [Escala, string][] = [
   ["dia", "Día"],
   ["semana", "Semana"],
   ["mes", "Mes"],
   ["anio", "Año"],
+  ["lista", "Lista"],
 ];
 const DIAS = ["LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB", "DOM"];
 const DIAS_MINI = ["L", "M", "M", "J", "V", "S", "D"];
@@ -93,6 +94,7 @@ export default function Calendario({ query, modelo }: { query: string; modelo?: 
       const c = cuadriculaMes(ref.getFullYear(), ref.getMonth());
       return [c[0], c[41]];
     }
+    if (escala === "lista") return [new Date(ref.getFullYear(), ref.getMonth(), 1), new Date(ref.getFullYear(), ref.getMonth() + 1, 0)];
     return [new Date(ref.getFullYear(), 0, 1), new Date(ref.getFullYear(), 11, 31)];
   }, [escala, ref]);
 
@@ -127,7 +129,7 @@ export default function Calendario({ query, modelo }: { query: string; modelo?: 
   function mover(n: number) {
     if (escala === "dia") setRef(sumar(ref, n));
     else if (escala === "semana") setRef(sumar(ref, 7 * n));
-    else if (escala === "mes") setRef(new Date(ref.getFullYear(), ref.getMonth() + n, 1));
+    else if (escala === "mes" || escala === "lista") setRef(new Date(ref.getFullYear(), ref.getMonth() + n, 1));
     else setRef(new Date(ref.getFullYear() + n, ref.getMonth(), 1));
   }
 
@@ -136,7 +138,7 @@ export default function Calendario({ query, modelo }: { query: string; modelo?: 
       ? ref.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
       : escala === "semana"
         ? `${desde.toLocaleDateString("es-MX", { day: "numeric", month: "short" })} – ${hasta.toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })}`
-        : escala === "mes"
+        : escala === "mes" || escala === "lista"
           ? ref.toLocaleDateString("es-MX", { month: "long", year: "numeric" })
           : String(ref.getFullYear());
 
@@ -201,7 +203,7 @@ export default function Calendario({ query, modelo }: { query: string; modelo?: 
         </div>
         <div className="flex items-center gap-1.5">
           <button className="btn-primary h-9 py-0" onClick={() => nueva(iso(ref))}>
-            <Icono nombre="plus" /> Actividad
+            <Icono nombre="calendar-plus" /> Actividad
           </button>
           <button className={panel ? "btn-icono-activo" : "btn-icono"} onClick={() => setPanel((p) => !p)} title="Panel lateral" aria-label="Panel lateral">
             <Icono nombre="panel-right" />
@@ -215,6 +217,7 @@ export default function Calendario({ query, modelo }: { query: string; modelo?: 
           {(escala === "semana" || escala === "dia") && (
             <VistaHoras dias={escala === "dia" ? [ref] : Array.from({ length: 7 }, (_, i) => sumar(desde, i)).filter((d) => finde || !finDeSemana(d))} porDia={porDia} onNueva={nueva} onAbrir={abrir} />
           )}
+          {escala === "lista" && <VistaLista tareas={visibles} onAbrir={abrir} />}
           {escala === "anio" && (
             <VistaAnio
               anio={ref.getFullYear()}
@@ -478,6 +481,65 @@ function VistaHoras({
         </div>
       </div>
     </div>
+  );
+}
+
+/** Las actividades del mes en forma de lista, agrupadas por día. */
+function VistaLista({ tareas, onAbrir }: { tareas: Tarea[]; onAbrir: (t: Tarea) => void }) {
+  const orden = [...tareas].sort((a, b) => a.fecha.localeCompare(b.fecha) || (a.hora ?? "").localeCompare(b.hora ?? ""));
+  if (!orden.length) return <p className="px-4 py-16 text-center text-sm text-slate-500">No hay actividades en este mes.</p>;
+  let dia = "";
+  return (
+    <table className="w-full text-sm">
+      <thead className="border-b border-slate-200 text-left font-medium text-navy-900">
+        <tr>
+          <th className="px-4 py-2.5">Hora</th>
+          <th className="px-3 py-2.5">Actividad</th>
+          <th className="px-3 py-2.5">Sobre</th>
+          <th className="px-3 py-2.5">Responsable</th>
+          <th className="px-3 py-2.5">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {orden.map((t) => {
+          const nuevoDia = t.fecha !== dia;
+          dia = t.fecha;
+          const d = new Date(t.fecha + "T12:00");
+          return (
+            <Fragment key={t.id}>
+              {nuevoDia && (
+                <tr key={`d-${t.fecha}`} className="bg-slate-50">
+                  <td colSpan={5} className={`px-4 py-2 text-xs font-semibold capitalize ${t.fecha === hoyISO() ? "text-red-600" : "text-navy-900"}`}>
+                    {d.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" })}
+                  </td>
+                </tr>
+              )}
+              <tr key={t.id} className="cursor-pointer border-b border-slate-100 hover:bg-brand-50/40" onClick={() => onAbrir(t)}>
+                <td className="whitespace-nowrap px-4 py-2 tabular-nums text-slate-600">{t.hora ? horaCorta(t.hora) : "Todo el día"}</td>
+                <td className="px-3 py-2">
+                  <span className="inline-flex items-center gap-2">
+                    <span className={`h-2 w-2 rounded-full ${TIPOS[t.tipo].punto}`} />
+                    <span className={`font-medium text-navy-900 ${t.hecha_en ? "line-through opacity-60" : ""}`}>{t.resumen}</span>
+                    <span className="text-xs text-slate-500">{TIPOS[t.tipo].label}</span>
+                  </span>
+                </td>
+                <td className="px-3 py-2 text-slate-600">{t.registro_nombre ?? "General"}</td>
+                <td className="px-3 py-2 text-slate-600">{t.asignado?.nombre ?? "—"}</td>
+                <td className="px-3 py-2">
+                  {t.hecha_en ? (
+                    <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-xs font-medium text-white">Hecha</span>
+                  ) : t.fecha < hoyISO() ? (
+                    <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-medium text-white">Vencida</span>
+                  ) : (
+                    <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700">Pendiente</span>
+                  )}
+                </td>
+              </tr>
+            </Fragment>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 

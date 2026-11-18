@@ -134,7 +134,7 @@ export default function Turnos() {
     fuentes: "arts. 59 a 69: jornada, descansos y horas extra",
     acciones: puedeEditar && listo && (
       <button className="btn-primary" onClick={() => abrir("nuevo")}>
-        <Icono nombre="plus" /> Nuevo
+        <Icono nombre="clock-plus" /> Nuevo
       </button>
     ),
     modoInicial: "kanban",

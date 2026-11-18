@@ -16,6 +16,7 @@ from app.api import (
     kiosco,
     licencia,
     reportes,
+    sistema,
     sucursales,
     tareas,
     tenant,
@@ -61,5 +62,6 @@ for r in (
     tareas.router,
     categorias.router,
     correo.router,
+    sistema.router,
 ):
     app.include_router(r, prefix="/api")

@@ -75,7 +75,7 @@ export default function Usuarios() {
     onAbrir: abrir,
     acciones: listo && (
       <button className="btn-primary" onClick={() => abrir("nuevo")}>
-        <Icono nombre="plus" /> Nuevo
+        <Icono nombre="user-round-plus" /> Nuevo
       </button>
     ),
     vacio: "Aún no hay usuarios.",
