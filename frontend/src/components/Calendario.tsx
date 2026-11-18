@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { get, hoyISO, type Ref, type Tarea, type TipoTarea } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { FormActividad, TIPOS } from "./Actividades";
+import { colorFecha, FormActividad, textoFecha, TIPOS } from "./Actividades";
 import Icono from "./Iconos";
 
 /**
@@ -65,6 +65,11 @@ export default function Calendario({ query, modelo }: { query: string; modelo?: 
   const [ocultosTipo, setOcultosTipo] = useState<Set<TipoTarea>>(new Set());
   const [soloMias, setSoloMias] = useState(false);
   const [menuEscala, setMenuEscala] = useState(false);
+  const [pendientes, setPendientes] = useState<Tarea[] | null>(null); // null = botón visible
+  const conPendientes = useRef(false);
+  useEffect(() => {
+    conPendientes.current = pendientes !== null;
+  }, [pendientes]);
   const [form, setForm] = useState<{ tarea: Tarea | null; fecha?: string; hora?: string } | null>(null);
   const sep = query ? "&" : "?";
 
@@ -91,11 +96,16 @@ export default function Calendario({ query, modelo }: { query: string; modelo?: 
     return [new Date(ref.getFullYear(), 0, 1), new Date(ref.getFullYear(), 11, 31)];
   }, [escala, ref]);
 
+  const verPendientes = useCallback(() => {
+    get<Tarea[]>(`/tareas/mias${query}`).then(setPendientes);
+  }, [query]);
+
   const cargar = useCallback(() => {
     const p = new URLSearchParams({ desde: iso(desde), hasta: iso(hasta) });
     if (modelo) p.set("modelo", modelo);
     get<Tarea[]>(`/tareas/calendario${query}${sep}${p}`).then(setTareas);
-  }, [desde, hasta, modelo, query, sep]);
+    if (conPendientes.current) verPendientes(); // refresca la lista si está a la vista
+  }, [desde, hasta, modelo, query, sep, verPendientes]);
   useEffect(cargar, [cargar]);
 
   const visibles = useMemo(
@@ -250,6 +260,37 @@ export default function Calendario({ query, modelo }: { query: string; modelo?: 
                   {TIPOS[k].label}
                 </label>
               ))}
+            </div>
+            <div className="mt-6">
+              {pendientes === null ? (
+                <button className="btn-secondary w-full" onClick={verPendientes}>
+                  <Icono nombre="list-checks" /> Mis pendientes
+                </button>
+              ) : (
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-sm font-semibold text-navy-900">Mis pendientes ({pendientes.length})</p>
+                    <button className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-navy-900" onClick={() => setPendientes(null)} aria-label="Ocultar pendientes">
+                      <Icono nombre="x" className="h-4 w-4" />
+                    </button>
+                  </div>
+                  {pendientes.length === 0 && <p className="text-sm text-slate-500">No tienes actividades pendientes.</p>}
+                  <ul className="max-h-80 space-y-1 overflow-y-auto">
+                    {pendientes.map((t) => (
+                      <li key={t.id}>
+                        <button className="flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-slate-50" onClick={() => abrir(t)}>
+                          <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${TIPOS[t.tipo].punto}`} />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium text-navy-900">{t.resumen}</span>
+                            <span className="block truncate text-xs text-slate-500">{t.registro_nombre ?? "General"}</span>
+                            <span className={`text-xs ${colorFecha(t.fecha)}`}>{textoFecha(t.fecha)}</span>
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           </aside>
         )}

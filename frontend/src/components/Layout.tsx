@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from "react-router";
 import { get, hoyISO, ROLES, urlLogo, type Rol, type Tarea } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import Icono, { type NombreIcono } from "./Iconos";
+import { REPORTE } from "./Vista";
 
 const NAV: { to: string; label: string; roles: Rol[]; icon: NombreIcono }[] = [
   { to: "/checar", label: "Checar", roles: ["empleado"], icon: "fingerprint-pattern" },
@@ -14,7 +15,7 @@ const NAV: { to: string; label: string; roles: Rol[]; icon: NombreIcono }[] = [
   { to: "/asistencia", label: "Tarjeta de asistencia", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "clipboard-list" },
   { to: "/checadas", label: "Asistencias", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "fingerprint-pattern" },
   { to: "/actividades", label: "Actividades", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "calendar-check" },
-  { to: "/reportes", label: "Reportes y nómina", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "file-chart-column" },
+  { to: "/reportes", label: "Exportaciones", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "file-chart-column" },
   { to: "/turnos", label: "Turnos", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "calendar-clock" },
   { to: "/festivos", label: "Días festivos", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "calendar-heart" },
   { to: "/usuarios", label: "Usuarios", roles: ["superadmin", "admin_empresa"], icon: "users" },
@@ -23,8 +24,13 @@ const NAV: { to: string; label: string; roles: Rol[]; icon: NombreIcono }[] = [
 const FIJO_KEY = "odaitime.menuFijo";
 
 export default function Layout() {
-  const { usuario, logout } = useAuth();
+  const { usuario } = useAuth();
   const [abierto, setAbierto] = useState(false); // móvil: panel abierto
+  // Empresa que firma los reportes PDF.
+  REPORTE.empresa = {
+    nombre: usuario?.empresa?.nombre ?? "ODAITIME",
+    logo: usuario?.empresa?.logo_version ? `${window.location.origin}${urlLogo(usuario.empresa.id, usuario.empresa.logo_version)}` : "",
+  };
   const [pendientes, setPendientes] = useState(0); // mis actividades vencidas o de hoy
   const ubicacion = useLocation();
   useEffect(() => {
@@ -95,11 +101,6 @@ export default function Layout() {
             <img src="/logo.png" alt="ODAI" className="h-8 w-auto" />
             <p className="mt-2 text-xs font-medium tracking-[0.2em] text-accent-500">TIME</p>
           </div>
-          {!expandido && (
-            <span className="hidden h-10 w-10 items-center justify-center rounded-lg bg-brand-500 text-sm font-bold text-white lg:flex" aria-hidden="true">
-              OT
-            </span>
-          )}
           <button onClick={() => setAbierto(false)} className="text-oro-400 hover:text-oro-300 lg:hidden" aria-label="Cerrar menú">
             ✕
           </button>
@@ -129,7 +130,7 @@ export default function Layout() {
               }
             >
               <span className="relative">
-                <Icono nombre={n.icon} className="h-5 w-5 shrink-0" grosor={1.8} />
+                <Icono nombre={n.icon} className="h-5 w-5 shrink-0" />
                 {n.to === "/actividades" && pendientes > 0 && (
                   <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">{pendientes}</span>
                 )}
@@ -146,33 +147,67 @@ export default function Layout() {
                 <img src={urlLogo(usuario.empresa.id, usuario.empresa.logo_version)} alt={usuario.empresa.nombre} className="max-h-full max-w-full object-contain" />
               </div>
             )}
-            <p className="truncate text-sm font-medium text-oro-300">{usuario.nombre}</p>
-            <p className="truncate text-xs text-oro-400/70">
-              {ROLES[usuario.rol]}
-              {usuario.empresa && ` · ${usuario.empresa.nombre}`}
-            </p>
-            <button onClick={logout} className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-oro-400 hover:text-oro-300">
-              <Icono nombre="log-out" className="h-3.5 w-3.5" />
-              Cerrar sesión
-            </button>
           </div>
-          {!expandido && (
-            <span className="hidden h-10 w-10 items-center justify-center rounded-full bg-navy-700 text-xs font-semibold text-white lg:mx-auto lg:flex" aria-hidden="true">
-              {usuario.nombre
-                .split(" ")
-                .slice(0, 2)
-                .map((p) => p[0])
-                .join("")
-                .toUpperCase()}
-            </span>
-          )}
+          <button onClick={() => setAbierto(false)} className="text-oro-400 hover:text-oro-300 lg:hidden" aria-label="Cerrar menú">
+            ✕
+          </button>
+          <button
+            onClick={alternarFijo}
+            className={`hidden rounded-md p-1 text-oro-400/70 hover:bg-navy-800 hover:text-oro-300 ${expandido ? "lg:block" : ""}`}
+            aria-label={fijo ? "Ocultar menú automáticamente" : "Fijar menú abierto"}
+            title={fijo ? "Ocultar automáticamente" : "Fijar menú"}
+          >
+            <svg viewBox="0 0 24 24" fill={fijo ? "currentColor" : "none"} stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+              <path d="M12 17v5M9 3h6l-1 6 3 3v2H7v-2l3-3z" />
+            </svg>
+          </button>
+        </div>
+
+        <nav className={`flex-1 space-y-1 overflow-y-auto overflow-x-hidden ${expandido ? "px-3" : "px-3 lg:px-2"}`}>
+          {NAV.filter((n) => n.roles.includes(usuario.rol)).map((n) => (
+            <NavLink
+              key={n.to}
+              to={n.to}
+              end={n.to === "/" || n.to === "/checadas"}
+              title={expandido ? undefined : n.label}
+              className={({ isActive }) =>
+                `flex items-center gap-3 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition ${
+                  isActive ? "bg-brand-500 text-white" : "text-oro-400 hover:bg-navy-800 hover:text-oro-300"
+                }`
+              }
+            >
+              <span className="relative">
+                <Icono nombre={n.icon} className="h-5 w-5 shrink-0" />
+                {n.to === "/actividades" && pendientes > 0 && (
+                  <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">{pendientes}</span>
+                )}
+              </span>
+              <span className={oculto}>{n.label}</span>
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className={`whitespace-nowrap border-t border-navy-700 py-4 ${expandido ? "px-4" : "px-4 lg:px-2"}`}>
+          <div className={oculto}>
+            {usuario.empresa?.logo_version && (
+              <div className="mb-3 flex h-12 items-center justify-center rounded-lg bg-white p-1.5">
+                <img src={urlLogo(usuario.empresa.id, usuario.empresa.logo_version)} alt={usuario.empresa.nombre} className="max-h-full max-w-full object-contain" />
+              </div>
+            )}
+          </div>
         </div>
       </aside>
 
       {/* El contenido deja espacio para la barra de íconos (o para el menú fijo). */}
       <main className={`min-w-0 transition-[padding] duration-200 ${fijo ? "lg:pl-64" : "lg:pl-16"}`}>
-        <div className="p-4 sm:p-6 lg:p-8">
-          <Outlet />
+        <div className="flex min-h-screen flex-col p-4 sm:p-6 lg:p-8">
+          <div className="flex-1">
+            <Outlet />
+          </div>
+          <footer className="mt-10 flex flex-wrap justify-between gap-2 border-t border-slate-200 pt-4 text-xs text-slate-400">
+            <span>© {new Date().getFullYear()} ODAI. Todos los derechos reservados.</span>
+            <span>ODAITIME v{__VERSION__}</span>
+          </footer>
         </div>
       </main>
     </div>

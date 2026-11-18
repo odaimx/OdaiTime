@@ -74,6 +74,7 @@ export default function Sucursales() {
 
   const config: ConfigVista<Sucursal> = {
     id: "sucursales",
+    tituloReporte: "Sucursales",
     clave: (s) => s.id,
     onAbrir: abrir,
     acciones: puedeEditar && listo && (

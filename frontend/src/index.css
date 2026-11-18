@@ -77,3 +77,54 @@
     @apply text-navy-900;
   }
 }
+
+/* --- Formularios a dos columnas (una en el celular) --- */
+@layer components {
+  .form-2col {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 1.5rem;
+    row-gap: 1rem;
+  }
+  @media (min-width: 768px) {
+    .form-2col {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  .form-2col > * {
+    margin-top: 0 !important;
+  }
+  .form-2col > fieldset,
+  .form-2col > details,
+  .form-2col > section,
+  .form-2col > .completo,
+  .form-2col > .grid {
+    grid-column: 1 / -1;
+  }
+  /* Marco de las fotos (empleados) */
+  .marco-foto {
+    @apply rounded-lg bg-white p-1 shadow-sm ring-1 ring-slate-200;
+  }
+}
+
+/* --- Reporte PDF de un registro: se imprime solo su ventana --- */
+@media print {
+  body.imprimiendo-registro * {
+    visibility: hidden;
+  }
+  body.imprimiendo-registro .registro-hoja,
+  body.imprimiendo-registro .registro-hoja * {
+    visibility: visible;
+  }
+  body.imprimiendo-registro .registro-hoja {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    max-width: none;
+    box-shadow: none;
+    border: 0;
+  }
+  body.imprimiendo-registro .no-imprimir {
+    display: none !important;
+  }
+}

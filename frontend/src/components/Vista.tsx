@@ -4,6 +4,7 @@ import { RelojActividad, useFlotante, useResumenActividades } from "./Actividade
 import Calendario from "./Calendario";
 import Icono, { type NombreIcono } from "./Iconos";
 import { FuentesOficiales } from "./LFT";
+import { Modal, type Ajustes } from "./ui";
 
 /**
  * Vistas de datos al estilo Odoo, iguales en todo el sistema:
@@ -34,6 +35,8 @@ export interface Columna<T> {
   alinear?: "derecha";
   /** Suma la columna al pie de la lista. */
   sumar?: boolean;
+  /** Orden de los grupos al agrupar por esta columna (los demás van después). */
+  ordenGrupos?: string[];
   className?: string;
 }
 
@@ -67,8 +70,16 @@ export interface ConfigVista<T> {
   tarjetas?: { filtro: string; color: ColorTarjeta }[];
   /** Panel a la derecha de las tarjetas (periodo, indicadores). */
   panel?: ReactNode;
-  /** Opciones del botón ⋮ "Acciones" junto a Nuevo. "Exportar" se agrega siempre. */
+  /** Opciones del botón ⋮ "Acciones" junto a Nuevo. "Exportar" e "Imprimir" se agregan siempre. */
   menuAcciones?: AccionMenu[];
+  /** Configuración del módulo: aparece como "Configuración" en el menú ⋮ y se abre en una ventana. */
+  ajustes?: Ajustes;
+  /** Título del reporte PDF (por defecto, el id). */
+  tituloReporte?: string;
+  /** Agrupación con la que abre (p. ej. festivos por tipo). */
+  agruparInicial?: string[];
+  /** Los grupos abren desplegados. */
+  gruposAbiertos?: boolean;
   /** Contenido entre la búsqueda y el paginador (p. ej. uso de la licencia). */
   extra?: ReactNode;
   /** Vista con la que abre la primera vez (luego se recuerda la que elija cada quien). */
@@ -107,6 +118,8 @@ interface Favorito {
 }
 interface Prefs {
   modo: Modo;
+  /** Orden de columnas elegido arrastrando los títulos. */
+  ordenCols: string[];
   ocultas: string[];
   visibles: string[];
   orden: Orden;
@@ -181,12 +194,13 @@ export function useVista<T>(config: ConfigVista<T>, datos: T[]) {
       modo: config.kanban && (window.innerWidth < 640 || config.modoInicial === "kanban") ? "kanban" : "lista",
       ocultas: [],
       visibles: [],
+      ordenCols: [],
       orden: config.ordenInicial ?? null,
       porPagina: 80,
     }),
   );
   const [filtros, setFiltros] = useState<string[]>(config.filtrosIniciales ?? []);
-  const [agrupar, setAgrupar] = useState<string[]>([]);
+  const [agrupar, setAgrupar] = useState<string[]>(config.agruparInicial ?? []);
   const [busquedas, setBusquedas] = useState<Busqueda[]>([]);
   const [favoritos, setFavoritos] = useState<Favorito[]>(() => leerLista<Favorito>(fk));
   const [pagina, setPagina] = useState(0);
@@ -205,7 +219,22 @@ export function useVista<T>(config: ConfigVista<T>, datos: T[]) {
   useEffect(() => setPagina(0), [filtros, busquedas, agrupar, prefs.orden, prefs.porPagina]);
 
   const columnas = config.columnas;
-  const visibles = columnas.filter((c) => c.fija || (c.visible !== false ? !prefs.ocultas.includes(c.clave) : prefs.visibles.includes(c.clave)));
+  const posicion = (k: string) => {
+    const i = (prefs.ordenCols ?? []).indexOf(k);
+    return i < 0 ? 1000 + columnas.findIndex((c) => c.clave === k) : i;
+  };
+  const visibles = columnas
+    .filter((c) => c.fija || (c.visible !== false ? !prefs.ocultas.includes(c.clave) : prefs.visibles.includes(c.clave)))
+    .sort((a, b) => posicion(a.clave) - posicion(b.clave));
+
+  /** Mueve una columna antes de otra (arrastrar y soltar el título). */
+  function moverColumna(origen: string, destino: string) {
+    if (origen === destino) return;
+    const actual = [...columnas].sort((a, b) => posicion(a.clave) - posicion(b.clave)).map((c) => c.clave);
+    const sin = actual.filter((k) => k !== origen);
+    sin.splice(sin.indexOf(destino), 0, origen);
+    cambiarPrefs({ ordenCols: sin });
+  }
 
   const filtrados = useMemo(() => {
     const defs = config.filtros ?? [];
@@ -276,6 +305,7 @@ export function useVista<T>(config: ConfigVista<T>, datos: T[]) {
     borrarFavorito,
     aplicarFavorito,
     visibles,
+    moverColumna,
     total,
     pagina: pag,
     paginas,
@@ -306,8 +336,10 @@ function agruparPor<T>(datos: T[], cols: Columna<T>[]): Grupo<T>[] {
     const k = textoValor(col.valor(r)) || SIN_DEFINIR;
     m.set(k, [...(m.get(k) ?? []), r]);
   }
+  const pref = col.ordenGrupos ?? [];
+  const rango = (k: string) => (pref.includes(k) ? pref.indexOf(k) : pref.length);
   return [...m.entries()]
-    .sort(([a], [b]) => (a === SIN_DEFINIR ? 1 : b === SIN_DEFINIR ? -1 : comparar(a, b)))
+    .sort(([a], [b]) => rango(a) - rango(b) || (a === SIN_DEFINIR ? 1 : b === SIN_DEFINIR ? -1 : comparar(a, b)))
     .map(([k, regs]) => ({ clave: `${col.clave}:${k}`, etiqueta: k, registros: regs, subgrupos: resto.length ? agruparPor(regs, resto) : null }));
 }
 
@@ -326,7 +358,6 @@ export default function Vista<T>({ vista }: { vista: EstadoVista<T> }) {
     <div>
       <BarraControl vista={vista} />
       {(config.tarjetas?.length || config.panel) && <Tarjetas vista={vista} />}
-      {vista.seleccion.size > 0 && <BarraSeleccion vista={vista} />}
       {prefs.modo === "calendario" && act ? (
         <Calendario query={act.query} modelo={act.modelo} />
       ) : prefs.modo === "kanban" && config.kanban ? (
@@ -347,7 +378,8 @@ function BarraControl<T>({ vista }: { vista: EstadoVista<T> }) {
         <MenuAcciones vista={vista} />
       </div>
       <Buscador vista={vista} />
-      <div className="flex flex-wrap items-center justify-between gap-3 xl:justify-end">
+      {vista.seleccion.size > 0 && <ChipSeleccion vista={vista} />}
+      <div className="flex flex-wrap items-center justify-end gap-3 xl:ml-auto">
         {config.extra}
         <Paginador vista={vista} />
         <div className="grupo-vistas" role="group" aria-label="Tipo de vista">
@@ -361,11 +393,34 @@ function BarraControl<T>({ vista }: { vista: EstadoVista<T> }) {
   );
 }
 
+/** Registros marcados: junto a la búsqueda; desaparece al quitar la selección. */
+function ChipSeleccion<T>({ vista }: { vista: EstadoVista<T> }) {
+  return (
+    <div className="flex shrink-0 items-center gap-1 rounded-lg bg-brand-50 py-1 pl-3 pr-1 text-sm ring-1 ring-brand-200">
+      <span className="font-medium text-brand-700">{vista.seleccion.size} seleccionado(s)</span>
+      <button className="ml-2 inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium text-navy-900 hover:bg-brand-100" onClick={() => exportarCsv(vista)} title="Exportar seleccionados">
+        <Icono nombre="upload" className="h-4 w-4" /> Exportar
+      </button>
+      <button className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium text-navy-900 hover:bg-brand-100" onClick={() => imprimir(vista)} title="Reporte PDF de los seleccionados">
+        <Icono nombre="printer" className="h-4 w-4" /> PDF
+      </button>
+      <button className="rounded-md p-1 text-slate-500 hover:bg-brand-100 hover:text-navy-900" onClick={() => vista.setSeleccion(new Set())} title="Quitar selección" aria-label="Quitar selección">
+        <Icono nombre="x" className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
 function MenuAcciones<T>({ vista }: { vista: EstadoVista<T> }) {
-  const menu = useFlotante(240, "izquierda");
+  const menu = useFlotante(260, "izquierda");
+  const [config, setConfig] = useState(false);
+  const propias = vista.config.menuAcciones ?? [];
+  const sel = vista.seleccion.size;
   const opciones: AccionMenu[] = [
-    ...(vista.config.menuAcciones ?? []),
-    { etiqueta: vista.seleccion.size ? `Exportar seleccionados (${vista.seleccion.size})` : "Exportar", icono: "upload", onClick: () => exportarCsv(vista), separar: (vista.config.menuAcciones ?? []).length > 0 && !(vista.config.menuAcciones ?? []).some((o) => o.icono === "download") },
+    ...propias,
+    { etiqueta: sel ? `Exportar seleccionados (${sel})` : "Exportar", icono: "upload", onClick: () => exportarCsv(vista), separar: propias.length > 0 && !propias.some((o) => o.icono === "download") },
+    { etiqueta: sel ? `Reporte PDF de seleccionados (${sel})` : "Reporte PDF", icono: "printer", onClick: () => imprimir(vista) },
+    ...(vista.config.ajustes ? [{ etiqueta: "Configuración", icono: "settings" as NombreIcono, onClick: () => setConfig(true), separar: true }] : []),
   ];
   return (
     <>
@@ -398,6 +453,11 @@ function MenuAcciones<T>({ vista }: { vista: EstadoVista<T> }) {
             </Fragment>
           ))}
         </div>,
+      )}
+      {config && vista.config.ajustes && (
+        <Modal title={`Configuración · ${vista.config.ajustes.titulo}`} onClose={() => setConfig(false)} ancho={vista.config.ajustes.ancho ?? "lg"}>
+          {vista.config.ajustes.contenido}
+        </Modal>
       )}
     </>
   );
@@ -702,6 +762,54 @@ function Paginador<T>({ vista }: { vista: EstadoVista<T> }) {
   );
 }
 
+const escapar = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/**
+ * Reporte PDF: abre una hoja imprimible con los registros filtrados (o los marcados) y las
+ * columnas visibles, con el nombre y logo de la empresa y los filtros aplicados.
+ * Se guarda como PDF desde el diálogo de impresión del navegador.
+ */
+function imprimir<T>(vista: EstadoVista<T>) {
+  const { config } = vista;
+  const filas = vista.seleccion.size ? vista.ordenados.filter((r) => vista.seleccion.has(config.clave(r))) : vista.ordenados;
+  const cols = vista.visibles;
+  const empresa = REPORTE.empresa;
+  const filtros = [
+    ...(config.filtros ?? []).filter((f) => vista.filtros.includes(f.clave)).map((f) => f.titulo),
+    ...vista.busquedas.map((b) => `${config.columnas.find((c) => c.clave === b.columna)?.titulo}: ${b.texto}`),
+    ...(vista.seleccion.size ? [`${vista.seleccion.size} seleccionados`] : []),
+  ];
+  const titulo = config.tituloReporte ?? config.id;
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>${escapar(titulo)}</title>
+<style>
+  @page { size: ${cols.length > 6 ? "landscape" : "portrait"}; margin: 14mm; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #1a2c4f; font-size: 11px; }
+  header { display: flex; align-items: center; gap: 12px; border-bottom: 3px solid #13204a; padding-bottom: 8px; margin-bottom: 10px; }
+  header img { max-height: 42px; max-width: 140px; object-fit: contain; }
+  h1 { font-size: 18px; margin: 0; } .sub { color: #64748b; margin: 2px 0 0; }
+  .filtros { margin: 0 0 10px; color: #475569; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #13204a; color: #e2c68f; text-align: left; padding: 6px; font-weight: 600; }
+  td { padding: 5px 6px; border-bottom: 1px solid #e2e8f0; }
+  tr:nth-child(even) td { background: #f8f7fc; }
+  footer { margin-top: 10px; color: #94a3b8; font-size: 10px; }
+</style></head><body>
+<header>${empresa.logo ? `<img src="${empresa.logo}" alt="">` : ""}<div><h1>${escapar(titulo)}</h1><p class="sub">${escapar(empresa.nombre)} · ${new Date().toLocaleString("es-MX", { dateStyle: "long", timeStyle: "short" })}</p></div></header>
+${filtros.length ? `<p class="filtros"><strong>Filtros:</strong> ${escapar(filtros.join(" · "))}</p>` : ""}
+<table><thead><tr>${cols.map((c) => `<th>${escapar(c.titulo)}</th>`).join("")}</tr></thead>
+<tbody>${filas.map((r) => `<tr>${cols.map((c) => `<td>${escapar(textoValor(c.valor(r)))}</td>`).join("")}</tr>`).join("")}</tbody></table>
+<footer>${filas.length} registro(s) · Generado con ODAITIME</footer>
+<script>window.onload = () => { window.print(); };</script>
+</body></html>`;
+  const w = window.open("", "_blank");
+  if (!w) return alert("Permite las ventanas emergentes para generar el PDF.");
+  w.document.write(html);
+  w.document.close();
+}
+
+/** Empresa que firma los reportes (la pone el Layout con la sesión). */
+export const REPORTE = { empresa: { nombre: "ODAITIME", logo: "" as string } };
+
 /** Exporta a CSV (se abre en Excel) las columnas visibles de los registros seleccionados, o de todos los filtrados. */
 function exportarCsv<T>(vista: EstadoVista<T>) {
   const { config } = vista;
@@ -718,27 +826,22 @@ function exportarCsv<T>(vista: EstadoVista<T>) {
   URL.revokeObjectURL(url);
 }
 
-function BarraSeleccion<T>({ vista }: { vista: EstadoVista<T> }) {
-  const exportar = () => exportarCsv(vista);
-  return (
-    <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg bg-brand-50 px-4 py-2 text-sm ring-1 ring-brand-200">
-      <span className="font-medium text-brand-700">{vista.seleccion.size} seleccionado(s)</span>
-      <button className="inline-flex items-center gap-1 font-medium text-navy-900 hover:underline" onClick={exportar}>
-        <Icono nombre={I.descargar} className="h-4 w-4" /> Exportar
-      </button>
-      <button className="text-slate-500 hover:underline" onClick={() => vista.setSeleccion(new Set())}>
-        Quitar selección
-      </button>
-    </div>
-  );
-}
-
 // --- Lista ---
 
 function Lista<T>({ vista, resumen, recargar }: { vista: EstadoVista<T>; resumen: Record<string, ResumenTarea>; recargar: () => void }) {
   const { config, prefs, visibles, seleccion, setSeleccion } = vista;
   const act = config.actividades;
-  const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
+  const [cerrados, setCerrados] = useState<Set<string>>(new Set());
+  const [abiertosManual, setAbiertosManual] = useState<Set<string>>(new Set());
+  const estaAbierto = (k: string) => (config.gruposAbiertos ? !cerrados.has(k) : abiertosManual.has(k));
+  const alternarGrupo = (k: string) => (config.gruposAbiertos ? setCerrados : setAbiertosManual)((s) => {
+    const n = new Set(s);
+    if (n.has(k)) n.delete(k);
+    else n.add(k);
+    return n;
+  });
+  const [arrastrando, setArrastrando] = useState<string | null>(null);
+  const [sobre, setSobre] = useState<string | null>(null);
   const personalizar = useFlotante(260, "derecha");
   const columnasTotales = visibles.length + 2 + (act ? 1 : 0);
   const claves = vista.enPagina.map(config.clave);
@@ -805,19 +908,12 @@ function Lista<T>({ vista, resumen, recargar }: { vista: EstadoVista<T>; resumen
 
   const renderGrupos = (gs: Grupo<T>[], nivel: number): ReactNode =>
     gs.map((g) => {
-      const abierto = abiertos.has(g.clave);
+      const abierto = estaAbierto(g.clave);
       return (
         <Fragment key={g.clave}>
           <tr
             className="cursor-pointer bg-slate-50/70 hover:bg-slate-100"
-            onClick={() =>
-              setAbiertos((s) => {
-                const n = new Set(s);
-                if (n.has(g.clave)) n.delete(g.clave);
-                else n.add(g.clave);
-                return n;
-              })
-            }
+            onClick={() => alternarGrupo(g.clave)}
           >
             <td colSpan={columnasTotales} className="py-2 pr-3 font-medium text-navy-900" style={{ paddingLeft: 12 + nivel * 20 }}>
               <span className={`mr-2 inline-block text-slate-400 transition ${abierto ? "rotate-90" : ""}`}>▸</span>
@@ -853,7 +949,33 @@ function Lista<T>({ vista, resumen, recargar }: { vista: EstadoVista<T>; resumen
             {visibles.map((c) => {
               const o = prefs.orden?.clave === c.clave ? prefs.orden.dir : null;
               return (
-                <th key={c.clave} className={`whitespace-nowrap px-3 py-3 ${c.alinear === "derecha" ? "text-right" : ""}`}>
+                <th
+                  key={c.clave}
+                  draggable
+                  onDragStart={(e) => {
+                    setArrastrando(c.clave);
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData("text/plain", c.clave);
+                  }}
+                  onDragOver={(e) => {
+                    if (!arrastrando) return;
+                    e.preventDefault();
+                    setSobre(c.clave);
+                  }}
+                  onDragLeave={() => setSobre((x) => (x === c.clave ? null : x))}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (arrastrando) vista.moverColumna(arrastrando, c.clave);
+                    setArrastrando(null);
+                    setSobre(null);
+                  }}
+                  onDragEnd={() => {
+                    setArrastrando(null);
+                    setSobre(null);
+                  }}
+                  title="Arrastra para cambiar la columna de lugar"
+                  className={`cursor-grab whitespace-nowrap px-3 py-3 active:cursor-grabbing ${c.alinear === "derecha" ? "text-right" : ""} ${arrastrando === c.clave ? "opacity-40" : ""} ${sobre === c.clave && arrastrando !== c.clave ? "shadow-[inset_3px_0_0_0_var(--color-brand-500)]" : ""}`}
+                >
                   <button className={`group inline-flex items-center gap-1 hover:text-brand-600 ${o ? "text-brand-700" : ""}`} onClick={() => ordenar(c.clave)} title="Ordenar">
                     {c.titulo}
                     <Icono nombre={o === "desc" ? "chevron-down" : "chevron-up"} className={`h-3.5 w-3.5 ${o ? "" : "text-transparent group-hover:text-slate-300"}`} />
@@ -910,7 +1032,7 @@ function Lista<T>({ vista, resumen, recargar }: { vista: EstadoVista<T>; resumen
             ))}
           </div>
           <hr className="my-1 border-slate-100" />
-          <button className="menu-item text-slate-500" onClick={() => vista.cambiarPrefs({ ocultas: [], visibles: [] })}>
+          <button className="menu-item text-slate-500" onClick={() => vista.cambiarPrefs({ ocultas: [], visibles: [], ordenCols: [] })}>
             Restablecer
           </button>
         </>,

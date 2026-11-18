@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import Camara from "../components/Camara";
-import { ErrorBox } from "../components/ui";
+import { ErrorBox, PageHeader } from "../components/ui";
 import { ApiError, comprimir, get, hora, postForm, type Checada, type EstadoHoy } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -196,6 +196,8 @@ export default function Checar() {
   }
 
   return (
+    <>
+    <PageHeader icono="fingerprint-pattern" title="Checar" />
     <div className="mx-auto max-w-md space-y-4">
       <div className="rounded-3xl bg-navy-900 p-6 text-white">
         <p className="text-sm text-slate-300">Hola, {usuario?.nombre.split(" ")[0]}</p>
@@ -287,5 +289,6 @@ export default function Checar() {
         </div>
       )}
     </div>
+    </>
   );
 }

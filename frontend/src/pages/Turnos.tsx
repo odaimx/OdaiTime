@@ -128,6 +128,7 @@ export default function Turnos() {
 
   const config: ConfigVista<Turno> = {
     id: "turnos",
+    tituloReporte: "Turnos",
     clave: (t) => t.id,
     onAbrir: abrir,
     fuentes: "arts. 59 a 69: jornada, descansos y horas extra",

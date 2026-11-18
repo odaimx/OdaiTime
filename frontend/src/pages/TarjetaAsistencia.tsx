@@ -6,7 +6,7 @@ import { useAuth } from "../lib/auth";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
 import { ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
 import { periodo } from "../lib/periodo";
-import { get, hm, hora, INCIDENCIAS, post, type DetalleAsistencia, type DiaAsistencia, type FilaResumen, type Sucursal } from "../lib/api";
+import { descargar, get, hm, hora, INCIDENCIAS, post, type DetalleAsistencia, type DiaAsistencia, type FilaResumen, type Sucursal } from "../lib/api";
 
 const ESTADOS: Record<string, { label: string; clase: string }> = {
   asistencia: { label: "Asistencia", clase: "bg-emerald-50 text-emerald-700" },
@@ -93,6 +93,8 @@ export default function TarjetaAsistencia() {
 
   const config: ConfigVista<FilaResumen> = {
     id: "tarjeta_asistencia",
+    tituloReporte: `Tarjeta de asistencia · ${rango.desde} al ${rango.hasta}`,
+    ajustes: { titulo: "Reglas de la tarjeta de asistencia", contenido: <ReglasTarjeta query={query} esAdmin={esAdmin} /> },
     fuentes: "arts. 59, 66, 68, 71, 73, 74, 75 y 76",
     clave: (f) => f.empleado.id,
     onAbrir: (f) => abrir(f.empleado.id),
@@ -223,12 +225,32 @@ export default function TarjetaAsistencia() {
     ),
   };
   const vista = useVista(config, filas ?? []);
+
+  /** Reportes en Excel del periodo y sucursal elegidos. */
+  async function bajarReporte(ruta: "asistencia" | "detalle", nombre: string) {
+    const p = new URLSearchParams(rango);
+    if (sucursal) p.set("sucursal_id", sucursal);
+    try {
+      await descargar(`/reportes/${ruta}.xlsx${query}${sep}${p}`, `${nombre}_${rango.desde.replace(/-/g, "")}_${rango.hasta.replace(/-/g, "")}.xlsx`);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
   const enOrden = vista.ordenados;
 
   return (
     <>
       <PageHeader
-        ajustes={{ titulo: "Reglas de la tarjeta de asistencia", contenido: <ReglasTarjeta query={query} esAdmin={esAdmin} /> }}
+        submenu={[
+          { etiqueta: "Tarjeta de asistencia", activo: true },
+          {
+            etiqueta: "Reportes",
+            opciones: [
+              { etiqueta: "Resumen del periodo (Excel)", icono: "sheet", onClick: () => bajarReporte("asistencia", "asistencia") },
+              { etiqueta: "Detalle diario (Excel)", icono: "sheet", onClick: () => bajarReporte("detalle", "detalle_diario") },
+            ],
+          },
+        ]}
         icono="clipboard-list"
         title="Tarjeta de asistencia" subtitle="Faltas, retardos, horas extra, domingos y festivos del periodo, calculados con la Ley Federal del Trabajo" action={selector} />
 

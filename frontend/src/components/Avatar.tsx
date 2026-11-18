@@ -1,21 +1,9 @@
 import { useEffect, useState } from "react";
 import { imagenProtegida } from "../lib/api";
 
-const iniciales = (n: string) =>
-  n
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]!.toUpperCase())
-    .join("");
-
-// Colores de las iniciales (como Odoo): siempre el mismo para la misma persona.
-const COLORES = ["bg-orange-400", "bg-teal-500", "bg-amber-600", "bg-purple-600", "bg-sky-600", "bg-rose-500", "bg-emerald-600", "bg-indigo-500"];
-const colorDe = (n: string) => COLORES[[...n].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7) % COLORES.length];
-
-/** Foto del empleado o sus iniciales. Pide la miniatura de 128 px para tamaños chicos
+/** Foto del empleado (o una silueta tenue), con marco de esquinas redondeadas. Pide la miniatura de 128 px para tamaños chicos
  * (listados) y la de 512 px para la ficha. `version` cambia cuando se actualiza la foto. */
-export default function Avatar({ empleadoId, nombre, version, query = "", tam = 40, cuadrado = false }: { empleadoId: string; nombre: string; version: string | null; query?: string; tam?: number; cuadrado?: boolean }) {
+export default function Avatar({ empleadoId, nombre, version, query = "", tam = 40 }: { empleadoId: string; nombre: string; version: string | null; query?: string; tam?: number; /** Ya no aplica: todas llevan marco redondeado. */ cuadrado?: boolean }) {
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -34,12 +22,19 @@ export default function Avatar({ empleadoId, nombre, version, query = "", tam = 
     };
   }, [empleadoId, version, query, tam]);
 
-  const estilo = { width: tam, height: tam, fontSize: Math.max(11, tam * 0.36) };
-  return url ? (
-    <img src={url} alt={`Foto de ${nombre}`} style={estilo} className={`shrink-0 object-cover ${cuadrado ? "rounded-md" : "rounded-full ring-2 ring-white"}`} />
-  ) : (
-    <span style={estilo} className={`flex shrink-0 items-center justify-center font-semibold text-white ${colorDe(nombre)} ${cuadrado ? "rounded-md" : "rounded-full"}`} aria-hidden="true">
-      {iniciales(nombre)}
+  const estilo = { width: tam, height: tam };
+  const marco = `shrink-0 overflow-hidden rounded-lg bg-white ring-1 ring-slate-200 ${tam >= 64 ? "p-1 shadow-sm" : ""}`;
+  // Sin foto: silueta en tono tenue dentro del mismo marco.
+  return (
+    <span style={estilo} className={`inline-flex ${marco}`} title={url ? undefined : nombre}>
+      {url ? (
+        <img src={url} alt={`Foto de ${nombre}`} className="h-full w-full rounded-md object-cover" />
+      ) : (
+        <svg viewBox="0 0 64 64" className="h-full w-full rounded-md bg-slate-100" aria-label={`Sin foto: ${nombre}`} role="img">
+          <circle cx="32" cy="24" r="11" fill="#cbd5e1" />
+          <path d="M10 60c2-12 11-19 22-19s20 7 22 19" fill="#cbd5e1" />
+        </svg>
+      )}
     </span>
   );
 }
