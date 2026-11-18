@@ -123,6 +123,8 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
                     </div>
                   </>
                 )}
+              </div>
+            )}
     </>
   );
 
@@ -168,8 +170,6 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
                   <Icono nombre="chevron-right" className="h-5 w-5" />
                 </button>
               </>
-            )}
-              </div>
             )}
             <button type="button" onClick={cerrar} aria-label="Cerrar" className="ml-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-tinta-900">
               <Icono nombre="x" className="h-5 w-5" />

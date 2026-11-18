@@ -612,28 +612,6 @@ ${
                 </span>
               </ImagenEditable>,
             )}
-                <input type="file" accept="image/*" className="sr-only" onChange={(e) => e.target.files?.[0] && elegirFotoNueva(e.target.files[0])} />
-              </label>
-              <div className="flex flex-col gap-1 text-sm">
-                <span className="font-medium text-tinta-900">Foto del empleado</span>
-                <div className="flex gap-3">
-                  <label className="cursor-pointer font-medium text-brand-600 hover:underline">
-                    {previa ? "Cambiar" : "Subir foto"}
-                    <input type="file" accept="image/*" className="sr-only" onChange={(e) => e.target.files?.[0] && elegirFotoNueva(e.target.files[0])} />
-                  </label>
-                  <button type="button" className="font-medium text-brand-600 hover:underline" onClick={() => setCamaraFoto(true)}>
-                    Tomar con la cámara
-                  </button>
-                  {previa && (
-                    <button type="button" className="text-slate-500 hover:text-red-600 hover:underline" onClick={() => elegirFotoNueva(null)}>
-                      Quitar
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-              </div>,
-            )}
             <ErrorBox message={error} />
             {botones(() => setNuevo(false))}
           </form>
