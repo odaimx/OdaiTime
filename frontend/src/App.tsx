@@ -9,6 +9,7 @@ import Checar from "./pages/Checar";
 import ConfigChecadas from "./pages/ConfigChecadas";
 import Empleados from "./pages/Empleados";
 import Empresas from "./pages/Empresas";
+import Festivos from "./pages/Festivos";
 import Inicio from "./pages/Inicio";
 import Kiosco from "./pages/Kiosco";
 import Login from "./pages/Login";
@@ -69,6 +70,14 @@ export default function App() {
           element={
             <Requiere roles={GESTION}>
               <Checadas />
+            </Requiere>
+          }
+        />
+        <Route
+          path="festivos"
+          element={
+            <Requiere roles={GESTION}>
+              <Festivos />
             </Requiere>
           }
         />

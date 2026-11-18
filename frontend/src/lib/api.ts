@@ -470,6 +470,7 @@ export interface DiaAsistencia {
   triples_min: number;
   exceso_min: number;
   festivo: string | null;
+  festivo_obligatorio: boolean;
   domingo_trabajado: boolean;
   descanso_trabajado: boolean;
   festivo_trabajado: boolean;
@@ -513,7 +514,19 @@ export interface PoliticaAsistencia {
   retardo_falta_min: number;
   minimo_extra_min: number;
   redondeo_extra_min: number;
+  festivo_opcional_pago: "doble" | "normal";
 }
 
 /** Minutos → "7:30" */
 export const hm = (min: number) => (min ? `${Math.floor(min / 60)}:${String(min % 60).padStart(2, "0")}` : "—");
+
+export interface Festivo {
+  id: string;
+  fecha: string;
+  nombre: string;
+  tipo: "obligatorio" | "opcional";
+  fundamento: string | null;
+  origen: "nacional" | "empresa";
+  aplica: boolean;
+  editable: boolean;
+}

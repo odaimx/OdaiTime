@@ -265,6 +265,16 @@ export default function ConfigChecadas() {
                     Tiempo extra mínimo a contar (min)
                     <input type="number" min={0} max={240} className="input mt-1" value={politica.minimo_extra_min} onChange={(e) => setPolitica({ ...politica, minimo_extra_min: Number(e.target.value) })} />
                   </label>
+                  <label className="text-sm font-medium text-navy-900 sm:col-span-2">
+                    Si se trabaja un festivo opcional (no obligatorio por ley)
+                    <select className="input mt-1" value={politica.festivo_opcional_pago} onChange={(e) => setPolitica({ ...politica, festivo_opcional_pago: e.target.value as "doble" | "normal" })}>
+                      <option value="doble">Pagar salario doble adicional (igual que un obligatorio)</option>
+                      <option value="normal">Pagar como día normal</option>
+                    </select>
+                    <span className="mt-1 block text-xs font-normal text-slate-500">
+                      Los obligatorios del <ArticuloLFT art="74" /> siempre se pagan con salario doble adicional (<ArticuloLFT art="75" />).
+                    </span>
+                  </label>
                   <label className="text-sm font-medium text-navy-900">
                     Contar tiempo extra en bloques de (min)
                     <input type="number" min={1} max={120} className="input mt-1" value={politica.redondeo_extra_min} onChange={(e) => setPolitica({ ...politica, redondeo_extra_min: Number(e.target.value) })} />

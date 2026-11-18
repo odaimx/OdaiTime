@@ -273,7 +273,11 @@ export default function TarjetaAsistencia() {
                       <td className="whitespace-nowrap py-2 pr-2 capitalize text-navy-900">{fecha.toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" })}</td>
                       <td className="py-2 pr-2">
                         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${est.clase}`}>{est.label}</span>
-                        {d.festivo && <p className="mt-1 text-xs text-sky-700">{d.festivo}</p>}
+                        {d.festivo && (
+                          <p className="mt-1 text-xs text-sky-700">
+                            {d.festivo} · {d.festivo_obligatorio ? "obligatorio" : "opcional"}
+                          </p>
+                        )}
                         {d.retardo_min > 0 && <p className="mt-1 text-xs text-amber-700">Retardo {d.retardo_min} min</p>}
                         {d.domingo_trabajado && <p className="mt-1 text-xs text-slate-600">Prima dominical</p>}
                         {(d.descanso_trabajado || d.festivo_trabajado) && <p className="mt-1 text-xs text-slate-600">{d.festivo_trabajado ? "Festivo" : "Descanso"} trabajado: salario doble adicional</p>}
