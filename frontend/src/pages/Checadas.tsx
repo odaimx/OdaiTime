@@ -90,7 +90,7 @@ export default function Checadas() {
           setManual(true);
         }}
       >
-        <Icono nombre="plus" /> Nuevo
+        <Icono nombre="alarm-clock-plus" /> Nuevo
       </button>
     ),
     vacio: "No hay checadas en ese periodo.",

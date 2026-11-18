@@ -26,6 +26,7 @@ export default function Festivos() {
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
   const [buscar, setBuscar] = useState("");
   const [conteo, setConteo] = useState<Record<string, number>>({});
+  const [pestana, setPestana] = useState<"opcionales" | "obligatorios">("opcionales");
 
   const query = esSuper && empresaId ? `empresa_id=${empresaId}&` : "";
   const nacional = esSuper && !empresaId;
@@ -110,17 +111,15 @@ export default function Festivos() {
   };
   const config: ConfigVista<Festivo> = {
     id: "festivos",
-    tituloReporte: `Días festivos ${anio}`,
+    tituloReporte: `Días festivos ${anio} · ${pestana === "obligatorios" ? OBLIGATORIOS : OPCIONALES}`,
     clave: (f) => f.id,
     onAbrir: (f) => !nacional && f.aplica && abrirDesignar(f),
     fuentes: "arts. 74 y 75; jornada electoral: art. 74, fr. IX",
     vacio: `No hay días festivos para ${anio}.`,
     ordenInicial: { clave: "fecha", dir: "asc" },
-    agruparInicial: ["tipo"],
-    gruposAbiertos: true,
     acciones: esAdmin && (
       <button className="btn-primary" onClick={nuevoDia} title={nacional ? "Agregar al catálogo nacional" : "Agregar día de la empresa"}>
-        <Icono nombre="plus" /> Nuevo
+        <Icono nombre="calendar-plus" /> Nuevo
       </button>
     ),
     menuAcciones: nacional ? [{ etiqueta: `Cargar catálogo ${anio}`, icono: "download", onClick: generar }] : [],
@@ -211,13 +210,20 @@ export default function Festivos() {
       { clave: "proximos", titulo: "Próximos", grupo: "fecha", prueba: (f) => f.fecha >= new Date().toLocaleDateString("en-CA") },
     ],
   };
-  const vista = useVista(config, lista ?? []);
+  const vista = useVista(
+    config,
+    (lista ?? []).filter((f) => (pestana === "obligatorios" ? f.tipo === "obligatorio" : f.tipo !== "obligatorio")),
+  );
 
   return (
     <>
       <PageHeader
         icono="calendar-heart"
         title="Días festivos"
+        submenu={[
+          { etiqueta: OPCIONALES, activo: pestana === "opcionales", onClick: () => setPestana("opcionales") },
+          { etiqueta: OBLIGATORIOS, activo: pestana === "obligatorios", onClick: () => setPestana("obligatorios") },
+        ]}
         action={
           <div className="flex flex-col gap-3 sm:flex-row">
             {esSuper && (

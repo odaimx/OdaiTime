@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
-import CorreoSaliente from "../components/CorreoSaliente";
+import ConfigSistema from "../components/ConfigSistema";
 import FondoEmpresa from "../components/FondoEmpresa";
 import LogoEmpresa from "../components/LogoEmpresa";
 import Registro, { useFormulario } from "../components/Registro";
@@ -82,12 +82,12 @@ export default function Empresas() {
   const config: ConfigVista<Empresa> = {
     id: "empresas",
     tituloReporte: "Empresas",
-    ajustes: { titulo: "Correo saliente", ancho: "xl", contenido: <CorreoSaliente /> },
+    ajustes: { titulo: "Sistema (todas las empresas)", ancho: "xl", contenido: <ConfigSistema /> },
     clave: (e) => e.id,
     onAbrir: abrir,
     acciones: (
       <button className="btn-primary" onClick={() => abrir("nueva")}>
-        <Icono nombre="plus" /> Nuevo
+        <Icono nombre="briefcase-business" /> Nuevo
       </button>
     ),
     vacio: "Aún no hay empresas.",
@@ -190,6 +190,10 @@ export default function Empresas() {
           onCerrar={() => setEditando(null)}
         >
           <form onSubmit={(ev: FormEvent) => (ev.preventDefault(), guardar())} className="form-2col">
+            <div>
+              <label className="label">Nombre comercial</label>
+              <input className="input" required value={form.nombre} onChange={set("nombre")} />
+            </div>
             {editando !== "nueva" && (
               <div>
                 <label className="label">Logo</label>
@@ -205,26 +209,6 @@ export default function Empresas() {
                 />
               </div>
             )}
-            {editando !== "nueva" && (
-              <div>
-                <label className="label">Fondo principal</label>
-                <FondoEmpresa
-                  empresaId={editando.id}
-                  color={editando.fondo_color}
-                  version={editando.fondo_version}
-                  query={`?empresa_id=${editando.id}`}
-                  onCambio={(f) => {
-                    const e = { ...editando, ...f };
-                    setEditando(e);
-                    setEmpresas((l) => l.map((x) => (x.id === e.id ? e : x)));
-                  }}
-                />
-              </div>
-            )}
-            <div>
-              <label className="label">Nombre comercial</label>
-              <input className="input" required value={form.nombre} onChange={set("nombre")} />
-            </div>
             <div>
               <label className="label">Subdominio</label>
               <div className="flex items-center">
@@ -242,6 +226,22 @@ export default function Empresas() {
               </div>
               {editando !== "nueva" && <p className="mt-1 text-xs text-amber-700">Si lo cambias, la dirección anterior deja de funcionar.</p>}
             </div>
+            {editando !== "nueva" && (
+              <div>
+                <label className="label">Fondo principal</label>
+                <FondoEmpresa
+                  empresaId={editando.id}
+                  color={editando.fondo_color}
+                  version={editando.fondo_version}
+                  query={`?empresa_id=${editando.id}`}
+                  onCambio={(f) => {
+                    const e = { ...editando, ...f };
+                    setEditando(e);
+                    setEmpresas((l) => l.map((x) => (x.id === e.id ? e : x)));
+                  }}
+                />
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="label">Razón social</label>

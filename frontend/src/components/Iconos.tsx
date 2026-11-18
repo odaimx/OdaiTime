@@ -83,6 +83,17 @@ const SVG = {
   "cloud-check": `<path d="m17 15-5.5 5.5L9 18"/> <path d="M5.516 16.07A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 3.501 7.327"/>`,
   "undo-2": `<path d="M9 14 4 9l5-5"/> <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/>`,
   "image": `<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/> <circle cx="9" cy="9" r="2"/> <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>`,
+  "user-plus": `<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/> <circle cx="9" cy="7" r="4"/> <line x1="19" x2="19" y1="8" y2="14"/> <line x1="22" x2="16" y1="11" y2="11"/>`,
+  "user-round-plus": `<path d="M2 21a8 8 0 0 1 13.292-6"/> <circle cx="10" cy="8" r="5"/> <path d="M19 16v6"/> <path d="M22 19h-6"/>`,
+  "calendar-plus": `<path d="M16 18h6"/> <path d="M16 2v3"/> <path d="M19 15v6"/> <path d="M21 11.5V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h8.3"/> <path d="M3 9h18"/> <path d="M8 2v3"/>`,
+  "map-pin-plus": `<path d="M19.914 11.105A7.298 7.298 0 0 0 20 10a8 8 0 0 0-16 0c0 4.993 5.539 10.193 7.399 11.799a1 1 0 0 0 1.202 0 32 32 0 0 0 .824-.738"/> <circle cx="12" cy="10" r="3"/> <path d="M16 18h6"/> <path d="M19 15v6"/>`,
+  "clock-plus": `<path d="M12 6v6l3.644 1.822"/> <path d="M16 19h6"/> <path d="M19 16v6"/> <path d="M21.92 13.267a10 10 0 1 0-8.653 8.653"/>`,
+  "alarm-clock-plus": `<circle cx="12" cy="13" r="8"/> <path d="M5 3 2 6"/> <path d="m22 6-3-3"/> <path d="M6.38 18.7 4 21"/> <path d="M17.64 18.67 20 21"/> <path d="M12 10v6"/> <path d="M9 13h6"/>`,
+  "briefcase-business": `<path d="M12 12h.01"/> <path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/> <path d="M22 13a18.15 18.15 0 0 1-20 0"/> <rect width="20" height="14" x="2" y="6" rx="2"/>`,
+  "palette": `<path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z"/> <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/> <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/> <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/> <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>`,
+  "circle-plus": `<circle cx="12" cy="12" r="10"/> <path d="M8 12h8"/> <path d="M12 8v8"/>`,
+  "file-plus": `<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/> <path d="M14 2v5a1 1 0 0 0 1 1h5"/> <path d="M9 15h6"/> <path d="M12 18v-6"/>`,
+  "list-plus": `<path d="M16 5H3"/> <path d="M11 12H3"/> <path d="M16 19H3"/> <path d="M18 9v6"/> <path d="M21 12h-6"/>`,
 } as const;
 
 export type NombreIcono = keyof typeof SVG;

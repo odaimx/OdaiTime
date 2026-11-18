@@ -3,6 +3,7 @@ import type { ResumenTarea } from "../lib/api";
 import { RelojActividad, useFlotante, useResumenActividades } from "./Actividades";
 import Calendario from "./Calendario";
 import Icono, { type NombreIcono } from "./Iconos";
+import { imprimirTabla } from "../lib/imprimir";
 import { FuentesOficiales } from "./LFT";
 import { Modal, type Ajustes } from "./ui";
 
@@ -762,53 +763,29 @@ function Paginador<T>({ vista }: { vista: EstadoVista<T> }) {
   );
 }
 
-const escapar = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
 /**
- * Reporte PDF: abre una hoja imprimible con los registros filtrados (o los marcados) y las
- * columnas visibles, con el nombre y logo de la empresa y los filtros aplicados.
- * Se guarda como PDF desde el diálogo de impresión del navegador.
+ * Reporte PDF: los registros filtrados (o los marcados) con las columnas visibles,
+ * el nombre y logo de la empresa y los filtros aplicados.
  */
 function imprimir<T>(vista: EstadoVista<T>) {
   const { config } = vista;
   const filas = vista.seleccion.size ? vista.ordenados.filter((r) => vista.seleccion.has(config.clave(r))) : vista.ordenados;
-  const cols = vista.visibles;
-  const empresa = REPORTE.empresa;
+  const cols = vista.visibles.filter((c) => c.titulo);
   const filtros = [
     ...(config.filtros ?? []).filter((f) => vista.filtros.includes(f.clave)).map((f) => f.titulo),
     ...vista.busquedas.map((b) => `${config.columnas.find((c) => c.clave === b.columna)?.titulo}: ${b.texto}`),
     ...(vista.seleccion.size ? [`${vista.seleccion.size} seleccionados`] : []),
   ];
-  const titulo = config.tituloReporte ?? config.id;
-  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>${escapar(titulo)}</title>
-<style>
-  @page { size: ${cols.length > 6 ? "landscape" : "portrait"}; margin: 14mm; }
-  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #1a2c4f; font-size: 11px; }
-  header { display: flex; align-items: center; gap: 12px; border-bottom: 3px solid #13204a; padding-bottom: 8px; margin-bottom: 10px; }
-  header img { max-height: 42px; max-width: 140px; object-fit: contain; }
-  h1 { font-size: 18px; margin: 0; } .sub { color: #64748b; margin: 2px 0 0; }
-  .filtros { margin: 0 0 10px; color: #475569; }
-  table { width: 100%; border-collapse: collapse; }
-  th { background: #13204a; color: #e2c68f; text-align: left; padding: 6px; font-weight: 600; }
-  td { padding: 5px 6px; border-bottom: 1px solid #e2e8f0; }
-  tr:nth-child(even) td { background: #f8f7fc; }
-  footer { margin-top: 10px; color: #94a3b8; font-size: 10px; }
-</style></head><body>
-<header>${empresa.logo ? `<img src="${empresa.logo}" alt="">` : ""}<div><h1>${escapar(titulo)}</h1><p class="sub">${escapar(empresa.nombre)} · ${new Date().toLocaleString("es-MX", { dateStyle: "long", timeStyle: "short" })}</p></div></header>
-${filtros.length ? `<p class="filtros"><strong>Filtros:</strong> ${escapar(filtros.join(" · "))}</p>` : ""}
-<table><thead><tr>${cols.map((c) => `<th>${escapar(c.titulo)}</th>`).join("")}</tr></thead>
-<tbody>${filas.map((r) => `<tr>${cols.map((c) => `<td>${escapar(textoValor(c.valor(r)))}</td>`).join("")}</tr>`).join("")}</tbody></table>
-<footer>${filas.length} registro(s) · Generado con ODAITIME</footer>
-<script>window.onload = () => { window.print(); };</script>
-</body></html>`;
-  const w = window.open("", "_blank");
-  if (!w) return alert("Permite las ventanas emergentes para generar el PDF.");
-  w.document.write(html);
-  w.document.close();
+  imprimirTabla(
+    config.tituloReporte ?? config.id,
+    cols.map((c) => c.titulo),
+    filas.map((r) => cols.map((c) => textoValor(c.valor(r)))),
+    filtros,
+  );
 }
 
 /** Empresa que firma los reportes (la pone el Layout con la sesión). */
-export const REPORTE = { empresa: { nombre: "ODAITIME", logo: "" as string } };
+export { REPORTE } from "../lib/imprimir";
 
 /** Exporta a CSV (se abre en Excel) las columnas visibles de los registros seleccionados, o de todos los filtrados. */
 function exportarCsv<T>(vista: EstadoVista<T>) {

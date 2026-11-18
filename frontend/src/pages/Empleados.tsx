@@ -3,6 +3,7 @@ import Avatar from "../components/Avatar";
 import Bitacora from "../components/Bitacora";
 import Camara from "../components/Camara";
 import Registro, { useFormulario } from "../components/Registro";
+import ReporteEmpleados from "../components/ReporteEmpleados";
 import VacacionesIncidencias from "../components/VacacionesIncidencias";
 import Icono from "../components/Iconos";
 import { columnaCategorias, Chips, filtrosCategorias, GestorCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
@@ -16,6 +17,7 @@ import {
   fechaCorta,
   get,
   hoyISO,
+  imagenProtegida,
   patch,
   post,
   subir,
@@ -28,6 +30,7 @@ import {
   type Turno,
 } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { aDataUrl, campos, imprimirHtml } from "../lib/imprimir";
 
 const CAMPOS = [
   "numero", "nombre", "apellido_paterno", "apellido_materno", "curp", "rfc", "nss", "fecha_ingreso",
@@ -60,6 +63,8 @@ export default function Empleados() {
   const [nuevo, setNuevo] = useState(false);
   const [sel, setSel] = useState<EmpleadoDetalle | null>(null);
   const [gestorCats, setGestorCats] = useState(false);
+  const [reporte, setReporte] = useState(false);
+  const [pestana, setPestana] = useState<"generales" | "fiscales">("generales");
   const [enlacePortal, setEnlacePortal] = useState<string | null>(null);
   const [avisoPortal, setAvisoPortal] = useState<string | null>(null);
   const [vista, setVista] = useState<Vista>("detalle");
@@ -271,10 +276,13 @@ export default function Empleados() {
     onAbrir: (e) => abrirDetalle(e.id),
     acciones: listo && (
       <button className="btn-primary" onClick={abrirNuevo}>
-        <Icono nombre="plus" /> Nuevo
+        <Icono nombre="user-plus" /> Nuevo
       </button>
     ),
-    menuAcciones: esAdmin && listo ? [{ etiqueta: "Importar", icono: "download", onClick: () => setImportando(true), separar: false }] : [],
+    menuAcciones: [
+      ...(esAdmin && listo ? [{ etiqueta: "Importar", icono: "download" as const, onClick: () => setImportando(true) }] : []),
+      { etiqueta: "Reporte de empleados", icono: "file-text" as const, onClick: () => setReporte(true) },
+    ],
     extra: lic && <UsoLicencia lic={lic} compacto />,
     actividades: { modelo: "empleado", query, listo },
     vacio: "No hay empleados con esos filtros.",
@@ -375,84 +383,159 @@ export default function Empleados() {
     </div>
   );
 
-  const camposExpediente = (conTurno: boolean) => (
-    <>
-      <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
-        {input("numero", "Número *", { required: true, maxLength: 20 })}
-        {input("nombre", "Nombre(s) *", { required: true })}
-        {input("apellido_paterno", "Apellido paterno *", { required: true })}
-        {input("apellido_materno", "Apellido materno")}
-        {input("fecha_ingreso", "Fecha de ingreso *", { type: "date", required: true })}
+  const selectorCategorias = sel && (
+    <SelectorCategorias
+      todas={cats.lista}
+      valor={cats.asignadas[sel.id] ?? []}
+      onCambio={(ids) => cats.asignar(sel.id, ids).then(cats.recargar)}
+      puedeCrear={esAdmin}
+      onCrear={async (nombre) => {
+        const c = await post<Categoria>(`/categorias${query}${sep}modelo=empleado`, { nombre, color: "#8a64de" });
+        cats.recargar();
+        return c;
+      }}
+    />
+  );
+
+  /** Campos del expediente en dos pestañas. `lateral` va en la segunda columna (foto, estado, accesos). */
+  const camposExpediente = (conTurno: boolean, lateral: ReactNode) => (
+    <div className="space-y-4">
+      <div className="flex gap-1 border-b border-slate-200" role="tablist">
+        {(
+          [
+            ["generales", "Datos generales"],
+            ["fiscales", "Datos fiscales"],
+          ] as const
+        ).map(([k, l]) => (
+          <button
+            key={k}
+            type="button"
+            role="tab"
+            aria-selected={pestana === k}
+            onClick={() => setPestana(k)}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${pestana === k ? "border-brand-500 text-navy-900" : "border-transparent text-slate-500 hover:text-navy-900"}`}
+          >
+            {l}
+          </button>
+        ))}
       </div>
-      <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
-        <div>
-          <label className="label">Sucursal *</label>
-          <select className="input" required value={form.sucursal_id} onChange={set("sucursal_id")}>
-            <option value="">Selecciona…</option>
-            {sucursalesActivas.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.clave} — {s.nombre}
-              </option>
-            ))}
-          </select>
-        </div>
-        {conTurno ? (
+
+      {pestana === "generales" ? (
+        <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
+          <div className="space-y-4">
+            {input("numero", "Número *", { required: true, maxLength: 20 })}
+            {input("nombre", "Nombre(s) *", { required: true })}
+            {input("apellido_paterno", "Apellido paterno *", { required: true })}
+            {input("apellido_materno", "Apellido materno")}
+          </div>
+          <div className="space-y-4">{lateral}</div>
+          {input("fecha_ingreso", "Fecha de ingreso *", { type: "date", required: true })}
           <div>
-            <label className="label">Turno</label>
-            <select className="input" value={form.turno_id} onChange={set("turno_id")}>
-              <option value="">Sin turno por ahora</option>
-              {turnosActivos.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.nombre}
+            <label className="label">Sucursal *</label>
+            <select className="input" required value={form.sucursal_id} onChange={set("sucursal_id")}>
+              <option value="">Selecciona…</option>
+              {sucursalesActivas.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.clave} — {s.nombre}
                 </option>
               ))}
             </select>
           </div>
-        ) : (
-          <div />
-        )}
-        {input("puesto", "Puesto")}
-        {input("departamento", "Departamento")}
-        {!conTurno && sel && (
-          <div className="md:col-span-2">
-      <SelectorCategorias
-        todas={cats.lista}
-        valor={cats.asignadas[sel!.id] ?? []}
-        onCambio={(ids) => cats.asignar(sel!.id, ids).then(cats.recargar)}
-        puedeCrear={esAdmin}
-        onCrear={async (nombre) => {
-          const c = await post<Categoria>(`/categorias${query}${sep}modelo=empleado`, { nombre, color: "#8a64de" });
-          cats.recargar();
-          return c;
-        }}
-      />
+          {conTurno && (
+            <div>
+              <label className="label">Turno</label>
+              <select className="input" value={form.turno_id} onChange={set("turno_id")}>
+                <option value="">Sin turno por ahora</option>
+                {turnosActivos.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {input("puesto", "Puesto")}
+          {input("departamento", "Departamento")}
+          {input("email", "Correo", { type: "email" })}
+          {input("telefono", "Teléfono", { type: "tel", maxLength: 20 })}
+          <div>
+            <label className="label">PIN del kiosco</label>
+            <input
+              className="input tracking-widest"
+              inputMode="numeric"
+              pattern="\d{4,6}"
+              maxLength={6}
+              title="De 4 a 6 dígitos"
+              placeholder={sel?.tiene_pin && !nuevo ? "•••• (asignado)" : "4 a 6 dígitos"}
+              value={form.pin}
+              onChange={(e) => setForm({ ...form, pin: e.target.value.replace(/\D/g, "") })}
+            />
           </div>
-        )}
-      </div>
-      <fieldset className="grid grid-cols-1 gap-x-6 gap-y-4 rounded-lg bg-slate-50 p-4 md:grid-cols-2">
-        <legend className="px-1 text-xs font-medium uppercase tracking-wide text-slate-500">Datos fiscales y laborales</legend>
-        {input("curp", "CURP", { maxLength: 18, className: "input uppercase" })}
-        {input("rfc", "RFC", { maxLength: 13, className: "input uppercase" })}
-        {input("nss", "NSS (IMSS)", { maxLength: 13, inputMode: "numeric" })}
-        {input("salario_diario", "Salario diario", { type: "number", min: 0, step: "0.01" })}
-        {input("email", "Correo", { type: "email" })}
-        {input("telefono", "Teléfono", { type: "tel", maxLength: 20 })}
-        <div>
-          <label className="label">PIN del kiosco</label>
-          <input
-            className="input tracking-widest"
-            inputMode="numeric"
-            pattern="\d{4,6}"
-            maxLength={6}
-            title="De 4 a 6 dígitos"
-            placeholder={sel?.tiene_pin && !nuevo ? "•••• (asignado)" : "4 a 6 dígitos"}
-            value={form.pin}
-            onChange={(e) => setForm({ ...form, pin: e.target.value.replace(/\D/g, "") })}
-          />
+          {!conTurno && selectorCategorias}
         </div>
-      </fieldset>
-    </>
+      ) : (
+        <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
+          {input("curp", "CURP", { maxLength: 18, className: "input uppercase" })}
+          {input("rfc", "RFC", { maxLength: 13, className: "input uppercase" })}
+          {input("nss", "NSS (IMSS)", { maxLength: 13, inputMode: "numeric" })}
+          {input("salario_diario", "Salario diario", { type: "number", min: 0, step: "0.01" })}
+        </div>
+      )}
+    </div>
   );
+
+  /** Ficha del empleado para imprimir: una hoja, dos columnas, la foto una sola vez. */
+  async function imprimirFicha() {
+    if (!sel) return;
+    let foto = "";
+    if (sel.foto_version) {
+      try {
+        const u = await imagenProtegida(`/empleados/${sel.id}/foto${query}${sep}tam=512&v=${encodeURIComponent(sel.foto_version)}`);
+        foto = await aDataUrl(u);
+        URL.revokeObjectURL(u);
+      } catch {
+        foto = "";
+      }
+    }
+    const accesos = [sel.tiene_pin && "PIN de kiosco", sel.portal && `Portal (${sel.portal_email})`].filter(Boolean).join(", ") || "Sin accesos";
+    const dinero = (v: string | null) => (v ? Number(v).toLocaleString("es-MX", { style: "currency", currency: "MXN" }) : "");
+    const cuerpo = `
+<div style="display:grid;grid-template-columns:1fr 150px;gap:24px;align-items:start">
+  ${campos([
+    ["Número", sel.numero],
+    ["Nombre(s)", sel.nombre],
+    ["Apellido paterno", sel.apellido_paterno],
+    ["Apellido materno", sel.apellido_materno],
+  ]).replace('class="campos"', 'class="campos" style="grid-template-columns:1fr"')}
+  <div>${foto ? `<img src="${foto}" alt="" style="width:150px;height:150px;object-fit:cover;border-radius:8px">` : ""}</div>
+</div>
+<h2>Datos generales</h2>
+${campos([
+  ["Fecha de ingreso", fechaCorta(sel.fecha_ingreso)],
+  ["Sucursal", `${sel.sucursal.clave} — ${sel.sucursal.nombre}`],
+  ["Turno actual", sel.turno_actual?.nombre ?? "Sin turno"],
+  ["Puesto", sel.puesto],
+  ["Departamento", sel.departamento],
+  ["Categorías", cats.de(sel.id).map((c) => c.nombre).join(", ")],
+  ["Correo", sel.email],
+  ["Teléfono", sel.telefono],
+  ["Estado", sel.activo ? "Activo" : `Baja ${fechaCorta(sel.fecha_baja)}${sel.motivo_baja ? ` · ${sel.motivo_baja}` : ""}`],
+  ["Accesos", accesos],
+])}
+<h2>Datos fiscales</h2>
+${campos([
+  ["CURP", sel.curp],
+  ["RFC", sel.rfc],
+  ["NSS (IMSS)", sel.nss],
+  ["Salario diario", dinero(sel.salario_diario)],
+])}
+${
+  sel.asignaciones.length
+    ? `<h2>Historial de turnos</h2>${campos(sel.asignaciones.map((a) => [a.turno.nombre, `${fechaCorta(a.fecha_inicio)} → ${a.fecha_fin ? fechaCorta(a.fecha_fin) : "vigente"}`] as [string, string]))}`
+    : ""
+}`;
+    imprimirHtml(`Ficha del empleado · ${sel.nombre_completo}`, cuerpo);
+  }
 
   const botones = (onCancel: () => void, texto = "Guardar", peligro = false) => (
     <div className="flex justify-end gap-3">
@@ -476,6 +559,7 @@ export default function Empleados() {
         ]}
         action={selector}
       />
+      {reporte && <ReporteEmpleados empleados={empleados} categorias={cats.lista} catsDe={cats.de} onCerrar={() => setReporte(false)} />}
       {gestorCats && <GestorCategorias modelo="empleado" query={query} puedeEditar={esAdmin} onCerrar={() => setGestorCats(false)} onCambio={cats.recargar} />}
 
       <Vista vista={vistaEmp} />
@@ -484,7 +568,10 @@ export default function Empleados() {
       {nuevo && (
         <Modal title="Nuevo empleado" onClose={() => setNuevo(false)} ancho="lg">
           <form onSubmit={crear} className="space-y-4">
-            <div className="flex items-center gap-4">
+            {camposExpediente(
+              true,
+              <div className="flex flex-col items-start gap-3">
+            <div className="flex flex-wrap items-center gap-4">
               <label className="group relative cursor-pointer" title="Subir foto">
                 {previa ? (
                   <span className="marco-foto inline-flex h-28 w-28"><img src={previa} alt="Foto del empleado" className="h-full w-full rounded-md object-cover" /></span>
@@ -513,7 +600,8 @@ export default function Empleados() {
                 </div>
               </div>
             </div>
-            {camposExpediente(true)}
+              </div>,
+            )}
             <ErrorBox message={error} />
             {botones(() => setNuevo(false))}
           </form>
@@ -523,8 +611,21 @@ export default function Empleados() {
       {/* Detalle y acciones */}
       {sel && (
         <Registro
-          titulo={sel.nombre_completo}
-          subtitulo={`#${sel.numero} · ${sel.sucursal.clave} — ${sel.sucursal.nombre}`}
+          titulo={
+            <>
+              {sel.nombre_completo} <span className="font-normal text-slate-500">· {sel.sucursal.nombre}</span>
+            </>
+          }
+          imprimir={false}
+          acciones={[
+            { etiqueta: "Imprimir ficha", icono: "printer", onClick: imprimirFicha },
+            ...(sel.activo
+              ? [
+                  { etiqueta: "Cambiar turno", icono: "calendar-clock" as const, onClick: () => irA("turno"), separar: true },
+                  { etiqueta: "Dar de baja", icono: "user-check" as const, onClick: () => irA("baja"), peligro: true },
+                ]
+              : [{ etiqueta: "Reactivar", icono: "user-check" as const, onClick: () => ejecutar(() => post<EmpleadoDetalle>(`/empleados/${sel.id}/reactivar${query}`, {})), separar: true }]),
+          ]}
           indice={indiceSel >= 0 ? indiceSel : undefined}
           total={enOrden.length}
           onIr={(i) => abrirDetalle(enOrden[i].id)}
@@ -535,6 +636,10 @@ export default function Empleados() {
         >
           {vista === "detalle" && (
             <div className="space-y-5">
+              <form className="space-y-4" onSubmit={(ev) => (ev.preventDefault(), guardarFicha())}>
+                {camposExpediente(
+                  false,
+                  <>
               <div className="flex flex-wrap items-center gap-4">
                 <label className="group relative cursor-pointer" title={sel.foto_version ? "Cambiar foto" : "Subir foto"}>
                   <Avatar empleadoId={sel.id} nombre={sel.nombre_completo} version={sel.foto_version} query={query} tam={128} />
@@ -558,24 +663,30 @@ export default function Empleados() {
                   )}
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-xs text-slate-500">#{sel.numero}</span>
-                <Badge ok={sel.activo}>{sel.activo ? "Activo" : `Baja ${fechaCorta(sel.fecha_baja)}`}</Badge>
-                {sel.tiene_pin && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">PIN de kiosco</span>}
-                {sel.portal && <span className="rounded-full bg-accent-500/10 px-2 py-0.5 text-xs font-medium text-accent-500">Con acceso al portal</span>}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="label">Estado</span>
+                  <Badge ok={sel.activo}>{sel.activo ? "Activo" : `Baja ${fechaCorta(sel.fecha_baja)}`}</Badge>
+                  {!sel.activo && sel.motivo_baja && <p className="mt-1 text-xs text-slate-500">{sel.motivo_baja}</p>}
+                </div>
+                <div>
+                  <span className="label">Accesos</span>
+                  <div className="flex flex-wrap gap-1">
+                    {sel.tiene_pin && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">PIN de kiosco</span>}
+                    {sel.portal && <span className="rounded-full bg-accent-500/10 px-2 py-0.5 text-xs font-medium text-accent-500">Portal</span>}
+                    {!sel.tiene_pin && !sel.portal && <span className="text-xs text-slate-400">Ninguno</span>}
+                  </div>
+                </div>
               </div>
-              {!sel.activo && sel.motivo_baja && <p className="text-sm text-slate-600">Motivo de baja: {sel.motivo_baja}</p>}
-
-
               {sel.activo && (
-                <div className="flex items-start gap-3 rounded-lg border border-slate-200 p-4">
+                <div className="flex items-start gap-3">
                   <input id="portal" type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-500" checked={sel.portal} onChange={(e) => alternarPortal(e.target.checked)} />
                   <div className="min-w-0 flex-1 text-sm">
                     <label htmlFor="portal" className="cursor-pointer font-medium text-navy-900">
                       Dar acceso al portal
                     </label>
                     <p className="text-slate-500">
-                      Podrá registrar su asistencia y consultar su historial. Recibe un correo{sel.portal_email ? ` en ${sel.portal_email}` : ""} para crear su contraseña la primera vez.
+                      Podrá consultar su historial (y checar, si la empresa lo permite). Recibe un correo{sel.portal_email ? ` en ${sel.portal_email}` : ""} para crear su contraseña la primera vez.
                     </p>
                     {sel.portal && (
                       <button type="button" className="mt-1 text-xs font-medium text-brand-600 hover:underline" onClick={() => alternarPortal(true)}>
@@ -598,8 +709,8 @@ export default function Empleados() {
                 </div>
               )}
 
-              <form className="space-y-4" onSubmit={(ev) => (ev.preventDefault(), guardarFicha())}>
-                {camposExpediente(false)}
+                </>,
+                )}
                 <button type="submit" className="sr-only">
                   Guardar
                 </button>
@@ -624,23 +735,6 @@ export default function Empleados() {
               </div>
 
               <ErrorBox message={error} />
-              <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-4">
-                {sel.activo && (
-                  <button className="btn-secondary" onClick={() => irA("turno")}>
-                    Cambiar turno
-                  </button>
-                )}
-                {sel.activo ? (
-                  <button className="btn-secondary text-red-600" onClick={() => irA("baja")}>
-                    Dar de baja
-                  </button>
-                ) : (
-                  <button className="btn-secondary" onClick={() => ejecutar(() => post<EmpleadoDetalle>(`/empleados/${sel.id}/reactivar${query}`, {}))}>
-                    Reactivar
-                  </button>
-                )}
-              </div>
-
               <div className="border-t border-slate-100 pt-4">
                 <h3 className="mb-3 text-sm font-medium text-navy-900">Vacaciones e incidencias</h3>
                 <VacacionesIncidencias empleadoId={sel.id} query={query} onCambio={() => setHistorial((n) => n + 1)} />
