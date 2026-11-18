@@ -1,10 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { ApiError, session, setOnSessionExpired, type Usuario } from "./api";
+import { ApiError, get, session, setOnSessionExpired, type Usuario } from "./api";
 
 interface AuthState {
   usuario: Usuario | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Vuelve a leer el usuario (p. ej. después de cambiar el logo de la empresa). */
+  refrescar: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -30,6 +32,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario(body.usuario);
   }, []);
 
+  const refrescar = useCallback(async () => {
+    const u = await get<Usuario>("/auth/me");
+    const actual = session.get();
+    if (actual) session.set({ ...actual, usuario: u });
+    setUsuario(u);
+  }, []);
+
   const logout = useCallback(async () => {
     const current = session.get();
     session.clear();
@@ -43,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  return <AuthContext.Provider value={{ usuario, login, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ usuario, login, logout, refrescar }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthState {

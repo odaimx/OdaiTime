@@ -1,7 +1,7 @@
-from datetime import date
+from datetime import date, datetime
 
-from sqlalchemy import Date, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Date, DateTime, LargeBinary, String
+from sqlalchemy.orm import Mapped, deferred, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
 
@@ -21,3 +21,12 @@ class Empresa(UUIDPkMixin, TimestampMixin, Base):
     # Licencia: máximo de empleados activos y vigencia (None = sin vencimiento).
     max_empleados: Mapped[int] = mapped_column(default=15)
     licencia_vence: Mapped[date | None] = mapped_column(Date)
+
+    # Logo (PNG, máx. 512 px). Diferido: solo se lee en GET /tenant/logo/{id}.
+    logo: Mapped[bytes | None] = deferred(mapped_column(LargeBinary))
+    logo_actualizado: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    @property
+    def logo_version(self) -> str | None:
+        """Cambia al subir otro logo; sirve para refrescar la caché del navegador."""
+        return self.logo_actualizado.isoformat() if self.logo_actualizado else None

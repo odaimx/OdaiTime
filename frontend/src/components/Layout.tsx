@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router";
-import { ROLES, type Rol } from "../lib/api";
+import { ROLES, urlLogo, type Rol } from "../lib/api";
 import { LFT_URL, STPS_URL } from "./LFT";
 import { useAuth } from "../lib/auth";
 
@@ -140,6 +140,11 @@ export default function Layout() {
         </div>
         <div className={`whitespace-nowrap border-t border-navy-700 py-4 ${expandido ? "px-4" : "px-4 lg:px-2"}`}>
           <div className={oculto}>
+            {usuario.empresa?.logo_version && (
+              <div className="mb-3 flex h-12 items-center justify-center rounded-lg bg-white p-1.5">
+                <img src={urlLogo(usuario.empresa.id, usuario.empresa.logo_version)} alt={usuario.empresa.nombre} className="max-h-full max-w-full object-contain" />
+              </div>
+            )}
             <p className="truncate text-sm font-medium text-white">{usuario.nombre}</p>
             <p className="truncate text-xs text-slate-400">
               {ROLES[usuario.rol]}
