@@ -5,7 +5,9 @@ from app.api import (
     actividad,
     asistencia,
     auth,
+    categorias,
     checadas,
+    correo,
     dispositivos,
     empleados,
     empresas,
@@ -57,5 +59,7 @@ for r in (
     festivos.router,
     reportes.router,
     tareas.router,
+    categorias.router,
+    correo.router,
 ):
     app.include_router(r, prefix="/api")

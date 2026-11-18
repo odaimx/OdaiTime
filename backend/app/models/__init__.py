@@ -1,5 +1,7 @@
+from app.models.acceso import ConfigCorreo, TokenAcceso
 from app.models.actividad import Actividad
 from app.models.asistencia import Incidencia, PoliticaAsistencia
+from app.models.categoria import Categoria, CategoriaRegistro
 from app.models.checada import Checada, ConfigChecadas, Dispositivo
 from app.models.empleado import Empleado
 from app.models.empresa import Empresa
@@ -12,7 +14,10 @@ from app.models.usuario import Rol, Sesion, Usuario, usuario_sucursales
 
 __all__ = [
     "Actividad",
+    "Categoria",
+    "CategoriaRegistro",
     "Checada",
+    "ConfigCorreo",
     "ClaveNomina",
     "ConfigChecadas",
     "Dispositivo",
@@ -28,6 +33,7 @@ __all__ = [
     "Sesion",
     "Sucursal",
     "Tarea",
+    "TokenAcceso",
     "Turno",
     "TurnoDia",
     "Usuario",

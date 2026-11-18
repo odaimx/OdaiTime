@@ -120,6 +120,9 @@ class EmpleadoOut(BaseModel):
     sucursal: SucursalRef
     turno_actual: TurnoRef | None
     tiene_acceso: bool
+    # Acceso al portal del trabajador activo (su usuario existe y está activo).
+    portal: bool = False
+    portal_email: str | None = None
     tiene_pin: bool
     foto_version: str | None  # cambia al actualizar la foto (sirve para refrescar caché)
     activo: bool
@@ -134,6 +137,8 @@ class EmpleadoOut(BaseModel):
             sucursal=SucursalRef.model_validate(e.sucursal),
             turno_actual=TurnoRef.model_validate(actual.turno) if actual else None,
             tiene_acceso=e.usuario_id is not None,
+            portal=e.usuario is not None and e.usuario.activo,
+            portal_email=e.usuario.email if e.usuario else None,
             tiene_pin=e.pin_hash is not None,
             foto_version=e.foto_actualizada.isoformat() if e.foto_actualizada else None,
         )

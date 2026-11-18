@@ -26,6 +26,16 @@ class Empresa(UUIDPkMixin, TimestampMixin, Base):
     logo: Mapped[bytes | None] = deferred(mapped_column(LargeBinary))
     logo_actualizado: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
+    # Fondo principal de la empresa: un color (#rrggbb) o una imagen (JPEG, diferida).
+    fondo_color: Mapped[str | None] = mapped_column(String(7))
+    fondo_imagen: Mapped[bytes | None] = deferred(mapped_column(LargeBinary))
+    fondo_actualizado: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    @property
+    def fondo_version(self) -> str | None:
+        """Versión de la imagen de fondo (None si no hay imagen)."""
+        return self.fondo_actualizado.isoformat() if self.fondo_actualizado else None
+
     @property
     def logo_version(self) -> str | None:
         """Cambia al subir otro logo; sirve para refrescar la caché del navegador."""

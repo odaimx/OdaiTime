@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 import jwt
 from fastapi import APIRouter, HTTPException, Request, Response, status
+from pydantic import BaseModel, EmailStr, Field
 from redis.asyncio import Redis
 from sqlalchemy import func, select, update
 
@@ -14,13 +15,16 @@ from app.core.security import (
     create_access_token,
     create_refresh_token,
     decode_token,
+    hash_password,
     refresh_expiry,
     verify_password,
 )
 from app.core.tenant import tenant_de, url_empresa
 from app.models import Empleado, Empresa, Sesion, Usuario
 from app.schemas.auth import LoginIn, RefreshIn, TokenOut
+from app.schemas.common import Password
 from app.schemas.usuario import UsuarioOut
+from app.services import accesos
 
 router = APIRouter(prefix="/auth", tags=["autenticación"])
 log = logging.getLogger(__name__)
@@ -178,3 +182,92 @@ async def mi_foto(user: CurrentUser, db: DB) -> Response:
     return Response(
         datos, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=3600"}
     )
+
+
+# --- Recuperar clave e invitaciones al portal ---
+
+
+class RecuperarIn(BaseModel):
+    email: EmailStr
+
+
+class RestablecerIn(BaseModel):
+    token: str = Field(min_length=20, max_length=200)
+    password: Password
+
+
+class EnlaceOut(BaseModel):
+    tipo: str
+    nombre: str
+    email: str
+    empresa: str | None
+
+
+@router.post("/recuperar", status_code=status.HTTP_202_ACCEPTED)
+async def recuperar(data: RecuperarIn, request: Request, db: DB) -> dict[str, str]:
+    """Envía un enlace para cambiar la contraseña. Responde igual exista o no el correo."""
+    key = _rl_key(f"recuperar:{data.email.lower()}", request)
+    if await _intentos_excedidos(key):
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS, "Demasiadas solicitudes. Intenta más tarde."
+        )
+    await _registrar_fallo(key)  # cuenta cada solicitud para limitar el envío de correos
+    user = await db.scalar(select(Usuario).where(func.lower(Usuario.email) == data.email.lower()))
+    if user and user.activo and pertenece(user, tenant_de(request)):
+        await accesos.enviar_enlace(db, request, user, "recuperar")
+        await db.commit()
+    return {
+        "mensaje": "Si el correo está registrado, te enviamos un enlace para cambiar tu contraseña."
+    }
+
+
+@router.get("/enlace", response_model=EnlaceOut)
+async def ver_enlace(token: str, db: DB) -> EnlaceOut:
+    """Datos de un enlace de invitación o recuperación (para la pantalla de nueva contraseña)."""
+    t = await accesos.validar(db, token)
+    user = await db.get(Usuario, t.usuario_id) if t else None
+    if t is None or user is None or not user.activo:
+        raise HTTPException(
+            status.HTTP_410_GONE, "El enlace ya no es válido o venció. Pide uno nuevo."
+        )
+    return EnlaceOut(
+        tipo=t.tipo,
+        nombre=user.nombre,
+        email=user.email,
+        empresa=user.empresa.nombre if user.empresa else None,
+    )
+
+
+@router.post("/restablecer", response_model=TokenOut)
+async def restablecer(data: RestablecerIn, request: Request, db: DB) -> TokenOut:
+    """Crea o cambia la contraseña con el enlace del correo y deja la sesión iniciada."""
+    t = await accesos.validar(db, data.token)
+    user = await db.get(Usuario, t.usuario_id) if t else None
+    if t is None or user is None or not user.activo:
+        raise HTTPException(
+            status.HTTP_410_GONE, "El enlace ya no es válido o venció. Pide uno nuevo."
+        )
+    ahora = datetime.now(UTC)
+    t.usado_en = ahora
+    user.password_hash = hash_password(data.password)
+    # Cierra las sesiones abiertas con la contraseña anterior.
+    await db.execute(
+        update(Sesion)
+        .where(Sesion.usuario_id == user.id, Sesion.revocada_en.is_(None))
+        .values(revocada_en=ahora)
+    )
+    if (
+        not pertenece(user, tenant_de(request))
+        and user.empresa
+        and (url := url_empresa(user.empresa.slug))
+    ):
+        await db.commit()
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            {
+                "codigo": "usar_subdominio",
+                "mensaje": "Contraseña guardada. Entra por la dirección de tu empresa.",
+                "url": url,
+            },
+        )
+    return await _emitir(db, user)

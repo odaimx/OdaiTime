@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, deferred, mapped_column, relationship
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
 from app.models.sucursal import Sucursal
 from app.models.turno import AsignacionTurno
+from app.models.usuario import Usuario
 
 
 class Empleado(UUIDPkMixin, TimestampMixin, Base):
@@ -56,6 +57,7 @@ class Empleado(UUIDPkMixin, TimestampMixin, Base):
     motivo_baja: Mapped[str | None] = mapped_column(String(300))
 
     sucursal: Mapped[Sucursal] = relationship(lazy="joined")
+    usuario: Mapped[Usuario | None] = relationship(lazy="joined")
     asignaciones: Mapped[list[AsignacionTurno]] = relationship(
         lazy="selectin",
         order_by=AsignacionTurno.fecha_inicio.desc(),
