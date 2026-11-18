@@ -464,7 +464,7 @@ function MenuAcciones<T>({ vista }: { vista: EstadoVista<T> }) {
         ref={(el) => {
           menu.boton.current = el;
         }}
-        className={menu.abierto ? "btn-icono-activo h-10 w-9" : "btn-icono h-10 w-9"}
+        className={menu.abierto ? "btn-icono-activo" : "btn-icono"}
         onClick={menu.alternar}
         title="Acciones"
         aria-label="Acciones"
@@ -769,10 +769,10 @@ function Paginador<T>({ vista }: { vista: EstadoVista<T> }) {
       </button>
       {!vista.grupos && (
         <>
-          <button className="btn-icono h-9 w-10" disabled={pagina === 0} onClick={() => vista.setPagina(pagina - 1)} aria-label="Página anterior">
+          <button className="btn-icono" disabled={pagina === 0} onClick={() => vista.setPagina(pagina - 1)} aria-label="Página anterior">
             <Icono nombre="chevron-left" className="h-4 w-4" />
           </button>
-          <button className="btn-icono h-9 w-10" disabled={pagina >= paginas - 1} onClick={() => vista.setPagina(pagina + 1)} aria-label="Página siguiente">
+          <button className="btn-icono" disabled={pagina >= paginas - 1} onClick={() => vista.setPagina(pagina + 1)} aria-label="Página siguiente">
             <Icono nombre="chevron-right" className="h-4 w-4" />
           </button>
         </>
