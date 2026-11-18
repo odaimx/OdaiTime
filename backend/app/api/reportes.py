@@ -179,9 +179,7 @@ async def exportar_nomina(
         if tipo_periodo and tipo_periodo not in reportes.TIPOS_PERIODO:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Tipo de periodo no válido")
         if numero_periodo is not None and not 1 <= numero_periodo <= 999:
-            raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY, "Número de periodo no válido"
-            )
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Número de periodo no válido")
         opciones = reportes.OpcionesContpaqi(
             ejercicio=ejercicio or hasta.year,
             tipo_periodo=tipo_periodo,
