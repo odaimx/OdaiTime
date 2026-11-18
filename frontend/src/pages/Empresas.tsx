@@ -6,7 +6,7 @@ import Registro, { useFormulario } from "../components/Registro";
 import Icono from "../components/Iconos";
 import { columnaCategorias, filtrosCategorias, GestorCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
-import { Badge, ErrorBox, PageHeader } from "../components/ui";
+import { Ayuda, Badge, ErrorBox, PageHeader } from "../components/ui";
 import { get, patch, post, urlLogo, type Categoria, type Empresa, type TenantInfo } from "../lib/api";
 
 type Form = { nombre: string; slug: string; razon_social: string; rfc: string; max_empleados: string; licencia_vence: string; admin_nombre: string; admin_email: string; admin_password: string };
@@ -103,7 +103,7 @@ export default function Empresas() {
           <div className="flex items-center gap-3">
             {logo(e, "h-8 w-8")}
             <div className="min-w-0">
-              <p className="truncate font-medium text-navy-900">{e.nombre}</p>
+              <p className="truncate font-medium text-tinta-900">{e.nombre}</p>
               {e.razon_social && <p className="truncate text-xs text-slate-500">{e.razon_social}</p>}
             </div>
           </div>
@@ -147,7 +147,7 @@ export default function Empresas() {
       <div className="flex gap-3">
         {logo(e, "h-14 w-14")}
         <div className="min-w-0">
-          <p className="truncate font-semibold text-navy-900">{e.nombre}</p>
+          <p className="truncate font-semibold text-tinta-900">{e.nombre}</p>
           <p className="truncate font-mono text-xs text-brand-600">{e.url?.replace("https://", "") ?? e.slug}</p>
           <p className="text-xs text-slate-600">
             {e.max_empleados} empleados{e.licencia_vence && ` · vence ${e.licencia_vence}`}
@@ -210,7 +210,10 @@ export default function Empresas() {
               </div>
             )}
             <div>
-              <label className="label">Subdominio</label>
+              <label className="label">
+                Subdominio
+                <Ayuda texto="Dirección con la que entra la empresa, p. ej. hotel.odai.lat. Si lo cambias, la dirección anterior deja de funcionar." />
+              </label>
               <div className="flex items-center">
                 <input
                   className={`input font-mono lowercase ${SUFIJO ? "rounded-r-none" : ""}`}
@@ -300,7 +303,7 @@ export default function Empresas() {
 
             {editando !== "nueva" && (
               <div className="completo flex justify-end">
-                <button type="button" className="text-sm text-slate-500 hover:text-navy-900 hover:underline" onClick={() => alternar(editando)}>
+                <button type="button" className="text-sm text-slate-500 hover:text-tinta-900 hover:underline" onClick={() => alternar(editando)}>
                   {editando.activa ? "Desactivar empresa" : "Activar empresa"}
                 </button>
               </div>

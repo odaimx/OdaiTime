@@ -9,6 +9,8 @@ export interface Colores {
   acento?: string | null; // azul
   marino?: string | null; // azul marino
   titulos?: string | null; // beige
+  texto?: string | null; // texto principal
+  texto_suave?: string | null; // texto secundario (ayudas, etiquetas tenues)
 }
 
 export const COLORES_ODAI: Required<{ [K in keyof Colores]: string }> = {
@@ -16,6 +18,8 @@ export const COLORES_ODAI: Required<{ [K in keyof Colores]: string }> = {
   acento: "#54aaf6",
   marino: "#1a2c4f",
   titulos: "#e2c68f",
+  texto: "#1a2c4f",
+  texto_suave: "#64748b",
 };
 
 const mezcla = (c: string, pct: number, con: "white" | "black") => `color-mix(in srgb, ${c} ${pct}%, ${con})`;
@@ -40,6 +44,11 @@ export function aplicarTema(colores: Colores) {
   set("--color-oro-300", t ? mezcla(t, 70, "white") : null);
   set("--color-oro-400", t ?? null);
   set("--color-oro-500", t ? mezcla(t, 85, "black") : null);
+  set("--color-tinta-900", colores.texto ?? null);
+  const ts = colores.texto_suave;
+  set("--color-slate-500", ts ?? null);
+  set("--color-slate-600", ts ? mezcla(ts, 85, "black") : null);
+  set("--color-slate-400", ts ? mezcla(ts, 75, "white") : null);
 }
 
 /** Lee el tema guardado y lo aplica (se llama al arrancar la aplicación). */

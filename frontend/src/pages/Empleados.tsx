@@ -8,7 +8,7 @@ import VacacionesIncidencias from "../components/VacacionesIncidencias";
 import Icono from "../components/Iconos";
 import { columnaCategorias, Chips, filtrosCategorias, GestorCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
 import Vista, { useVista, type Columna, type ConfigVista } from "../components/Vista";
-import { AvisoLicencia, Badge, ErrorBox, Modal, PageHeader, UsoLicencia, useEmpresaScope } from "../components/ui";
+import { AvisoLicencia, Badge, ErrorBox, Fila, ImagenEditable, Modal, PageHeader, Plegable, UsoLicencia, useEmpresaScope } from "../components/ui";
 import {
   api,
   comprimir,
@@ -194,7 +194,7 @@ export default function Empleados() {
             <Avatar empleadoId={e.id} nombre={e.nombre_completo} version={e.foto_version} query={query} tam={32} />
             <PuntoPresencia presente={presentes.has(e.id)} activo={e.activo} className="absolute -bottom-0.5 -right-0.5 ring-2 ring-white" />
           </span>
-          <span className="truncate font-medium text-navy-900">{e.nombre_completo}</span>
+          <span className="truncate font-medium text-tinta-900">{e.nombre_completo}</span>
         </div>
       ),
     },
@@ -281,8 +281,8 @@ export default function Empleados() {
     ),
     menuAcciones: [
       ...(esAdmin && listo ? [{ etiqueta: "Importar", icono: "download" as const, onClick: () => setImportando(true) }] : []),
-      { etiqueta: "Reporte de empleados", icono: "file-text" as const, onClick: () => setReporte(true) },
     ],
+    reportePdf: () => setReporte(true),
     extra: lic && <UsoLicencia lic={lic} compacto />,
     actividades: { modelo: "empleado", query, listo },
     vacio: "No hay empleados con esos filtros.",
@@ -290,7 +290,7 @@ export default function Empleados() {
       <div className="flex gap-3 pr-6">
         <Avatar empleadoId={e.id} nombre={e.nombre_completo} version={e.foto_version} query={query} tam={88} cuadrado />
         <div className="min-w-0 flex-1 space-y-0.5">
-          <p className="truncate font-semibold text-navy-900">{e.nombre_completo}</p>
+          <p className="truncate font-semibold text-tinta-900">{e.nombre_completo}</p>
           <p className="truncate text-xs uppercase tracking-wide text-slate-500">{e.puesto ?? "Sin puesto"}</p>
           {e.email && <p className="truncate text-xs text-slate-600">✉ {e.email}</p>}
           {e.telefono && <p className="truncate text-xs text-slate-600">☎ {e.telefono}</p>}
@@ -389,6 +389,7 @@ export default function Empleados() {
       valor={cats.asignadas[sel.id] ?? []}
       onCambio={(ids) => cats.asignar(sel.id, ids).then(cats.recargar)}
       puedeCrear={esAdmin}
+      conEtiqueta={false}
       onCrear={async (nombre) => {
         const c = await post<Categoria>(`/categorias${query}${sep}modelo=empleado`, { nombre, color: "#8a64de" });
         cats.recargar();
@@ -397,8 +398,29 @@ export default function Empleados() {
     />
   );
 
-  /** Campos del expediente en dos pestañas. `lateral` va en la segunda columna (foto, estado, accesos). */
-  const camposExpediente = (conTurno: boolean, lateral: ReactNode) => (
+  /** Campo con su etiqueta a la izquierda (como Odoo), para que las dos columnas queden parejas. */
+  const fila = (k: Campo, etiqueta: string, props: Record<string, unknown> = {}, ayuda?: ReactNode) => (
+    <Fila key={k} etiqueta={etiqueta} ayuda={ayuda} htmlFor={`emp-${k}`}>
+      <input id={`emp-${k}`} className="input" value={form[k]} onChange={set(k)} {...props} />
+    </Fila>
+  );
+
+  /** Pares izquierda/derecha en una sola rejilla: cada renglón queda a la misma altura. */
+  const parejas = (izq: ReactNode[], der: ReactNode[]) => {
+    const n = Math.max(izq.length, der.length);
+    const salida: ReactNode[] = [];
+    for (let i = 0; i < n; i++) {
+      salida.push(izq[i] ?? <div key={`i${i}`} className="hidden md:block" />);
+      salida.push(der[i] ?? <div key={`d${i}`} className="hidden md:block" />);
+    }
+    return <div className="grid grid-cols-1 gap-x-10 gap-y-2 md:grid-cols-2">{salida}</div>;
+  };
+
+  /**
+   * Campos del expediente en dos pestañas. `foto` va arriba en la segunda columna y `derecha`
+   * son renglones extra de la segunda columna (estado, accesos, portal).
+   */
+  const camposExpediente = (conTurno: boolean, foto: ReactNode, derecha: ReactNode[] = []) => (
     <div className="space-y-4">
       <div className="flex gap-1 border-b border-slate-200" role="tablist">
         {(
@@ -413,7 +435,7 @@ export default function Empleados() {
             role="tab"
             aria-selected={pestana === k}
             onClick={() => setPestana(k)}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${pestana === k ? "border-brand-500 text-navy-900" : "border-transparent text-slate-500 hover:text-navy-900"}`}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${pestana === k ? "border-brand-500 text-tinta-900" : "border-transparent text-slate-500 hover:text-tinta-900"}`}
           >
             {l}
           </button>
@@ -421,65 +443,72 @@ export default function Empleados() {
       </div>
 
       {pestana === "generales" ? (
-        <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
-          <div className="space-y-4">
-            {input("numero", "Número *", { required: true, maxLength: 20 })}
-            {input("nombre", "Nombre(s) *", { required: true })}
-            {input("apellido_paterno", "Apellido paterno *", { required: true })}
-            {input("apellido_materno", "Apellido materno")}
-          </div>
-          <div className="space-y-4">{lateral}</div>
-          {input("fecha_ingreso", "Fecha de ingreso *", { type: "date", required: true })}
-          <div>
-            <label className="label">Sucursal *</label>
-            <select className="input" required value={form.sucursal_id} onChange={set("sucursal_id")}>
-              <option value="">Selecciona…</option>
-              {sucursalesActivas.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.clave} — {s.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-          {conTurno && (
-            <div>
-              <label className="label">Turno</label>
-              <select className="input" value={form.turno_id} onChange={set("turno_id")}>
-                <option value="">Sin turno por ahora</option>
-                {turnosActivos.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.nombre}
-                  </option>
-                ))}
-              </select>
+        <>
+          <div className="grid grid-cols-1 gap-x-10 gap-y-2 md:grid-cols-2">
+            <div className="space-y-2">
+              {fila("numero", "Número *", { required: true, maxLength: 20 })}
+              {fila("nombre", "Nombre(s) *", { required: true })}
+              {fila("apellido_paterno", "Apellido paterno *", { required: true })}
+              {fila("apellido_materno", "Apellido materno")}
             </div>
-          )}
-          {input("puesto", "Puesto")}
-          {input("departamento", "Departamento")}
-          {input("email", "Correo", { type: "email" })}
-          {input("telefono", "Teléfono", { type: "tel", maxLength: 20 })}
-          <div>
-            <label className="label">PIN del kiosco</label>
-            <input
-              className="input tracking-widest"
-              inputMode="numeric"
-              pattern="\d{4,6}"
-              maxLength={6}
-              title="De 4 a 6 dígitos"
-              placeholder={sel?.tiene_pin && !nuevo ? "•••• (asignado)" : "4 a 6 dígitos"}
-              value={form.pin}
-              onChange={(e) => setForm({ ...form, pin: e.target.value.replace(/\D/g, "") })}
-            />
+            <div className="flex md:justify-end">{foto}</div>
           </div>
-          {!conTurno && selectorCategorias}
-        </div>
+          {parejas(
+            [
+              fila("fecha_ingreso", "Fecha de ingreso *", { type: "date", required: true }),
+              <Fila key="sucursal" etiqueta="Sucursal *" htmlFor="emp-sucursal">
+                <select id="emp-sucursal" className="input" required value={form.sucursal_id} onChange={set("sucursal_id")}>
+                  <option value="">Selecciona…</option>
+                  {sucursalesActivas.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.clave} — {s.nombre}
+                    </option>
+                  ))}
+                </select>
+              </Fila>,
+              ...(conTurno
+                ? [
+                    <Fila key="turno" etiqueta="Turno" htmlFor="emp-turno">
+                      <select id="emp-turno" className="input" value={form.turno_id} onChange={set("turno_id")}>
+                        <option value="">Sin turno por ahora</option>
+                        {turnosActivos.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </Fila>,
+                  ]
+                : []),
+              fila("puesto", "Puesto"),
+              fila("departamento", "Departamento"),
+              ...(!conTurno && selectorCategorias ? [<Fila key="cats" etiqueta="Categorías">{selectorCategorias}</Fila>] : []),
+            ],
+            [
+              ...derecha,
+              fila("email", "Correo", { type: "email" }, "Se usa para enviarle su acceso al portal."),
+              fila("telefono", "Teléfono", { type: "tel", maxLength: 20 }),
+              <Fila key="pin" etiqueta="PIN del kiosco" ayuda="De 4 a 6 dígitos. Con su número de empleado y este PIN checa en el kiosco de la sucursal." htmlFor="emp-pin">
+                <input
+                  id="emp-pin"
+                  className="input tracking-widest"
+                  inputMode="numeric"
+                  pattern="\d{4,6}"
+                  maxLength={6}
+                  title="De 4 a 6 dígitos"
+                  placeholder={sel?.tiene_pin && !nuevo ? "•••• (asignado)" : "4 a 6 dígitos"}
+                  value={form.pin}
+                  onChange={(e) => setForm({ ...form, pin: e.target.value.replace(/\D/g, "") })}
+                />
+              </Fila>,
+            ],
+          )}
+        </>
       ) : (
-        <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
-          {input("curp", "CURP", { maxLength: 18, className: "input uppercase" })}
-          {input("rfc", "RFC", { maxLength: 13, className: "input uppercase" })}
-          {input("nss", "NSS (IMSS)", { maxLength: 13, inputMode: "numeric" })}
-          {input("salario_diario", "Salario diario", { type: "number", min: 0, step: "0.01" })}
-        </div>
+        parejas(
+          [fila("curp", "CURP", { maxLength: 18, className: "input uppercase" }), fila("nss", "NSS (IMSS)", { maxLength: 13, inputMode: "numeric" })],
+          [fila("rfc", "RFC", { maxLength: 13, className: "input uppercase" }), fila("salario_diario", "Salario diario", { type: "number", min: 0, step: "0.01" }, "Salario base por día; se usa en los reportes. El importe de la nómina lo calcula tu sistema de nómina.")],
+        )
       )}
     </div>
   );
@@ -570,37 +599,18 @@ ${
           <form onSubmit={crear} className="space-y-4">
             {camposExpediente(
               true,
-              <div className="flex flex-col items-start gap-3">
-            <div className="flex flex-wrap items-center gap-4">
-              <label className="group relative cursor-pointer" title="Subir foto">
-                {previa ? (
-                  <span className="marco-foto inline-flex h-28 w-28"><img src={previa} alt="Foto del empleado" className="h-full w-full rounded-md object-cover" /></span>
-                ) : (
-                  <span className="marco-foto flex h-28 w-28 items-center justify-center bg-slate-100 text-slate-400">
-                    <IconoCamara />
-                  </span>
-                )}
-                <input type="file" accept="image/*" className="sr-only" onChange={(e) => e.target.files?.[0] && elegirFotoNueva(e.target.files[0])} />
-              </label>
-              <div className="flex flex-col gap-1 text-sm">
-                <span className="font-medium text-navy-900">Foto del empleado</span>
-                <div className="flex gap-3">
-                  <label className="cursor-pointer font-medium text-brand-600 hover:underline">
-                    {previa ? "Cambiar" : "Subir foto"}
-                    <input type="file" accept="image/*" className="sr-only" onChange={(e) => e.target.files?.[0] && elegirFotoNueva(e.target.files[0])} />
-                  </label>
-                  <button type="button" className="font-medium text-brand-600 hover:underline" onClick={() => setCamaraFoto(true)}>
-                    Tomar con la cámara
-                  </button>
-                  {previa && (
-                    <button type="button" className="text-slate-500 hover:text-red-600 hover:underline" onClick={() => elegirFotoNueva(null)}>
-                      Quitar
-                    </button>
+              <ImagenEditable onCambiar={elegirFotoNueva} onCamara={() => setCamaraFoto(true)} onQuitar={previa ? () => elegirFotoNueva(null) : undefined}>
+                <span className="marco-foto inline-flex h-24 w-24">
+                  {previa ? (
+                    <img src={previa} alt="Foto del empleado" className="h-full w-full rounded-md object-cover" />
+                  ) : (
+                    <svg viewBox="0 0 64 64" className="h-full w-full rounded-md bg-slate-100" aria-hidden="true">
+                      <circle cx="32" cy="24" r="11" fill="#cbd5e1" />
+                      <path d="M10 60c2-12 11-19 22-19s20 7 22 19" fill="#cbd5e1" />
+                    </svg>
                   )}
-                </div>
-              </div>
-            </div>
-              </div>,
+                </span>
+              </ImagenEditable>,
             )}
             <ErrorBox message={error} />
             {botones(() => setNuevo(false))}
@@ -639,92 +649,72 @@ ${
               <form className="space-y-4" onSubmit={(ev) => (ev.preventDefault(), guardarFicha())}>
                 {camposExpediente(
                   false,
-                  <>
-              <div className="flex flex-wrap items-center gap-4">
-                <label className="group relative cursor-pointer" title={sel.foto_version ? "Cambiar foto" : "Subir foto"}>
-                  <Avatar empleadoId={sel.id} nombre={sel.nombre_completo} version={sel.foto_version} query={query} tam={128} />
-                  <span className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-brand-500 text-white shadow ring-2 ring-white group-hover:bg-brand-600">
-                    <IconoCamara pequeno />
-                  </span>
-                  <input type="file" accept="image/*" className="sr-only" onChange={(e) => e.target.files?.[0] && guardarFoto(e.target.files[0])} />
-                </label>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                  <label className="cursor-pointer font-medium text-brand-600 hover:underline">
-                    {sel.foto_version ? "Cambiar foto" : "Subir foto"}
-                    <input type="file" accept="image/*" className="sr-only" onChange={(e) => e.target.files?.[0] && guardarFoto(e.target.files[0])} />
-                  </label>
-                  <button type="button" className="font-medium text-brand-600 hover:underline" onClick={() => setCamaraFoto(true)}>
-                    Tomar con la cámara
-                  </button>
-                  {sel.foto_version && (
-                    <button type="button" className="text-slate-500 hover:text-red-600 hover:underline" onClick={() => ejecutar(() => api<EmpleadoDetalle>(`/empleados/${sel.id}/foto${query}`, { method: "DELETE" }))}>
-                      Quitar
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <span className="label">Estado</span>
-                  <Badge ok={sel.activo}>{sel.activo ? "Activo" : `Baja ${fechaCorta(sel.fecha_baja)}`}</Badge>
-                  {!sel.activo && sel.motivo_baja && <p className="mt-1 text-xs text-slate-500">{sel.motivo_baja}</p>}
-                </div>
-                <div>
-                  <span className="label">Accesos</span>
-                  <div className="flex flex-wrap gap-1">
-                    {sel.tiene_pin && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">PIN de kiosco</span>}
-                    {sel.portal && <span className="rounded-full bg-accent-500/10 px-2 py-0.5 text-xs font-medium text-accent-500">Portal</span>}
-                    {!sel.tiene_pin && !sel.portal && <span className="text-xs text-slate-400">Ninguno</span>}
-                  </div>
-                </div>
-              </div>
-              {sel.activo && (
-                <div className="flex items-start gap-3">
-                  <input id="portal" type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-500" checked={sel.portal} onChange={(e) => alternarPortal(e.target.checked)} />
-                  <div className="min-w-0 flex-1 text-sm">
-                    <label htmlFor="portal" className="cursor-pointer font-medium text-navy-900">
-                      Dar acceso al portal
-                    </label>
-                    <p className="text-slate-500">
-                      Podrá consultar su historial (y checar, si la empresa lo permite). Recibe un correo{sel.portal_email ? ` en ${sel.portal_email}` : ""} para crear su contraseña la primera vez.
-                    </p>
-                    {sel.portal && (
-                      <button type="button" className="mt-1 text-xs font-medium text-brand-600 hover:underline" onClick={() => alternarPortal(true)}>
-                        Reenviar invitación
-                      </button>
-                    )}
-                    {avisoPortal && <p className="mt-2 text-emerald-700">{avisoPortal}</p>}
-                    {enlacePortal && (
-                      <div className="mt-2 space-y-1 rounded-lg bg-amber-50 p-3 text-amber-900">
-                        <p>El correo saliente no está configurado. Comparte este enlace con la persona (vence en 72 horas):</p>
-                        <div className="flex gap-2">
-                          <input className="input flex-1 font-mono text-xs" readOnly value={enlacePortal} onFocus={(e) => e.target.select()} />
-                          <button type="button" className="btn-secondary" onClick={() => navigator.clipboard?.writeText(enlacePortal)}>
-                            Copiar
+                  <ImagenEditable
+                    onCambiar={guardarFoto}
+                    onCamara={() => setCamaraFoto(true)}
+                    onQuitar={sel.foto_version ? () => ejecutar(() => api<EmpleadoDetalle>(`/empleados/${sel.id}/foto${query}`, { method: "DELETE" })) : undefined}
+                  >
+                    <Avatar empleadoId={sel.id} nombre={sel.nombre_completo} version={sel.foto_version} query={query} tam={96} />
+                  </ImagenEditable>,
+                  [
+                    <Fila key="estado" etiqueta="Estado">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <Badge ok={sel.activo}>{sel.activo ? "Activo" : `Baja ${fechaCorta(sel.fecha_baja)}`}</Badge>
+                        {!sel.activo && sel.motivo_baja && <span className="text-xs text-slate-500">{sel.motivo_baja}</span>}
+                      </span>
+                    </Fila>,
+                    <Fila key="accesos" etiqueta="Accesos" ayuda="Formas en que esta persona puede registrar o consultar su asistencia.">
+                      <span className="flex flex-wrap gap-1">
+                        {sel.tiene_pin && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">PIN de kiosco</span>}
+                        {sel.portal && <span className="rounded-full bg-accent-500/10 px-2 py-0.5 text-xs font-medium text-accent-500">Portal</span>}
+                        {!sel.tiene_pin && !sel.portal && <span className="text-xs text-slate-400">Ninguno</span>}
+                      </span>
+                    </Fila>,
+                    <Fila
+                      key="portal"
+                      etiqueta="Portal"
+                      htmlFor="portal"
+                      ayuda={`Podrá consultar su historial (y checar, si la empresa lo permite). Recibe un correo${sel.portal_email ? ` en ${sel.portal_email}` : ""} para crear su contraseña la primera vez.`}
+                    >
+                      <div className="text-sm">
+                        <label className="inline-flex cursor-pointer items-center gap-2 text-tinta-900">
+                          <input id="portal" type="checkbox" className="h-4 w-4 accent-brand-500" disabled={!sel.activo} checked={sel.portal} onChange={(e) => alternarPortal(e.target.checked)} />
+                          Dar acceso al portal
+                        </label>
+                        {sel.portal && (
+                          <button type="button" className="ml-3 text-xs font-medium text-brand-600 hover:underline" onClick={() => alternarPortal(true)}>
+                            Reenviar invitación
                           </button>
-                        </div>
+                        )}
+                        {avisoPortal && <p className="mt-1 text-xs text-emerald-700">{avisoPortal}</p>}
+                        {enlacePortal && (
+                          <div className="mt-2 space-y-1 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">
+                            <p>El correo saliente no está configurado. Comparte este enlace (vence en 72 horas):</p>
+                            <div className="flex gap-2">
+                              <input className="input flex-1 font-mono text-xs" readOnly value={enlacePortal} onFocus={(e) => e.target.select()} />
+                              <button type="button" className="btn-secondary" onClick={() => navigator.clipboard?.writeText(enlacePortal)}>
+                                Copiar
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-                </>,
+                    </Fila>,
+                  ],
                 )}
                 <button type="submit" className="sr-only">
                   Guardar
                 </button>
               </form>
 
-              <div>
-                <h3 className="mb-2 text-sm font-medium text-navy-900">Historial de turnos</h3>
+              <Plegable titulo={`Historial de turnos (${sel.asignaciones.length})`}>
                 {sel.asignaciones.length === 0 ? (
                   <p className="text-sm text-amber-600">Sin turno asignado.</p>
                 ) : (
                   <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 text-sm">
                     {sel.asignaciones.map((a) => (
                       <li key={a.id} className="flex justify-between gap-3 px-3 py-2">
-                        <span className="font-medium text-navy-900">{a.turno.nombre}</span>
+                        <span className="font-medium text-tinta-900">{a.turno.nombre}</span>
                         <span className="text-slate-500">
                           {fechaCorta(a.fecha_inicio)} → {a.fecha_fin ? fechaCorta(a.fecha_fin) : "vigente"}
                         </span>
@@ -732,18 +722,16 @@ ${
                     ))}
                   </ul>
                 )}
-              </div>
+              </Plegable>
 
               <ErrorBox message={error} />
-              <div className="border-t border-slate-100 pt-4">
-                <h3 className="mb-3 text-sm font-medium text-navy-900">Vacaciones e incidencias</h3>
+              <Plegable titulo="Vacaciones e incidencias">
                 <VacacionesIncidencias empleadoId={sel.id} query={query} onCambio={() => setHistorial((n) => n + 1)} />
-              </div>
+              </Plegable>
 
-              <div className="border-t border-slate-100 pt-4">
-                <h3 className="mb-3 text-sm font-medium text-navy-900">Historial</h3>
+              <Plegable titulo="Historial de cambios">
                 <Bitacora modelo="empleado" registroId={sel.id} query={query} recargar={historial} />
-              </div>
+              </Plegable>
             </div>
           )}
 

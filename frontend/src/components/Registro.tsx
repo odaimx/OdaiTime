@@ -93,57 +93,17 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
     return () => window.removeEventListener("keydown", onKey);
   }, [cerrar, ir, guardar, indice]);
 
-  const conFlechas = indice !== undefined && total !== undefined && total > 1 && onIr;
-  const etiqueta = { guardado: "Guardado", sucio: "Cambios sin guardar", guardando: "Guardando…", error: "No se pudo guardar" }[estado];
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-navy-900/40 p-3 pt-6 sm:p-4 sm:pt-12" onMouseDown={cerrar}>
-      <div className={`registro-hoja card w-full ${ancho === "lg" ? "max-w-5xl" : "max-w-2xl"}`} onMouseDown={(e) => e.stopPropagation()}>
-        <div className="no-imprimir flex items-center gap-2 rounded-t-xl border-b border-slate-200 bg-slate-100/70 px-4 py-2.5 sm:px-5">
-          {onGuardar && (
-            <>
-              <button
-                type="button"
-                onClick={guardar}
-                disabled={!sucio || estado === "guardando"}
-                title={`${etiqueta} (Ctrl+S)`}
-                aria-label="Guardar"
-                className={`rounded-lg p-1.5 transition ${sucio ? "bg-brand-500 text-white hover:bg-brand-600" : "text-emerald-600"} disabled:cursor-default ${estado === "error" ? "bg-red-600 text-white" : ""}`}
-              >
-                <Icono nombre={sucio || estado === "error" ? "cloud-upload" : "cloud-check"} className="h-5 w-5" />
-              </button>
-              {sucio && onDescartar && (
-                <button type="button" onClick={onDescartar} title="Descartar cambios" aria-label="Descartar cambios" className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-navy-900">
-                  <Icono nombre="undo-2" className="h-5 w-5" />
-                </button>
-              )}
-              <span className={`hidden text-xs sm:inline ${estado === "error" ? "text-red-600" : sucio ? "text-brand-700" : "text-slate-400"}`}>{etiqueta}</span>
-            </>
-          )}
-
-          <div className="ml-auto flex items-center gap-1">
-            {conFlechas && (
-              <>
-                <span className="mr-1 text-xs tabular-nums text-slate-500">
-                  {indice + 1} / {total}
-                </span>
-                <button type="button" onClick={() => ir(indice - 1)} disabled={indice === 0} aria-label="Registro anterior" title="Anterior (Alt+←)" className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 disabled:opacity-30">
-                  <Icono nombre="chevron-left" className="h-5 w-5" />
-                </button>
-                <button type="button" onClick={() => ir(indice + 1)} disabled={indice === total - 1} aria-label="Registro siguiente" title="Siguiente (Alt+→)" className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 disabled:opacity-30">
-                  <Icono nombre="chevron-right" className="h-5 w-5" />
-                </button>
-              </>
-            )}
+  const menuAcciones = (
+    <>
             {opciones.length > 0 && (
-              <div className="relative ml-1">
-                <button type="button" onClick={() => setMenu((m) => !m)} title="Acciones" aria-label="Acciones" className={`rounded-lg p-1.5 ${menu ? "bg-white text-navy-900 ring-1 ring-brand-500" : "text-slate-600 hover:bg-white hover:text-navy-900"}`}>
+              <div className="relative">
+                <button type="button" onClick={() => setMenu((m) => !m)} title="Acciones" aria-label="Acciones" className={`rounded-lg p-1.5 ${menu ? "bg-white text-tinta-900 ring-1 ring-brand-500" : "text-slate-600 hover:bg-white hover:text-tinta-900"}`}>
                   <Icono nombre="ellipsis-vertical" className="h-5 w-5" />
                 </button>
                 {menu && (
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setMenu(false)} />
-                    <div className="popover right-0 top-10 w-56 p-1">
+                    <div className="popover left-0 top-10 w-56 p-1">
                       {opciones.map((o) => (
                         <div key={o.etiqueta}>
                           {o.separar && <hr className="my-1 border-slate-100" />}
@@ -165,15 +125,61 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
                 )}
               </div>
             )}
-            <button type="button" onClick={cerrar} aria-label="Cerrar" className="ml-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-navy-900">
+    </>
+  );
+
+  const conFlechas = indice !== undefined && total !== undefined && total > 1 && onIr;
+  const etiqueta = { guardado: "Guardado", sucio: "Cambios sin guardar", guardando: "Guardando…", error: "No se pudo guardar" }[estado];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-navy-900/40 p-3 pt-6 sm:p-4 sm:pt-12" onMouseDown={cerrar}>
+      <div className={`registro-hoja card flex max-h-[calc(100dvh-3rem)] w-full flex-col sm:max-h-[calc(100dvh-6rem)] ${ancho === "lg" ? "max-w-5xl" : "max-w-2xl"}`} onMouseDown={(e) => e.stopPropagation()}>
+        <div className="no-imprimir flex shrink-0 items-center gap-2 rounded-t-xl border-b border-slate-200 bg-slate-100/70 px-4 py-2.5 sm:px-5">
+          {menuAcciones}
+          {onGuardar && (
+            <>
+              <button
+                type="button"
+                onClick={guardar}
+                disabled={!sucio || estado === "guardando"}
+                title={`${etiqueta} (Ctrl+S)`}
+                aria-label="Guardar"
+                className={`rounded-lg p-1.5 transition ${sucio ? "bg-brand-500 text-white hover:bg-brand-600" : "text-emerald-600"} disabled:cursor-default ${estado === "error" ? "bg-red-600 text-white" : ""}`}
+              >
+                <Icono nombre={sucio || estado === "error" ? "cloud-upload" : "cloud-check"} className="h-5 w-5" />
+              </button>
+              {sucio && onDescartar && (
+                <button type="button" onClick={onDescartar} title="Descartar cambios" aria-label="Descartar cambios" className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-tinta-900">
+                  <Icono nombre="undo-2" className="h-5 w-5" />
+                </button>
+              )}
+              <span className={`hidden text-xs sm:inline ${estado === "error" ? "text-red-600" : sucio ? "text-brand-700" : "text-slate-400"}`}>{etiqueta}</span>
+            </>
+          )}
+
+          <div className="ml-auto flex items-center gap-1">
+            {conFlechas && (
+              <>
+                <span className="mr-1 text-xs tabular-nums text-slate-500">
+                  {indice + 1} / {total}
+                </span>
+                <button type="button" onClick={() => ir(indice - 1)} disabled={indice === 0} aria-label="Registro anterior" title="Anterior (Alt+←)" className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 disabled:opacity-30">
+                  <Icono nombre="chevron-left" className="h-5 w-5" />
+                </button>
+                <button type="button" onClick={() => ir(indice + 1)} disabled={indice === total - 1} aria-label="Registro siguiente" title="Siguiente (Alt+→)" className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 disabled:opacity-30">
+                  <Icono nombre="chevron-right" className="h-5 w-5" />
+                </button>
+              </>
+            )}
+            <button type="button" onClick={cerrar} aria-label="Cerrar" className="ml-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-tinta-900">
               <Icono nombre="x" className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        <div className="p-5 sm:p-8">
+        <div className="overflow-y-auto p-5 sm:p-8">
           <div className="mb-5">
-            <h2 className="text-lg font-semibold text-navy-900">{titulo}</h2>
+            <h2 className="text-lg font-semibold text-tinta-900">{titulo}</h2>
             {subtitulo && <div className="mt-1 text-sm text-slate-500">{subtitulo}</div>}
           </div>
           {children}

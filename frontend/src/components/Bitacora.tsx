@@ -67,7 +67,7 @@ export default function Bitacora({ modelo, registroId, query = "", recargar = 0 
             </span>
             <div className="min-w-0 flex-1 text-sm">
               <p>
-                <span className="font-medium text-navy-900">{a.usuario?.nombre ?? "Sistema"}</span>{" "}
+                <span className="font-medium text-tinta-900">{a.usuario?.nombre ?? "Sistema"}</span>{" "}
                 <span className="text-xs text-slate-500">· {fechaHora(a.created_at)}</span>
               </p>
               {a.mensaje && <p className={`mt-1 whitespace-pre-line text-slate-700 ${a.tipo === "nota" ? "rounded-lg bg-slate-50 px-3 py-2" : ""}`}>{a.mensaje}</p>}
@@ -76,7 +76,7 @@ export default function Bitacora({ modelo, registroId, query = "", recargar = 0 
                   {a.cambios.map((c) => (
                     <li key={c.campo} className="text-slate-600">
                       {c.etiqueta}: <span className="text-slate-400 line-through decoration-slate-300">{c.antes ?? "—"}</span>{" "}
-                      <span aria-hidden="true">→</span> <span className="font-medium text-navy-900">{c.despues ?? "—"}</span>
+                      <span aria-hidden="true">→</span> <span className="font-medium text-tinta-900">{c.despues ?? "—"}</span>
                     </li>
                   ))}
                 </ul>

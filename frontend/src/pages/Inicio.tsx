@@ -39,8 +39,8 @@ export default function Inicio() {
       <PageHeader icono="house" title={`Hola, ${usuario.nombre.split(" ")[0]}`} subtitle={`${ROLES[usuario.rol]}${usuario.empresa ? ` · ${usuario.empresa.nombre}` : ""}`} />
 
       {imagen && (
-        <div className="mb-6 overflow-hidden rounded-xl shadow-sm ring-1 ring-slate-200">
-          <img src={`/api/sistema/imagen-inicio?v=${encodeURIComponent(imagen)}`} alt="" className="aspect-[3/1] w-full object-cover" />
+        <div className="-mx-4 -mt-5 mb-6 sm:-mx-6 lg:-mx-8">
+          <img src={`/api/sistema/imagen-inicio?v=${encodeURIComponent(imagen)}`} alt="" className="h-48 w-full object-cover sm:h-64 lg:h-80" />
         </div>
       )}
 
@@ -69,7 +69,7 @@ export default function Inicio() {
             <h2 className="text-sm font-medium text-slate-500">Tus sucursales</h2>
             <ul className="mt-3 space-y-1">
               {usuario.sucursales.map((s) => (
-                <li key={s.id} className="text-navy-900">
+                <li key={s.id} className="text-tinta-900">
                   <span className="font-mono text-xs text-brand-600">{s.clave}</span> {s.nombre}
                 </li>
               ))}
@@ -85,7 +85,7 @@ export default function Inicio() {
             <ul className="mt-3 space-y-1 text-sm">
               {Object.entries(ready.checks).map(([k, v]) => (
                 <li key={k} className="flex justify-between">
-                  <span className="text-navy-900">{k === "database" ? "Base de datos" : k === "cache" ? "Caché" : k}</span>
+                  <span className="text-tinta-900">{k === "database" ? "Base de datos" : k === "cache" ? "Caché" : k}</span>
                   <span className={v === "ok" ? "text-emerald-600" : "text-red-600"}>{v}</span>
                 </li>
               ))}

@@ -5,7 +5,7 @@ import Registro from "../components/Registro";
 import FotoChecada from "../components/FotoChecada";
 import Icono from "../components/Iconos";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
-import { Badge, ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
+import { Badge, ErrorBox, Modal, PageHeader, useEmpresaScope, Plegable } from "../components/ui";
 import ConfigChecadas from "./ConfigChecadas";
 import { fechaHora, get, hoyISO, ORIGENES, patch, post, type Checada, type Empleado, type Sucursal } from "../lib/api";
 
@@ -106,7 +106,7 @@ export default function Checadas() {
           <div className={`flex items-center gap-3 ${c.estado === "anulada" ? "opacity-50" : ""}`}>
             <Avatar empleadoId={c.empleado.id} nombre={c.empleado.nombre_completo} version={c.empleado.foto_actualizada} query={query} tam={32} />
             <div className="min-w-0">
-              <p className="truncate font-medium text-navy-900">{c.empleado.nombre_completo}</p>
+              <p className="truncate font-medium text-tinta-900">{c.empleado.nombre_completo}</p>
               <p className="font-mono text-xs text-slate-500">#{c.empleado.numero}</p>
             </div>
           </div>
@@ -256,21 +256,21 @@ export default function Checadas() {
               <dl className="grid flex-1 grid-cols-2 gap-3 text-sm">
                 <div>
                   <dt className="text-xs text-slate-500">Fecha y hora</dt>
-                  <dd className="font-medium text-navy-900">{fechaHora(sel.momento)}</dd>
+                  <dd className="font-medium text-tinta-900">{fechaHora(sel.momento)}</dd>
                 </div>
                 <div>
                   <dt className="text-xs text-slate-500">Origen</dt>
-                  <dd className="font-medium text-navy-900">{ORIGENES[sel.origen]}</dd>
+                  <dd className="font-medium text-tinta-900">{ORIGENES[sel.origen]}</dd>
                 </div>
                 <div>
                   <dt className="text-xs text-slate-500">Sucursal</dt>
-                  <dd className="font-medium text-navy-900">
+                  <dd className="font-medium text-tinta-900">
                     {sel.sucursal.clave} — {sel.sucursal.nombre}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-xs text-slate-500">Distancia</dt>
-                  <dd className="font-medium text-navy-900">{sel.distancia_m != null ? `${sel.distancia_m} m` : "—"}</dd>
+                  <dd className="font-medium text-tinta-900">{sel.distancia_m != null ? `${sel.distancia_m} m` : "—"}</dd>
                 </div>
                 <div>
                   <dt className="text-xs text-slate-500">Estado</dt>
@@ -280,13 +280,13 @@ export default function Checadas() {
                 </div>
                 <div>
                   <dt className="text-xs text-slate-500">Retardo</dt>
-                  <dd className="font-medium text-navy-900">{sel.retardo_minutos ? `${sel.retardo_minutos} min` : "—"}</dd>
+                  <dd className="font-medium text-tinta-900">{sel.retardo_minutos ? `${sel.retardo_minutos} min` : "—"}</dd>
                 </div>
               </dl>
             </div>
 
             <form onSubmit={corregir} className="space-y-3 rounded-lg bg-slate-50 p-4">
-              <p className="text-sm font-medium text-navy-900">Corregir</p>
+              <p className="text-sm font-medium text-tinta-900">Corregir</p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <select className="input" aria-label="Tipo" value={corr.tipo} onChange={(e) => setCorr({ ...corr, tipo: e.target.value })}>
                   <option value="entrada">Entrada</option>
@@ -305,10 +305,9 @@ export default function Checadas() {
               </div>
             </form>
 
-            <div>
-              <h3 className="mb-3 text-sm font-medium text-navy-900">Historial</h3>
+            <Plegable titulo="Historial de cambios">
               <Bitacora modelo="checada" registroId={sel.id} query={query} recargar={rev} />
-            </div>
+            </Plegable>
           </div>
         </Registro>
       )}

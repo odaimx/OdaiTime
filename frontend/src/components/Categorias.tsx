@@ -47,7 +47,16 @@ export function Chip({ c, onQuitar }: { c: Categoria; onQuitar?: () => void }) {
       <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: c.color }} />
       {c.nombre}
       {onQuitar && (
-        <button type="button" onClick={onQuitar} className="opacity-60 hover:opacity-100" aria-label={`Quitar ${c.nombre}`}>
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onQuitar();
+          }}
+          className="opacity-60 hover:opacity-100"
+          aria-label={`Quitar ${c.nombre}`}
+        >
           <Icono nombre="x" className="h-3 w-3" />
         </button>
       )}
@@ -73,12 +82,14 @@ export function SelectorCategorias({
   onCambio,
   puedeCrear,
   onCrear,
+  conEtiqueta = true,
 }: {
   todas: Categoria[];
   valor: string[];
   onCambio: (ids: string[]) => void;
   puedeCrear: boolean;
   onCrear: (nombre: string) => Promise<Categoria>;
+  conEtiqueta?: boolean;
 }) {
   const [texto, setTexto] = useState("");
   const [abierto, setAbierto] = useState(false);
@@ -88,7 +99,7 @@ export function SelectorCategorias({
 
   return (
     <div className="relative">
-      <label className="label">Categorías</label>
+      {conEtiqueta && <label className="label">Categorías</label>}
       <div className="input flex min-h-10 flex-wrap items-center gap-1 py-1.5" onClick={() => setAbierto(true)}>
         {elegidas.map((c) => (
           <Chip key={c.id} c={c} onQuitar={() => onCambio(valor.filter((x) => x !== c.id))} />
@@ -113,6 +124,7 @@ export function SelectorCategorias({
                 e.preventDefault();
                 onCambio([...valor, c.id]);
                 setTexto("");
+                setAbierto(false);
               }}
             >
               <Chip c={c} />
@@ -127,6 +139,7 @@ export function SelectorCategorias({
                 const c = await onCrear(texto.trim());
                 onCambio([...valor, c.id]);
                 setTexto("");
+                setAbierto(false);
               }}
             >
               <Icono nombre="plus" className="h-4 w-4" /> Crear “{texto.trim()}”

@@ -68,7 +68,7 @@ function Vincular({ onListo }: { onListo: (token: string) => void }) {
       <form onSubmit={enviar} className="card w-full max-w-sm space-y-5 p-8 text-center">
         <img src="/logo.png" alt="ODAI" className="mx-auto h-8" />
         <div>
-          <h1 className="text-xl font-semibold text-navy-900">Vincular kiosco</h1>
+          <h1 className="text-xl font-semibold text-tinta-900">Vincular kiosco</h1>
           <p className="mt-1 text-sm text-slate-500">Escribe el código de 6 dígitos que aparece en Configuración › Checadas › Dispositivos.</p>
         </div>
         <label className="sr-only" htmlFor="codigo">
@@ -202,7 +202,7 @@ function PantallaKiosco({ token, onDesvinculado }: { token: string; onDesvincula
         </div>
 
         {estado.config.qr && qrImg && (
-          <div className="flex flex-col items-center gap-5 rounded-3xl bg-white p-5 text-navy-900 sm:flex-row">
+          <div className="flex flex-col items-center gap-5 rounded-3xl bg-white p-5 text-tinta-900 sm:flex-row">
             <img src={qrImg} alt="Código QR para checar con el celular" className="h-48 w-48 shrink-0" />
             <div className="space-y-2">
               <p className="text-xl font-bold">Escanea con tu celular</p>
@@ -231,7 +231,7 @@ function PantallaKiosco({ token, onDesvinculado }: { token: string; onDesvincula
         </div>
       </section>
 
-      <section className="flex flex-col justify-center gap-5 bg-slate-50 p-6 text-navy-900 sm:p-10">
+      <section className="flex flex-col justify-center gap-5 bg-slate-50 p-6 text-tinta-900 sm:p-10">
         {!estado.config.permitir_kiosco ? (
           <p className="text-center text-lg text-slate-600">El kiosco está desactivado para esta sucursal.</p>
         ) : (

@@ -112,7 +112,7 @@ export default function TarjetaAsistencia() {
           <div className="flex items-center gap-3">
             <Avatar empleadoId={f.empleado.id} nombre={f.empleado.nombre_completo} version={f.empleado.foto_actualizada} query={query} tam={32} />
             <div className="min-w-0">
-              <p className="truncate font-medium text-navy-900">{f.empleado.nombre_completo}</p>
+              <p className="truncate font-medium text-tinta-900">{f.empleado.nombre_completo}</p>
               <p className="font-mono text-xs text-slate-500">#{f.empleado.numero}</p>
             </div>
           </div>
@@ -190,8 +190,8 @@ export default function TarjetaAsistencia() {
           const malo = cambio !== null && (ind.subirEsMalo ? cambio > 0 : cambio < 0);
           return (
             <div key={ind.titulo}>
-              <p className="text-sm font-medium text-navy-900">{ind.titulo}</p>
-              <p className="text-lg font-semibold tabular-nums text-navy-900">
+              <p className="text-sm font-medium text-tinta-900">{ind.titulo}</p>
+              <p className="text-lg font-semibold tabular-nums text-tinta-900">
                 {ind.formato(v)}
                 {cambio !== null && cambio !== 0 && (
                   <span className={`ml-2 text-xs font-medium ${malo ? "text-red-600" : "text-emerald-600"}`} title="Contra el periodo anterior">
@@ -209,7 +209,7 @@ export default function TarjetaAsistencia() {
         <div className="mb-3 flex items-center gap-3">
           <Avatar empleadoId={f.empleado.id} nombre={f.empleado.nombre_completo} version={f.empleado.foto_actualizada} query={query} tam={44} />
           <div className="min-w-0">
-            <p className="truncate font-semibold text-navy-900">{f.empleado.nombre_completo}</p>
+            <p className="truncate font-semibold text-tinta-900">{f.empleado.nombre_completo}</p>
             <p className="text-xs text-slate-500">
               #{f.empleado.numero} · {f.sucursal.nombre}
             </p>
@@ -287,7 +287,7 @@ export default function TarjetaAsistencia() {
                   const fecha = new Date(d.fecha + "T12:00");
                   return (
                     <tr key={d.fecha} className="align-top">
-                      <td className="whitespace-nowrap py-2 pr-2 capitalize text-navy-900">{fecha.toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" })}</td>
+                      <td className="whitespace-nowrap py-2 pr-2 capitalize text-tinta-900">{fecha.toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" })}</td>
                       <td className="py-2 pr-2">
                         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${est.clase}`}>{est.label}</span>
                         {d.festivo && (
@@ -378,12 +378,12 @@ export default function TarjetaAsistencia() {
 }
 
 function Cero({ v, t }: { v: number; t?: string }) {
-  return <span className={v ? "text-navy-900" : "text-slate-300"}>{t ?? v}</span>;
+  return <span className={v ? "text-tinta-900" : "text-slate-300"}>{t ?? v}</span>;
 }
 
 function Mini({ titulo, v, alerta, aviso }: { titulo: string; v: number | string; alerta?: boolean; aviso?: boolean }) {
   const activo = v !== 0 && v !== "0:00";
-  const color = !activo ? "text-slate-300" : alerta ? "text-red-600" : aviso ? "text-amber-600" : "text-navy-900";
+  const color = !activo ? "text-slate-300" : alerta ? "text-red-600" : aviso ? "text-amber-600" : "text-tinta-900";
   return (
     <div className="rounded-lg bg-slate-50 py-1.5">
       <p className={`text-base font-semibold tabular-nums ${color}`}>{v}</p>
@@ -432,7 +432,7 @@ function SelectorPeriodo({
   const etiqueta = PRESETS.find(([k]) => k === preset)?.[1] ?? `${rango.desde} → ${rango.hasta}`;
   return (
     <div className="relative border-slate-100 sm:border-r sm:pr-6">
-      <button className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-navy-900 hover:bg-slate-100" onClick={() => setAbierto((a) => !a)}>
+      <button className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-tinta-900 hover:bg-slate-100" onClick={() => setAbierto((a) => !a)}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
           <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" />
         </svg>

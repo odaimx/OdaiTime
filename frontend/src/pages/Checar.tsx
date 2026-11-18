@@ -171,7 +171,7 @@ export default function Checar() {
         {c ? (
           <>
             <p className="text-slate-500">{c.tipo === "entrada" ? "Entrada registrada" : "Salida registrada"}</p>
-            <p className="text-6xl font-bold tracking-tight text-navy-900">{hora(c.momento, tz)}</p>
+            <p className="text-6xl font-bold tracking-tight text-tinta-900">{hora(c.momento, tz)}</p>
             {c.tipo === "entrada" && (
               <span className={`rounded-full px-3 py-1 text-sm font-medium ${c.retardo_minutos ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>
                 {c.retardo_minutos ? `Retardo de ${c.retardo_minutos} min` : "A tiempo"}
@@ -184,7 +184,7 @@ export default function Checar() {
           </>
         ) : (
           <>
-            <p className="text-xl font-semibold text-navy-900">Checada guardada sin conexión</p>
+            <p className="text-xl font-semibold text-tinta-900">Checada guardada sin conexión</p>
             <p className="max-w-xs text-sm text-slate-600">Se enviará sola en cuanto tu teléfono tenga internet. Conserva la hora en que checaste.</p>
           </>
         )}
@@ -212,13 +212,13 @@ export default function Checar() {
         <div className="card space-y-3 p-4">
           <div>
             <p className="text-xs text-slate-500">Sucursal</p>
-            <p className="font-medium text-navy-900">
+            <p className="font-medium text-tinta-900">
               <span className="font-mono text-brand-600">{estado.sucursal.clave}</span> {estado.sucursal.nombre}
             </p>
           </div>
           <div>
             <p className="text-xs text-slate-500">Turno de hoy</p>
-            <p className="font-medium text-navy-900">
+            <p className="font-medium text-tinta-900">
               {estado.turno
                 ? `${estado.turno.nombre} · ${estado.turno.bloques.map((b) => `${hora(b.entrada, tz)} – ${hora(b.salida, tz)}`).join(" y ")}`
                 : "Hoy no tienes turno asignado"}
@@ -231,7 +231,7 @@ export default function Checar() {
         <div className="space-y-2 text-sm">
           {estado.requiere.gps && <p className="rounded-xl bg-emerald-50 px-3 py-2 text-emerald-800">Se validará que estés dentro de tu sucursal (ubicación).</p>}
           {estado.requiere.foto && <p className="rounded-xl bg-brand-50 px-3 py-2 text-brand-700">Tu empresa pide una foto al checar.</p>}
-          {qr && <p className="rounded-xl bg-accent-500/10 px-3 py-2 text-navy-900">Código del kiosco leído. Toca el botón para registrar.</p>}
+          {qr && <p className="rounded-xl bg-accent-500/10 px-3 py-2 text-tinta-900">Código del kiosco leído. Toca el botón para registrar.</p>}
           {estado.festivo_hoy && estado.designado_festivo && <p className="rounded-xl bg-sky-50 px-3 py-2 text-sky-800">Hoy es {estado.festivo_hoy}: estás designado para trabajar.</p>}
           {pendientes > 0 && <p className="rounded-xl bg-amber-50 px-3 py-2 text-amber-800">{pendientes} checada(s) guardada(s) sin conexión; se enviarán al reconectar.</p>}
         </div>
@@ -241,7 +241,7 @@ export default function Checar() {
 
       {estado?.festivo_hoy && !estado.designado_festivo ? (
         <div className="card space-y-2 p-6 text-center">
-          <p className="text-lg font-semibold text-navy-900">Hoy es día de descanso</p>
+          <p className="text-lg font-semibold text-tinta-900">Hoy es día de descanso</p>
           <p className="text-sm text-slate-600">
             {estado.festivo_hoy}. No necesitas checar. Solo registra asistencia el personal que la empresa designó para trabajar.
           </p>
@@ -250,7 +250,7 @@ export default function Checar() {
         <p className="card p-6 text-center text-slate-600">En tu sucursal se checa en el kiosco de la entrada.</p>
       ) : necesitaQr ? (
         <div className="card space-y-3 p-6 text-center">
-          <p className="text-lg font-semibold text-navy-900">Escanea el QR del kiosco</p>
+          <p className="text-lg font-semibold text-tinta-900">Escanea el QR del kiosco</p>
           <p className="text-sm text-slate-600">Abre la cámara de tu teléfono y apunta al código de la tablet de tu sucursal. Se abrirá esta app lista para checar.</p>
         </div>
       ) : (
@@ -277,7 +277,7 @@ export default function Checar() {
             <ul className="card divide-y divide-slate-100">
               {estado.checadas_hoy.map((c) => (
                 <li key={c.id} className="flex items-center justify-between px-4 py-3 text-sm">
-                  <span className="font-medium capitalize text-navy-900">{c.tipo}</span>
+                  <span className="font-medium capitalize text-tinta-900">{c.tipo}</span>
                   <span className="tabular-nums text-slate-600">
                     {hora(c.momento, tz)}
                     {c.offline && <span className="ml-2 text-xs text-amber-700">sin conexión</span>}

@@ -31,7 +31,7 @@ export default function MisRegistros() {
                 .map((c) => (
                   <li key={c.id} className={`flex items-center justify-between px-4 py-3 text-sm ${c.estado === "anulada" ? "opacity-50" : ""}`}>
                     <div>
-                      <p className="font-medium capitalize text-navy-900">
+                      <p className="font-medium capitalize text-tinta-900">
                         {c.tipo}
                         {c.retardo_minutos ? <span className="ml-2 text-xs font-normal text-amber-700">retardo {c.retardo_minutos} min</span> : null}
                       </p>

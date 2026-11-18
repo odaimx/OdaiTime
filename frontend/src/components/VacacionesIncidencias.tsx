@@ -56,13 +56,13 @@ export default function VacacionesIncidencias({ empleadoId, query, onCambio }: {
             <p className="text-xs text-slate-600">días disponibles</p>
           </div>
           <div>
-            <p className="text-2xl font-semibold text-navy-900">{vac.dias_correspondientes}</p>
+            <p className="text-2xl font-semibold text-tinta-900">{vac.dias_correspondientes}</p>
             <p className="text-xs text-slate-600">
               le corresponden (<ArticuloLFT art="76" />)
             </p>
           </div>
           <div>
-            <p className="text-2xl font-semibold text-navy-900">{vac.dias_tomados}</p>
+            <p className="text-2xl font-semibold text-tinta-900">{vac.dias_tomados}</p>
             <p className="text-xs text-slate-600">tomados</p>
           </div>
           <p className="col-span-3 text-xs text-slate-600">
@@ -74,7 +74,7 @@ export default function VacacionesIncidencias({ empleadoId, query, onCambio }: {
       )}
 
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium text-navy-900">Incidencias</h4>
+        <h4 className="text-sm font-medium text-tinta-900">Incidencias</h4>
         <button type="button" className="text-sm font-medium text-brand-600 hover:underline" onClick={() => setAbierto((v) => !v)}>
           {abierto ? "Cancelar" : "+ Registrar"}
         </button>
@@ -109,7 +109,7 @@ export default function VacacionesIncidencias({ empleadoId, query, onCambio }: {
           {lista.map((i) => (
             <li key={i.id} className="flex items-start justify-between gap-3 px-3 py-2">
               <div>
-                <p className="font-medium text-navy-900">{INCIDENCIAS[i.tipo] ?? i.tipo}</p>
+                <p className="font-medium text-tinta-900">{INCIDENCIAS[i.tipo] ?? i.tipo}</p>
                 <p className="text-xs text-slate-500">
                   {fecha(i.fecha_inicio)}
                   {i.fecha_fin !== i.fecha_inicio && ` – ${fecha(i.fecha_fin)}`}

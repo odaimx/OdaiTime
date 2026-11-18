@@ -77,6 +77,8 @@ export interface ConfigVista<T> {
   ajustes?: Ajustes;
   /** Título del reporte PDF (por defecto, el id). */
   tituloReporte?: string;
+  /** Reporte PDF propio (con sus filtros); reemplaza al reporte genérico del menú ⋮. */
+  reportePdf?: () => void;
   /** Agrupación con la que abre (p. ej. festivos por tipo). */
   agruparInicial?: string[];
   /** Los grupos abren desplegados. */
@@ -399,13 +401,13 @@ function ChipSeleccion<T>({ vista }: { vista: EstadoVista<T> }) {
   return (
     <div className="flex shrink-0 items-center gap-1 rounded-lg bg-brand-50 py-1 pl-3 pr-1 text-sm ring-1 ring-brand-200">
       <span className="font-medium text-brand-700">{vista.seleccion.size} seleccionado(s)</span>
-      <button className="ml-2 inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium text-navy-900 hover:bg-brand-100" onClick={() => exportarCsv(vista)} title="Exportar seleccionados">
+      <button className="ml-2 inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium text-tinta-900 hover:bg-brand-100" onClick={() => exportarCsv(vista)} title="Exportar seleccionados">
         <Icono nombre="upload" className="h-4 w-4" /> Exportar
       </button>
-      <button className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium text-navy-900 hover:bg-brand-100" onClick={() => imprimir(vista)} title="Reporte PDF de los seleccionados">
+      <button className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium text-tinta-900 hover:bg-brand-100" onClick={() => imprimir(vista)} title="Reporte PDF de los seleccionados">
         <Icono nombre="printer" className="h-4 w-4" /> PDF
       </button>
-      <button className="rounded-md p-1 text-slate-500 hover:bg-brand-100 hover:text-navy-900" onClick={() => vista.setSeleccion(new Set())} title="Quitar selección" aria-label="Quitar selección">
+      <button className="rounded-md p-1 text-slate-500 hover:bg-brand-100 hover:text-tinta-900" onClick={() => vista.setSeleccion(new Set())} title="Quitar selección" aria-label="Quitar selección">
         <Icono nombre="x" className="h-4 w-4" />
       </button>
     </div>
@@ -420,7 +422,9 @@ function MenuAcciones<T>({ vista }: { vista: EstadoVista<T> }) {
   const opciones: AccionMenu[] = [
     ...propias,
     { etiqueta: sel ? `Exportar seleccionados (${sel})` : "Exportar", icono: "upload", onClick: () => exportarCsv(vista), separar: propias.length > 0 && !propias.some((o) => o.icono === "download") },
-    { etiqueta: sel ? `Reporte PDF de seleccionados (${sel})` : "Reporte PDF", icono: "printer", onClick: () => imprimir(vista) },
+    vista.config.reportePdf && !sel
+      ? { etiqueta: "Reporte PDF", icono: "printer", onClick: vista.config.reportePdf }
+      : { etiqueta: sel ? `Reporte PDF de seleccionados (${sel})` : "Reporte PDF", icono: "printer", onClick: () => imprimir(vista) },
     ...(vista.config.ajustes ? [{ etiqueta: "Configuración", icono: "settings" as NombreIcono, onClick: () => setConfig(true), separar: true }] : []),
   ];
   return (
@@ -573,7 +577,7 @@ function Buscador<T>({ vista }: { vista: EstadoVista<T> }) {
           ))}
           <input
             ref={input}
-            className="min-w-24 flex-1 border-0 bg-transparent py-1 text-sm text-navy-900 outline-none placeholder:text-slate-400"
+            className="min-w-24 flex-1 border-0 bg-transparent py-1 text-sm text-tinta-900 outline-none placeholder:text-slate-400"
             placeholder={facetas.length ? "" : "Buscar…"}
             value={texto}
             onChange={(e) => {
@@ -718,17 +722,17 @@ function Paginador<T>({ vista }: { vista: EstadoVista<T> }) {
         ref={(el) => {
           menu.boton.current = el;
         }}
-        className="rounded-md px-2 py-1 font-semibold tabular-nums text-navy-900 hover:bg-slate-100"
+        className="rounded-md px-2 py-1 font-semibold tabular-nums text-tinta-900 hover:bg-slate-100"
         onClick={menu.alternar}
         title="Registros por página"
       >
         {vista.grupos ? (
           <span>
-            <span className="font-medium text-navy-900">{total}</span> registros
+            <span className="font-medium text-tinta-900">{total}</span> registros
           </span>
         ) : (
           <span>
-            {desde}-{hasta} / <span className="font-medium text-navy-900">{total}</span>
+            {desde}-{hasta} / <span className="font-medium text-tinta-900">{total}</span>
           </span>
         )}
       </button>
@@ -877,7 +881,7 @@ function Lista<T>({ vista, resumen, recargar }: { vista: EstadoVista<T>; resumen
       if (!c.sumar) return <td key={c.clave} />;
       const t = regs.reduce((acc, r) => acc + (Number(c.valor(r)) || 0), 0);
       return (
-        <td key={c.clave} className="px-3 py-2 text-right font-semibold tabular-nums text-navy-900">
+        <td key={c.clave} className="px-3 py-2 text-right font-semibold tabular-nums text-tinta-900">
           {t.toLocaleString("es-MX", { maximumFractionDigits: 2 })}
         </td>
       );
@@ -892,7 +896,7 @@ function Lista<T>({ vista, resumen, recargar }: { vista: EstadoVista<T>; resumen
             className="cursor-pointer bg-slate-50/70 hover:bg-slate-100"
             onClick={() => alternarGrupo(g.clave)}
           >
-            <td colSpan={columnasTotales} className="py-2 pr-3 font-medium text-navy-900" style={{ paddingLeft: 12 + nivel * 20 }}>
+            <td colSpan={columnasTotales} className="py-2 pr-3 font-medium text-tinta-900" style={{ paddingLeft: 12 + nivel * 20 }}>
               <span className={`mr-2 inline-block text-slate-400 transition ${abierto ? "rotate-90" : ""}`}>▸</span>
               {g.etiqueta} <span className="ml-1 rounded-full bg-white px-2 py-0.5 text-xs font-normal text-slate-500 ring-1 ring-slate-200">{g.registros.length}</span>
             </td>
@@ -912,7 +916,7 @@ function Lista<T>({ vista, resumen, recargar }: { vista: EstadoVista<T>; resumen
   return (
     <div className="-mx-4 overflow-x-auto border-y border-slate-200 bg-white sm:mx-0 sm:rounded-lg sm:border">
       <table className="w-full text-sm">
-        <thead className="sticky top-0 z-10 border-b border-slate-200 bg-white text-left text-[15px] font-medium text-navy-900">
+        <thead className="sticky top-0 z-10 border-b border-slate-200 bg-white text-left text-[15px] font-medium text-tinta-900">
           <tr>
             <th className="w-10 px-3 py-3">
               <input
@@ -966,7 +970,7 @@ function Lista<T>({ vista, resumen, recargar }: { vista: EstadoVista<T>; resumen
                 ref={(el) => {
                   personalizar.boton.current = el;
                 }}
-                className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-navy-900"
+                className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-tinta-900"
                 onClick={personalizar.alternar}
                 title="Personalizar columnas"
                 aria-label="Personalizar columnas"
@@ -1046,7 +1050,7 @@ function Kanban<T>({ vista, resumen, recargar }: { vista: EstadoVista<T>; resume
         {vista.grupos.map((g) => (
           <div key={g.clave} className="w-72 shrink-0">
             <div className="mb-2 flex items-center justify-between px-1">
-              <h3 className="truncate font-semibold text-navy-900">{g.etiqueta}</h3>
+              <h3 className="truncate font-semibold text-tinta-900">{g.etiqueta}</h3>
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">{g.registros.length}</span>
             </div>
             <div className="space-y-3">{aplanar([g]).slice(0, vista.porPagina).map(tarjeta)}</div>

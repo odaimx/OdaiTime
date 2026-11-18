@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api, urlLogo } from "../lib/api";
-import { ErrorBox } from "./ui";
+import { Ayuda, ErrorBox, ImagenEditable } from "./ui";
 
 /** Logo de la empresa con botones para subirlo o quitarlo. Se ve en el login del
  * subdominio, en el menú y en los reportes. */
@@ -42,26 +42,16 @@ export default function LogoEmpresa({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-4">
-        <label className="flex h-20 w-40 cursor-pointer items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-slate-300 bg-white p-2 hover:border-brand-400" title="Subir logo">
-          {version ? (
-            <img src={urlLogo(empresaId, version)} alt="Logo de la empresa" className="max-h-full max-w-full object-contain" />
-          ) : (
-            <span className="text-center text-xs text-slate-500">{subiendo ? "Subiendo…" : "Sin logo"}</span>
-          )}
-          <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(e) => e.target.files?.[0] && subir(e.target.files[0])} />
-        </label>
-        <div className="flex flex-col gap-1 text-sm">
-          <label className="cursor-pointer font-medium text-brand-600 hover:underline">
-            {version ? "Cambiar logo" : "Subir logo"}
-            <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(e) => e.target.files?.[0] && subir(e.target.files[0])} />
-          </label>
-          {version && (
-            <button type="button" className="text-left text-slate-500 hover:text-red-600 hover:underline" onClick={quitar}>
-              Quitar
-            </button>
-          )}
-          <span className="text-xs text-slate-500">PNG con fondo transparente, de preferencia.</span>
-        </div>
+        <ImagenEditable onCambiar={subir} onQuitar={version ? quitar : undefined}>
+          <div className="flex h-20 w-40 items-center justify-center overflow-hidden rounded-lg bg-white p-2 ring-1 ring-slate-200">
+            {version ? (
+              <img src={urlLogo(empresaId, version)} alt="Logo de la empresa" className="max-h-full max-w-full object-contain" />
+            ) : (
+              <span className="text-center text-xs text-slate-400">{subiendo ? "Subiendo…" : "Sin logo"}</span>
+            )}
+          </div>
+        </ImagenEditable>
+        <Ayuda texto="PNG con fondo transparente, de preferencia. Pasa el mouse sobre el logo para cambiarlo o quitarlo." />
       </div>
       <ErrorBox message={error} />
     </div>

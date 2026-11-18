@@ -129,9 +129,9 @@ export default function Festivos() {
         titulo: "Fecha",
         fija: true,
         valor: (f) => f.fecha,
-        render: (f) => <span className="capitalize text-navy-900">{fecha(f.fecha)}</span>,
+        render: (f) => <span className="capitalize text-tinta-900">{fecha(f.fecha)}</span>,
       },
-      { clave: "nombre", titulo: "Día festivo", buscable: true, valor: (f) => f.nombre, className: "font-medium text-navy-900" },
+      { clave: "nombre", titulo: "Día festivo", buscable: true, valor: (f) => f.nombre, className: "font-medium text-tinta-900" },
       {
         clave: "tipo",
         titulo: "Tipo",
@@ -285,7 +285,7 @@ export default function Festivos() {
                       }
                     />
                     <span className="font-mono text-xs text-slate-500">#{e.numero}</span>
-                    <span className="text-navy-900">{e.nombre_completo}</span>
+                    <span className="text-tinta-900">{e.nombre_completo}</span>
                     <span className="ml-auto font-mono text-xs text-brand-600">{e.sucursal.clave}</span>
                   </label>
                 ))}

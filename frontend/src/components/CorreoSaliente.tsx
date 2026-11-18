@@ -83,7 +83,7 @@ export default function CorreoSaliente() {
         <label className="label">Correo remitente</label>
         <input className="input" type="email" required placeholder="no-responder@odai.lat" value={c.remitente} onChange={(e) => set("remitente", e.target.value)} />
       </div>
-      <label className="flex items-center gap-2 self-end pb-2 text-sm text-navy-900">
+      <label className="flex items-center gap-2 self-end pb-2 text-sm text-tinta-900">
         <input type="checkbox" className="h-4 w-4 accent-brand-500" checked={c.activo} onChange={(e) => set("activo", e.target.checked)} />
         Enviar correos
       </label>
