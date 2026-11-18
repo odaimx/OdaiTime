@@ -66,3 +66,101 @@ export async function aDataUrl(url: string): Promise<string> {
     r.readAsDataURL(b);
   });
 }
+
+type Control = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+
+/** Texto que muestra un control (opción elegida, Sí/No, fecha legible…). */
+function valorDe(c: Control): string | null {
+  if (c instanceof HTMLSelectElement) return c.selectedOptions[0]?.text ?? "";
+  if (c instanceof HTMLInputElement) {
+    if (["password", "file", "hidden", "button", "submit"].includes(c.type)) return null;
+    if (c.type === "checkbox" || c.type === "radio") return c.checked ? "Sí" : "No";
+    if (c.type === "date" && c.value) return new Date(c.value + "T12:00").toLocaleDateString("es-MX", { dateStyle: "medium" });
+    if (!c.value && c.placeholder?.includes("asignado")) return "Asignado";
+  }
+  return c.value;
+}
+
+const controlDe = (raiz: HTMLElement, l: HTMLLabelElement): Control | null => {
+  const porId = l.htmlFor ? raiz.querySelector<Control>(`#${CSS.escape(l.htmlFor)}`) : null;
+  return porId ?? l.querySelector<Control>("input, select, textarea");
+};
+
+const textoEtiqueta = (l: HTMLElement) => (l.textContent ?? "").replace(/\s*\?\s*$/, "").replace(/\s+/g, " ").trim();
+
+/** Copia de una tabla sin botones ni casillas, con los valores de los controles como texto. */
+function tablaLimpia(t: HTMLTableElement): string {
+  const copia = t.cloneNode(true) as HTMLTableElement;
+  const originales = t.querySelectorAll<Control>("input, select, textarea");
+  copia.querySelectorAll<Control>("input, select, textarea").forEach((c, i) => {
+    const v = valorDe(originales[i]);
+    c.replaceWith(document.createTextNode(v ?? ""));
+  });
+  copia.querySelectorAll("button, svg, img").forEach((b) => b.remove());
+  copia.querySelectorAll("*").forEach((el) => {
+    el.removeAttribute("class");
+    el.removeAttribute("style");
+  });
+  // Quita columnas vacías (casillas de selección, acciones).
+  const filas = [...copia.rows];
+  const ancho = Math.max(0, ...filas.map((f) => f.cells.length));
+  for (let i = ancho - 1; i >= 0; i--) {
+    if (filas.every((f) => !f.cells[i] || !(f.cells[i].textContent ?? "").trim())) filas.forEach((f) => f.cells[i]?.remove());
+  }
+  return copia.outerHTML;
+}
+
+/**
+ * Reporte de un registro con el mismo formato que las demás fichas: toma los campos del
+ * formulario en pantalla (etiqueta → valor) en dos columnas, y sus tablas e historiales.
+ */
+export function imprimirFormulario(raiz: HTMLElement, titulo: string, subtitulo = "") {
+  const partes: string[] = [];
+  let actuales: [string, unknown][] = [];
+  const vistos = new Set<Element>();
+  const volcar = () => {
+    if (actuales.length) partes.push(campos(actuales));
+    actuales = [];
+  };
+  const recorrer = (el: Element) => {
+    for (const hijo of Array.from(el.children)) {
+      if (hijo.closest("[data-no-imprimir]") || hijo.getAttribute("role") === "tablist") continue;
+      if (hijo instanceof HTMLTableElement) {
+        volcar();
+        if (hijo.rows.length > 1 || (hijo.tBodies[0]?.rows.length ?? 0) > 0) partes.push(tablaLimpia(hijo));
+        continue;
+      }
+      if (hijo.tagName === "SUMMARY" || /^H[2-4]$/.test(hijo.tagName)) {
+        const t = textoEtiqueta(hijo as HTMLElement);
+        if (t && t !== titulo) {
+          volcar();
+          partes.push(`<h2>${escapar(t)}</h2>`);
+        }
+        continue;
+      }
+      if (hijo instanceof HTMLLabelElement) {
+        const etiqueta = textoEtiqueta(hijo).replace(/\s*\*$/, "");
+        const c = controlDe(raiz, hijo);
+        if (c && !vistos.has(c)) {
+          vistos.add(c);
+          const v = valorDe(c);
+          if (v !== null && etiqueta) actuales.push([etiqueta, v]);
+          continue;
+        }
+        // Renglón de solo lectura (p. ej. Estado): el valor es el texto de al lado.
+        const junto = hijo.nextElementSibling;
+        if (!c && etiqueta && junto && !junto.querySelector("input, select, textarea, table")) {
+          vistos.add(junto);
+          actuales.push([etiqueta, (junto.textContent ?? "").replace(/\s+/g, " ").trim()]);
+          continue;
+        }
+      }
+      if (vistos.has(hijo)) continue;
+      recorrer(hijo);
+    }
+  };
+  recorrer(raiz);
+  volcar();
+  const sub = subtitulo.replace(/^[\s·]+/, "").trim();
+  imprimirHtml(sub ? `${titulo} · ${sub}` : titulo, partes.join("\n") || "<p>Sin datos.</p>");
+}

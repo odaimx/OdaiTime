@@ -8,7 +8,7 @@ las claves que cada empresa configuró (tabla claves_nomina). ODAITIME entrega c
 import csv
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from io import BytesIO, StringIO
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -348,10 +348,11 @@ def exportar(
     opciones: "OpcionesContpaqi | None" = None,
 ) -> tuple[bytes, str, str]:
     """Devuelve (contenido, tipo MIME, extensión)."""
+    opciones = opciones or OpcionesContpaqi(ejercicio=hasta.year)
     if sistema == "odoo":
-        return _odoo(periodo, claves, hasta), "text/csv; charset=utf-8", "csv"
+        return odoo(empresa, periodo, claves, hasta, opciones)
     if sistema == "contpaqi":
-        return contpaqi(periodo, claves, hasta, opciones or OpcionesContpaqi(ejercicio=hasta.year))
+        return contpaqi(periodo, claves, hasta, opciones)
     wb = Workbook()
     ws = wb.active
     sin_clave = sorted(
@@ -449,42 +450,6 @@ def _generico(
     _hoja_notas(wb)
 
 
-def _odoo(periodo: Periodo, claves: dict[str, str], hasta: date) -> bytes:
-    """CSV para importar entradas de trabajo (hr.work.entry) desde la vista de lista de Odoo.
-
-    Odoo relaciona employee_id y work_entry_type_id por su nombre, así que la clave configurada
-    debe ser el nombre del tipo de entrada de trabajo tal como aparece en Odoo.
-    Los conceptos en días ocupan la jornada esperada del día (8 h si no hay turno).
-    """
-    salida = StringIO()
-    w = csv.writer(salida)
-    w.writerow(["name", "employee_id", "work_entry_type_id", "date_start", "date_stop"])
-    for e, dias, r in periodo:
-        por_fecha = {d.fecha: d for d in dias}
-        for m in movimientos([(e, dias, r)], claves, hasta, diario=True):
-            unidad = CONCEPTOS[m.concepto][1]
-            if unidad == "horas":
-                duracion = timedelta(hours=m.cantidad)
-            elif unidad == "dias":
-                d = por_fecha.get(m.fecha)
-                duracion = timedelta(
-                    minutes=(d.esperado_min if d and d.esperado_min else 480) * m.cantidad
-                )
-            else:  # eventos (retardos): Odoo no los maneja como tiempo; van de 1 minuto
-                duracion = timedelta(minutes=int(m.cantidad))
-            inicio = datetime.combine(m.fecha, datetime.min.time())
-            w.writerow(
-                [
-                    f"{CONCEPTOS[m.concepto][0]} · {e.nombre_completo}",
-                    e.nombre_completo,
-                    m.codigo,
-                    f"{inicio:%Y-%m-%d %H:%M:%S}",
-                    f"{inicio + duracion:%Y-%m-%d %H:%M:%S}",
-                ]
-            )
-    return ("﻿" + salida.getvalue()).encode("utf-8")  # BOM: Excel abre bien los acentos
-
-
 # --- CONTPAQi Nóminas: layout de intercambio ODAI Time (plantilla del paquete 2026) ---
 
 PLANTILLA_CONTPAQI = (
@@ -506,10 +471,13 @@ _UNIDAD_PLANTILLA = {"horas": "Horas", "dias": "Días", "eventos": "Eventos"}
 
 @dataclass
 class OpcionesContpaqi:
+    """Opciones de exportación (CONTPAQi usa todas; Odoo, formato y checadas)."""
+
     ejercicio: int
     tipo_periodo: str | None = None
     numero_periodo: int | None = None
     formato: str = "xlsx"  # xlsx | csv | txt
+    checadas: bool = False  # Odoo: incluir entradas y salidas (hr.attendance)
 
 
 def filas_contpaqi(
@@ -596,4 +564,170 @@ def contpaqi(
             column=4,
             value="Configurada" if claves.get(k) else f"Sí: sin clave, se exportó como {k}",
         )
+    return _libro(wb), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx"
+
+
+# --- Odoo 19 / 20: plantilla definitiva de incidencias ---
+#
+# Odoo calcula la nómina; ODAITIME solo envía hechos (fechas, horas, cantidades y códigos).
+# La clave configurada por la empresa para cada concepto es el código de integración: va en
+# leave_type_code para ausencias y en payroll_code para lo demás.
+
+PLANTILLA_ODOO = Path(__file__).resolve().parent.parent / "plantillas" / "odoo_incidencias.xlsx"
+COLUMNAS_ODOO = [
+    "external_id",
+    "source_system",
+    "source_reference",
+    "company_code",
+    "employee_code",
+    "incidence_code",
+    "incidence_category",
+    "date_from",
+    "date_to",
+    "time_from",
+    "time_to",
+    "quantity",
+    "unit",
+    "payroll_code",
+    "work_entry_code",
+    "leave_type_code",
+    "attendance_action",
+    "authorization_status",
+    "description",
+]
+# concepto ODAITIME → (incidence_code, incidence_category, work_entry_code, es ausencia)
+_ODOO = {
+    "HE2": ("HEX", "HORAS_EXTRA", "OVERTIME", False),
+    "HE3": ("HEX", "HORAS_EXTRA", "OVERTIME", False),
+    "PDOM": ("OTR", "OTRO_CONCEPTO", None, False),
+    "DLAB": ("DTR", "DESCANSO_TRABAJADO", "WORKED_ON_REST_DAY", False),
+    "FLAB": ("FES", "DIA_FESTIVO_TRABAJADO", "PUBLIC_HOLIDAY_WORKED", False),
+    "FALT": ("FAL", "FALTA", "UNJUSTIFIED_ABSENCE", True),
+    "FRET": ("FAL", "FALTA", "UNJUSTIFIED_ABSENCE", True),
+    "RET": ("RET", "RETARDO", None, False),
+    "VAC": ("VAC", "VACACIONES", "LEAVE", True),
+    "INC": ("INC", "INCAPACIDAD", "SICK_LEAVE", True),
+    "PCG": ("PER", "PERMISO", "LEAVE", True),
+    "PSG": ("PER", "PERMISO", "LEAVE", True),
+    "FJUS": ("FAL", "FALTA", "LEAVE", True),
+    "ENT": ("ENT", "ENTRADA", None, False),
+    "SAL": ("SAL", "SALIDA", None, False),
+}
+_DESCRIPCION_ODOO = {"ENT": "Registro de entrada", "SAL": "Registro de salida"}
+
+
+def _hm(t: datetime, tz: ZoneInfo | None) -> str:
+    return f"{t.astimezone(tz):%H:%M}" if tz else f"{t:%H:%M}"
+
+
+def filas_odoo(
+    empresa: Empresa, periodo: Periodo, claves: dict[str, str], hasta: date, checadas: bool
+) -> list[list]:
+    """Una fila por incidencia. Las ausencias de días seguidos se juntan en un solo rango.
+
+    external_id es estable (empleado + fecha + concepto) para que reimportar no duplique.
+    """
+    empresa_code = empresa.slug.upper()
+    filas: list[list] = []
+
+    def fila(e, concepto, desde, hasta_, cantidad, unidad, t1=None, t2=None, accion=None):
+        codigo, categoria, entrada, ausencia = _ODOO.get(
+            concepto, ("OTR", "OTRO_CONCEPTO", None, False)
+        )
+        clave = claves.get(concepto) or concepto
+        ref = f"{concepto}-{desde:%Y%m%d}" + (f"-{hasta_:%Y%m%d}" if hasta_ != desde else "")
+        filas.append(
+            [
+                f"ODT-{empresa_code}-{e.numero}-{ref}",
+                "ODAITIME",
+                ref,
+                empresa_code,
+                str(e.numero),
+                codigo,
+                categoria,
+                f"{desde:%Y-%m-%d}",
+                f"{hasta_:%Y-%m-%d}",
+                t1,
+                t2,
+                cantidad,
+                unidad,
+                None if ausencia or accion else clave,
+                entrada,
+                clave if ausencia else None,
+                accion,
+                "APPROVED",
+                _DESCRIPCION_ODOO.get(concepto) or CONCEPTOS[concepto][0],
+            ]
+        )
+
+    for e, dias, r in periodo:
+        tz = ZoneInfo(e.sucursal.zona_horaria) if e.sucursal else None
+        abiertas: dict[str, tuple[date, date, float]] = {}  # ausencias en curso por concepto
+
+        for d in dias:
+            del_dia = dict(conceptos_dia(d))
+            for concepto in [c for c in abiertas if c not in del_dia]:
+                d1, d2, n = abiertas.pop(concepto)
+                fila(e, concepto, d1, d2, n, "DAYS")
+            entrada = _hm(min(d.entradas), tz) if d.entradas else None
+            salida = _hm(max(d.salidas), tz) if d.salidas else None
+            for concepto, cantidad in del_dia.items():
+                if _ODOO.get(concepto, ("", "", None, False))[3]:
+                    if concepto in abiertas:
+                        d1, _, n = abiertas[concepto]
+                        abiertas[concepto] = (d1, d.fecha, n + cantidad)
+                    else:
+                        abiertas[concepto] = (d.fecha, d.fecha, cantidad)
+                elif concepto in ("HE2", "HE3"):
+                    fila(e, concepto, d.fecha, d.fecha, cantidad, "HOURS")
+                elif concepto == "RET":
+                    fila(e, concepto, d.fecha, d.fecha, d.retardo_min, "MINUTES", entrada, entrada)
+                elif concepto in ("DLAB", "FLAB"):
+                    trabajadas = horas(d.trabajado_min)
+                    fila(e, concepto, d.fecha, d.fecha, trabajadas, "HOURS", entrada, salida)
+                else:
+                    fila(e, concepto, d.fecha, d.fecha, cantidad, "DAYS")
+            if checadas:
+                for t in d.entradas:
+                    fila(e, "ENT", d.fecha, d.fecha, 1, "EVENTS", _hm(t, tz), None, "CHECK_IN")
+                for t in d.salidas:
+                    fila(e, "SAL", d.fecha, d.fecha, 1, "EVENTS", None, _hm(t, tz), "CHECK_OUT")
+        for concepto, (d1, d2, n) in abiertas.items():
+            fila(e, concepto, d1, d2, n, "DAYS")
+        if r.faltas_por_retardos:
+            fila(e, "FRET", hasta, hasta, r.faltas_por_retardos, "DAYS")
+
+    # Checadas: external_id distinto por evento (la hora va en la referencia).
+    for f in filas:
+        if f[16]:
+            sufijo = (f[9] or f[10] or "").replace(":", "")
+            f[0] = f"{f[0]}-{sufijo}"
+            f[2] = f"{f[2]}-{sufijo}"
+    filas.sort(key=lambda f: (f[4], f[7], f[0]))
+    return filas
+
+
+def odoo(
+    empresa: Empresa, periodo: Periodo, claves: dict[str, str], hasta: date, op: OpcionesContpaqi
+) -> tuple[bytes, str, str]:
+    filas = filas_odoo(empresa, periodo, claves, hasta, op.checadas)
+    if op.formato == "csv":
+        texto = StringIO()
+        w = csv.writer(texto, lineterminator="\n")
+        w.writerow(COLUMNAS_ODOO)
+        for f in filas:
+            w.writerow(["" if v is None else (f"{v:g}" if isinstance(v, float) else v) for v in f])
+        return ("\ufeff" + texto.getvalue()).encode("utf-8"), "text/csv; charset=utf-8", "csv"
+
+    wb = load_workbook(PLANTILLA_ODOO)
+    ws = wb["INCIDENCIAS"]
+    ws.delete_rows(2, ws.max_row)  # quita las filas de ejemplo de la plantilla
+    for i, f in enumerate(filas, start=2):
+        for c, v in enumerate(f, start=1):
+            celda = ws.cell(row=i, column=c, value=v)
+            if c == 12:
+                celda.number_format = "0.00"
+            elif c in (4, 5):
+                celda.number_format = "@"
+    ws.auto_filter.ref = f"A1:S{max(len(filas) + 1, 2)}"
     return _libro(wb), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx"

@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { api } from "../lib/api";
-import { aplicarTema, cargarTema, COLORES_ODAI, type Colores } from "../lib/tema";
+import { aplicarTema, cargarTema, COLORES_ODAI, type Colores, type Enlaces, type Tema as TemaGuardado } from "../lib/tema";
 import CorreoSaliente from "./CorreoSaliente";
 import Icono from "./Iconos";
-import { ErrorBox, ImagenEditable } from "./ui";
+import { Ayuda, ErrorBox, Fila, ImagenEditable } from "./ui";
 
-type Pestana = "tema" | "inicio" | "correo";
+type Pestana = "tema" | "inicio" | "correo" | "enlaces";
 
 /** Configuración general de ODAITIME para todas las empresas (solo superadmin). */
 export default function ConfigSistema() {
@@ -18,6 +18,7 @@ export default function ConfigSistema() {
             ["tema", "Colores del tema"],
             ["inicio", "Imagen de inicio"],
             ["correo", "Correo saliente"],
+            ["enlaces", "Enlaces de Odai"],
           ] as const
         ).map(([k, l]) => (
           <button
@@ -35,6 +36,7 @@ export default function ConfigSistema() {
       {pestana === "tema" && <Tema />}
       {pestana === "inicio" && <ImagenInicio />}
       {pestana === "correo" && <CorreoSaliente />}
+      {pestana === "enlaces" && <EnlacesOdai />}
     </div>
   );
 }
@@ -134,5 +136,55 @@ function ImagenInicio() {
       </ImagenEditable>
       <ErrorBox message={error} />
     </div>
+  );
+}
+
+/** Tienda en línea (comprar más empleados cuando se acaba el cupo) y soporte de Odai. */
+function EnlacesOdai() {
+  const [enlaces, setEnlaces] = useState<Enlaces>({ url_tienda: "", url_soporte: "" });
+  const [msg, setMsg] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    cargarTema().then((t) => setEnlaces({ url_tienda: t.enlaces?.url_tienda ?? "", url_soporte: t.enlaces?.url_soporte ?? "" }));
+  }, []);
+
+  async function guardar(e: FormEvent) {
+    e.preventDefault();
+    setMsg(null);
+    setError(null);
+    try {
+      const t = await api<TemaGuardado>("/sistema/enlaces", {
+        method: "PUT",
+        body: JSON.stringify({ url_tienda: enlaces.url_tienda?.trim() || null, url_soporte: enlaces.url_soporte?.trim() || null }),
+      });
+      setEnlaces({ url_tienda: t.enlaces.url_tienda ?? "", url_soporte: t.enlaces.url_soporte ?? "" });
+      await cargarTema();
+      setMsg("Enlaces guardados.");
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  return (
+    <form className="max-w-2xl space-y-4" onSubmit={guardar}>
+      <Fila etiqueta="Tienda en línea" htmlFor="url-tienda" ayuda="A donde se envía a la empresa cuando ya no tiene empleados disponibles en su licencia o está vencida, para comprar más.">
+        <input id="url-tienda" className="input" type="url" placeholder="https://odai.lat/tienda" value={enlaces.url_tienda ?? ""} onChange={(e) => setEnlaces({ ...enlaces, url_tienda: e.target.value })} />
+      </Fila>
+      <Fila etiqueta="Soporte" htmlFor="url-soporte" ayuda="Se abre desde la opción Solicitar soporte del menú del usuario.">
+        <input id="url-soporte" className="input" type="url" placeholder="https://odai.lat/soporte" value={enlaces.url_soporte ?? ""} onChange={(e) => setEnlaces({ ...enlaces, url_soporte: e.target.value })} />
+      </Fila>
+      <p className="flex items-center text-xs text-slate-500">
+        Solo los ve Odai; las empresas no pueden cambiarlos.
+        <Ayuda texto="Si se dejan vacíos se usan los valores del servidor (.env)." />
+      </p>
+      <ErrorBox message={error} />
+      {msg && <p className="text-sm text-emerald-700">{msg}</p>}
+      <div className="flex justify-end">
+        <button className="btn-primary">
+          <Icono nombre="check" /> Guardar
+        </button>
+      </div>
+    </form>
   );
 }

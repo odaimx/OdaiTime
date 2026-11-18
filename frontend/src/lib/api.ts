@@ -96,7 +96,7 @@ export interface LimiteLicencia {
   url_compra: string;
 }
 
-interface Tokens {
+export interface Tokens {
   access_token: string;
   refresh_token: string;
   usuario: Usuario;

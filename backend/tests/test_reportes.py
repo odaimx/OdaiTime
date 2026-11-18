@@ -95,10 +95,33 @@ async def test_claves_y_exportacion_a_nomina(client, superadmin):
     assert r.status_code == 422
 
     r = await client.get("/api/reportes/nomina", headers=a, params={**PARAMS, "sistema": "odoo"})
+    assert r.status_code == 200, r.text
+    wb = load_workbook(BytesIO(r.content))
+    assert wb.sheetnames == ["INCIDENCIAS", "CATALOGOS", "MAPEO_ODOO", "INSTRUCCIONES"]
+    ws = wb["INCIDENCIAS"]
+    assert [c.value for c in ws[1]] == reportes.COLUMNAS_ODOO
+    filas = [[c.value for c in f] for f in ws.iter_rows(min_row=2) if f[0].value]
+    assert len({f[0] for f in filas}) == len(filas)  # external_id único
+    assert all(f[1] == "ODAITIME" and f[17] == "APPROVED" for f in filas)
+    extra = next(f for f in filas if f[6] == "HORAS_EXTRA")
+    assert extra[7] == str(LUN + timedelta(1)) and extra[11] == 2 and extra[12] == "HOURS"
+    ret = next(f for f in filas if f[6] == "RETARDO")
+    assert ret[12] == "MINUTES" and ret[11] > 0 and ret[9] == "09:30"
+    faltas = [f for f in filas if f[6] == "FALTA"]
+    assert sum(f[11] for f in faltas) == 3 and all(f[12] == "DAYS" for f in faltas)
+    assert any(f[7] != f[8] for f in faltas)  # días seguidos van en un solo rango
+    assert not any(f[16] for f in filas)
+
+    r = await client.get(
+        "/api/reportes/nomina",
+        headers=a,
+        params={**PARAMS, "sistema": "odoo", "formato": "csv", "checadas": "true"},
+    )
     lineas = list(csv.reader(StringIO(r.content.decode("utf-8-sig"))))
-    assert lineas[0] == ["name", "employee_id", "work_entry_type_id", "date_start", "date_stop"]
-    extra = next(x for x in lineas[1:] if x[2] == "HE2")
-    assert extra[3].startswith(str(LUN + timedelta(1))) and extra[4].endswith("02:00:00")
+    assert lineas[0] == reportes.COLUMNAS_ODOO
+    acciones = [x[16] for x in lineas[1:] if x[16]]
+    assert acciones.count("CHECK_IN") == 2 and acciones.count("CHECK_OUT") == 2
+    assert len({x[0] for x in lineas[1:]}) == len(lineas) - 1
 
     r = await client.get(
         "/api/reportes/nomina", headers=a, params={**PARAMS, "sistema": "generico"}

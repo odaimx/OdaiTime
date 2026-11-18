@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.models import Empleado, Empresa
+from app.models import ConfigSistema, Empleado, Empresa
 
 
 async def estado(db: AsyncSession, empresa_id: uuid.UUID, bloquear: bool = False) -> dict:
@@ -32,8 +32,14 @@ async def estado(db: AsyncSession, empresa_id: uuid.UUID, bloquear: bool = False
         "disponibles": max(limite - activos, 0),
         "vence": vence,
         "vencida": vence is not None and vence < date.today(),
-        "url_compra": get_settings().licencia_url_compra,
+        "url_compra": await url_tienda(db),
     }
+
+
+async def url_tienda(db: AsyncSession) -> str:
+    """Tienda en línea de Odai para comprar más empleados (configuración del sistema)."""
+    url = await db.scalar(select(ConfigSistema.url_tienda).where(ConfigSistema.id == 1))
+    return url or get_settings().licencia_url_compra
 
 
 async def verificar_cupo(db: AsyncSession, empresa_id: uuid.UUID, nuevos: int = 1) -> None:

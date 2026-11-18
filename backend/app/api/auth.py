@@ -184,6 +184,40 @@ async def mi_foto(user: CurrentUser, db: DB) -> Response:
     )
 
 
+# --- Cambiar contraseña (usuario con sesión) ---
+
+
+class CambiarPasswordIn(BaseModel):
+    actual: str = Field(min_length=1, max_length=200)
+    nueva: Password
+
+
+@router.post("/cambiar-password", response_model=TokenOut)
+async def cambiar_password(
+    data: CambiarPasswordIn, request: Request, user: CurrentUser, db: DB
+) -> TokenOut:
+    """Cambia la contraseña con la actual; cierra las demás sesiones y entrega tokens nuevos."""
+    key = _rl_key(f"cambiar:{user.id}", request)
+    if await _intentos_excedidos(key):
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS, "Demasiados intentos. Intenta más tarde."
+        )
+    if not verify_password(data.actual, user.password_hash):
+        await _registrar_fallo(key)
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "La contraseña actual no es correcta")
+    if data.actual == data.nueva:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "La nueva contraseña debe ser distinta de la actual"
+        )
+    user.password_hash = hash_password(data.nueva)
+    await db.execute(
+        update(Sesion)
+        .where(Sesion.usuario_id == user.id, Sesion.revocada_en.is_(None))
+        .values(revocada_en=datetime.now(UTC))
+    )
+    return await _emitir(db, user)
+
+
 # --- Recuperar clave e invitaciones al portal ---
 
 

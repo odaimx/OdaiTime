@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { isValidElement, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { imprimirFormulario } from "../lib/imprimir";
 import Icono, { type NombreIcono } from "./Iconos";
 
 /**
@@ -42,7 +43,8 @@ interface Props {
 
 export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio = false, onGuardar, onDescartar, onCerrar, ancho = "lg", acciones = [], imprimir = true, children }: Props) {
   const [menu, setMenu] = useState(false);
-  const opciones: AccionRegistro[] = [...acciones, ...(imprimir ? [{ etiqueta: "Imprimir", icono: "printer" as NombreIcono, onClick: imprimirRegistro, separar: acciones.length > 0 }] : [])];
+  const cuerpo = useRef<HTMLDivElement>(null);
+  const opciones: AccionRegistro[] = [...acciones, ...(imprimir ? [{ etiqueta: "Imprimir", icono: "printer" as NombreIcono, onClick: () => cuerpo.current && imprimirFormulario(cuerpo.current, textoDe(titulo), textoDe(subtitulo)), separar: acciones.length > 0 }] : [])];
   const [estado, setEstado] = useState<Estado>("guardado");
   const ocupado = useRef(false);
 
@@ -177,7 +179,7 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
           </div>
         </div>
 
-        <div className="min-h-0 overflow-y-auto p-5 pb-12 sm:p-8 sm:pb-14">
+        <div ref={cuerpo} className="min-h-0 overflow-y-auto p-5 pb-12 sm:p-8 sm:pb-14">
           <div className="mb-5">
             <h2 className="text-lg font-semibold text-tinta-900">{titulo}</h2>
             {subtitulo && <div className="mt-1 text-sm text-slate-500">{subtitulo}</div>}
@@ -190,14 +192,13 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
 }
 
 /** Imprime solo la ventana del registro (se guarda como PDF desde el diálogo del navegador). */
-function imprimirRegistro() {
-  document.body.classList.add("imprimiendo-registro");
-  const quitar = () => {
-    document.body.classList.remove("imprimiendo-registro");
-    window.removeEventListener("afterprint", quitar);
-  };
-  window.addEventListener("afterprint", quitar);
-  window.print();
+/** Texto plano de un título que puede venir como JSX. */
+function textoDe(n: ReactNode): string {
+  if (n == null || typeof n === "boolean") return "";
+  if (typeof n === "string" || typeof n === "number") return String(n);
+  if (Array.isArray(n)) return n.map(textoDe).join("");
+  if (isValidElement<{ children?: ReactNode }>(n)) return textoDe(n.props.children);
+  return "";
 }
 
 /** Estado de un formulario con su versión guardada, para saber si hay cambios. */

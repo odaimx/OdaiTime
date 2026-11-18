@@ -165,11 +165,13 @@ async def exportar_nomina(
     tipo_periodo: str | None = None,
     ejercicio: int | None = None,
     numero_periodo: int | None = None,
+    checadas: bool = False,
 ) -> Response:
     """Archivo de incidencias para el sistema de nómina, con las claves de la empresa.
 
     CONTPAQi usa el layout de intercambio ODAI Time (Excel, CSV o TXT tabulado) con el tipo,
-    ejercicio y número de periodo de nómina.
+    ejercicio y número de periodo de nómina. Odoo usa la plantilla definitiva de incidencias
+    para Odoo 19/20 (Excel o CSV), con entradas y salidas opcionales.
     """
     _validar_sistema(sistema)
     opciones = None
@@ -185,6 +187,12 @@ async def exportar_nomina(
             tipo_periodo=tipo_periodo,
             numero_periodo=numero_periodo,
             formato=formato,
+        )
+    elif sistema == "odoo":
+        if formato not in ("xlsx", "csv"):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Formato no válido")
+        opciones = reportes.OpcionesContpaqi(
+            ejercicio=hasta.year, formato=formato, checadas=checadas
         )
     emp = empresa_scope(user, empresa_id)
     periodo = await calcular_periodo(db, user, emp, desde, hasta, sucursal_id)

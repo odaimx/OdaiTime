@@ -1,5 +1,6 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { get, imagenProtegida, ROLES, type Empresa, type Licencia, type LimiteLicencia } from "../lib/api";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { api, get, imagenProtegida, ROLES, session, type Empresa, type Licencia, type LimiteLicencia, type Tokens } from "../lib/api";
+import { temaActual } from "../lib/tema";
 import { useAuth } from "../lib/auth";
 import { FuentesOficiales } from "./LFT";
 import Icono, { type NombreIcono } from "./Iconos";
@@ -41,11 +42,11 @@ export function PageHeader({
   const [abierto, setAbierto] = useState<string | null>(null);
   return (
     <>
-      <div className={`banda -mx-4 -mt-4 bg-navy-950 px-4 py-4 sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:-mt-8 lg:px-8 lg:py-5 ${submenu?.length ? "" : "mb-5"}`}>
+      <div className={`banda -mx-4 -mt-4 bg-navy-950 px-4 py-2.5 sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:-mt-8 lg:px-8 lg:py-2.5 ${submenu?.length ? "" : "mb-5"}`}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            {icono && <Icono nombre={icono} className="h-8 w-8 shrink-0 text-oro-400 sm:h-9 sm:w-9" />}
-            <h1 className="truncate text-2xl font-semibold tracking-tight text-oro-400 sm:text-3xl">{title}</h1>
+            {icono && <Icono nombre={icono} className="h-8 w-8 shrink-0 text-oro-400 sm:h-10 sm:w-10" />}
+            <h1 className="truncate text-[1.75rem] font-semibold leading-tight tracking-tight text-oro-400 sm:text-[2.125rem]">{title}</h1>
             {fuentes !== undefined && <FuentesOficiales articulos={fuentes || undefined} oscuro />}
           </div>
           <div className="flex items-center gap-3">
@@ -95,14 +96,23 @@ export function PageHeader({
   );
 }
 
-export const URL_SOPORTE = "https://odai.lat";
 
 /** Usuario activo junto al selector de empresa: su ficha, soporte y salir. */
 export function MenuUsuario() {
   const { usuario, logout } = useAuth();
   const [abierto, setAbierto] = useState(false);
   const [ficha, setFicha] = useState(false);
+  const [clave, setClave] = useState(false);
   const [foto, setFoto] = useState<string | null>(null);
+  const [soporte, setSoporte] = useState("https://odai.lat");
+  const cierre = useRef<number | undefined>(undefined);
+  const caja = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    temaActual()
+      .then((t) => t.url_soporte && setSoporte(t.url_soporte))
+      .catch(() => {});
+  }, []);
   useEffect(() => {
     if (!usuario) return;
     let url: string | null = null;
@@ -116,14 +126,35 @@ export function MenuUsuario() {
       if (url) URL.revokeObjectURL(url);
     };
   }, [usuario]);
+  // En pantallas táctiles se abre con un toque: se cierra al tocar fuera.
+  useEffect(() => {
+    if (!abierto) return;
+    const fuera = (e: PointerEvent) => caja.current && !caja.current.contains(e.target as Node) && setAbierto(false);
+    document.addEventListener("pointerdown", fuera);
+    return () => document.removeEventListener("pointerdown", fuera);
+  }, [abierto]);
   if (!usuario) return null;
+
+  const abrir = () => {
+    window.clearTimeout(cierre.current);
+    setAbierto(true);
+  };
+  const cerrarLuego = () => {
+    cierre.current = window.setTimeout(() => setAbierto(false), 200);
+  };
+  const elegir = (accion: () => void) => {
+    setAbierto(false);
+    accion();
+  };
+
   return (
-    <div className="relative shrink-0">
+    <div ref={caja} className="relative shrink-0" onMouseEnter={abrir} onMouseLeave={cerrarLuego}>
       <button
         onClick={() => setAbierto((a) => !a)}
-        className={`flex h-11 w-11 items-center justify-center overflow-hidden rounded-lg bg-white p-0.5 ring-2 transition ${abierto ? "ring-oro-400" : "ring-white/30 hover:ring-oro-300"}`}
+        className={`flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg bg-white p-0.5 ring-2 transition ${abierto ? "ring-oro-400" : "ring-white/30 hover:ring-oro-300"}`}
         title={usuario.nombre}
         aria-label="Menú del usuario"
+        aria-expanded={abierto}
       >
         {foto ? (
           <img src={foto} alt={usuario.nombre} className="h-full w-full rounded-md object-cover" />
@@ -135,17 +166,20 @@ export function MenuUsuario() {
         )}
       </button>
       {abierto && (
-        <>
-          <div className="fixed inset-0 z-30" onClick={() => setAbierto(false)} />
-          <div className="popover right-0 top-12 w-64 p-1">
+        // pt-2 en lugar de margen: el puntero no "sale" del menú al bajar del botón.
+        <div className="absolute right-0 top-full z-40 pt-2">
+          <div className="popover static w-64 p-1">
             <div className="border-b border-slate-100 px-3 py-2">
               <p className="truncate text-sm font-semibold text-tinta-900">{usuario.nombre}</p>
               <p className="truncate text-xs text-slate-500">{usuario.email}</p>
             </div>
-            <button className="menu-item mt-1" onClick={() => (setAbierto(false), setFicha(true))}>
+            <button className="menu-item mt-1" onClick={() => elegir(() => setFicha(true))}>
               <Icono nombre="user-round" className="h-4 w-4" /> Mi ficha
             </button>
-            <a className="menu-item" href={URL_SOPORTE} target="_blank" rel="noopener noreferrer" onClick={() => setAbierto(false)}>
+            <button className="menu-item" onClick={() => elegir(() => setClave(true))}>
+              <Icono nombre="key-round" className="h-4 w-4" /> Cambiar contraseña
+            </button>
+            <a className="menu-item" href={soporte} target="_blank" rel="noopener noreferrer" onClick={() => setAbierto(false)}>
               <Icono nombre="send" className="h-4 w-4" /> Solicitar soporte
             </a>
             <hr className="my-1 border-slate-100" />
@@ -153,8 +187,9 @@ export function MenuUsuario() {
               <Icono nombre="log-out" className="h-4 w-4" /> Salir del sistema
             </button>
           </div>
-        </>
+        </div>
       )}
+      {clave && <CambiarPassword onClose={() => setClave(false)} />}
       {ficha && (
         <Modal title="Mi ficha" onClose={() => setFicha(false)}>
           <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
@@ -182,6 +217,75 @@ export function MenuUsuario() {
         </Modal>
       )}
     </div>
+  );
+}
+
+function CambiarPassword({ onClose }: { onClose: () => void }) {
+  const [actual, setActual] = useState("");
+  const [nueva, setNueva] = useState("");
+  const [repetir, setRepetir] = useState("");
+  const [ver, setVer] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [listo, setListo] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+
+  async function guardar(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (nueva !== repetir) return setError("La confirmación no coincide con la nueva contraseña.");
+    setGuardando(true);
+    try {
+      const t = await api<Tokens>("/auth/cambiar-password", { method: "POST", body: JSON.stringify({ actual, nueva }) });
+      session.set(t); // las demás sesiones se cerraron; esta sigue con tokens nuevos
+      setListo(true);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  const tipo = ver ? "text" : "password";
+  return (
+    <Modal title="Cambiar contraseña" onClose={onClose}>
+      {listo ? (
+        <div className="space-y-4">
+          <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">Listo. Tu contraseña se cambió y se cerraron tus sesiones en otros dispositivos.</p>
+          <div className="flex justify-end">
+            <button className="btn-primary" onClick={onClose}>
+              Cerrar
+            </button>
+          </div>
+        </div>
+      ) : (
+        <form className="space-y-4" onSubmit={guardar}>
+          <label className="block">
+            <span className="label">Contraseña actual</span>
+            <input className="input" type={tipo} autoComplete="current-password" required value={actual} onChange={(e) => setActual(e.target.value)} />
+          </label>
+          <label className="block">
+            <span className="label">Nueva contraseña</span>
+            <input className="input" type={tipo} autoComplete="new-password" required minLength={8} value={nueva} onChange={(e) => setNueva(e.target.value)} />
+          </label>
+          <label className="block">
+            <span className="label">Confirmar nueva contraseña</span>
+            <input className="input" type={tipo} autoComplete="new-password" required minLength={8} value={repetir} onChange={(e) => setRepetir(e.target.value)} />
+          </label>
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            <input type="checkbox" checked={ver} onChange={(e) => setVer(e.target.checked)} /> Mostrar contraseñas
+          </label>
+          <ErrorBox message={error} />
+          <div className="flex justify-end gap-2">
+            <button type="button" className="btn-secondary" onClick={onClose}>
+              Cancelar
+            </button>
+            <button className="btn-primary" disabled={guardando}>
+              {guardando ? "Guardando…" : "Cambiar contraseña"}
+            </button>
+          </div>
+        </form>
+      )}
+    </Modal>
   );
 }
 

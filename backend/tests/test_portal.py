@@ -3,7 +3,7 @@ from io import BytesIO
 from PIL import Image
 
 from app.services import correo
-from tests.conftest import auth, crear_empresa, login
+from tests.conftest import PASSWORD, auth, crear_empresa, login
 from tests.test_asistencia import _setup
 
 
@@ -140,3 +140,41 @@ async def test_tema_e_imagen_de_inicio(client, superadmin):
     await crear_empresa(client, superadmin, "Caribe", "admin@caribe.mx")
     a = auth(await login(client, "admin@caribe.mx"))
     assert (await client.put("/api/sistema/tema", headers=a, json={})).status_code == 403
+
+
+async def test_enlaces_de_tienda_y_soporte(client, superadmin):
+    tema = (await client.get("/api/sistema/tema")).json()
+    assert tema["url_tienda"] and tema["url_soporte"]  # del .env mientras no se configuren
+    r = await client.put(
+        "/api/sistema/enlaces",
+        headers=superadmin,
+        json={"url_tienda": "https://tienda.odai.lat/empleados", "url_soporte": None},
+    )
+    assert r.status_code == 200, r.text
+    tema = (await client.get("/api/sistema/tema")).json()
+    assert tema["url_tienda"] == "https://tienda.odai.lat/empleados"
+    assert tema["enlaces"]["url_soporte"] is None
+    r = await client.put("/api/sistema/enlaces", headers=superadmin, json={"url_tienda": "ftp://x"})
+    assert r.status_code == 422
+    await crear_empresa(client, superadmin, "Caribe", "admin@caribe.mx")
+    a = auth(await login(client, "admin@caribe.mx"))
+    assert (await client.get("/api/licencia", headers=a)).json()[
+        "url_compra"
+    ] == "https://tienda.odai.lat/empleados"
+    assert (await client.put("/api/sistema/enlaces", headers=a, json={})).status_code == 403
+
+
+async def test_cambiar_password(client, superadmin):
+    await crear_empresa(client, superadmin, "Caribe", "admin@caribe.mx")
+    tokens = await login(client, "admin@caribe.mx")
+    a = auth(tokens)
+    url = "/api/auth/cambiar-password"
+    r = await client.post(url, headers=a, json={"actual": "mala", "nueva": "OtraClave456!"})
+    assert r.status_code == 400
+    r = await client.post(url, headers=a, json={"actual": PASSWORD, "nueva": "OtraClave456!"})
+    assert r.status_code == 200, r.text
+    assert r.json()["refresh_token"]
+    # la sesión anterior queda cerrada y solo entra la contraseña nueva
+    r = await client.post("/api/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+    assert r.status_code == 401
+    assert (await login(client, "admin@caribe.mx", "OtraClave456!"))["access_token"]
