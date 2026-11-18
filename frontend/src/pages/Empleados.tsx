@@ -4,6 +4,7 @@ import Bitacora from "../components/Bitacora";
 import Camara from "../components/Camara";
 import Registro, { useFormulario } from "../components/Registro";
 import VacacionesIncidencias from "../components/VacacionesIncidencias";
+import Vista, { useVista, type Columna, type ConfigVista } from "../components/Vista";
 import { AvisoLicencia, Badge, ErrorBox, Modal, PageHeader, UsoLicencia, useEmpresaScope } from "../components/ui";
 import {
   api,
@@ -51,7 +52,7 @@ export default function Empleados() {
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
   const [turnos, setTurnos] = useState<Turno[]>([]);
-  const [filtros, setFiltros] = useState({ q: "", sucursal_id: "", estado: "activos" });
+  const [presentes, setPresentes] = useState<Set<string>>(new Set());
 
   const [nuevo, setNuevo] = useState(false);
   const [sel, setSel] = useState<EmpleadoDetalle | null>(null);
@@ -91,17 +92,15 @@ export default function Empleados() {
 
   const cargar = useCallback(() => {
     if (!listo) return;
-    const p = new URLSearchParams({ estado: filtros.estado });
-    if (filtros.q.trim()) p.set("q", filtros.q.trim());
-    if (filtros.sucursal_id) p.set("sucursal_id", filtros.sucursal_id);
-    get<Empleado[]>(`/empleados${query}${sep}${p}`).then(setEmpleados);
+    // Se traen todos; la búsqueda, filtros, orden y agrupación se hacen en la vista.
+    get<Empleado[]>(`/empleados${query}${sep}estado=todos`).then(setEmpleados);
+    get<string[]>(`/empleados/presentes${query}`)
+      .then((ids) => setPresentes(new Set(ids)))
+      .catch(() => setPresentes(new Set()));
     cargarLicencia();
-  }, [listo, query, sep, filtros, cargarLicencia]);
+  }, [listo, query, sep, cargarLicencia]);
 
-  useEffect(() => {
-    const t = setTimeout(cargar, 250); // espera a que termine de escribir
-    return () => clearTimeout(t);
-  }, [cargar]);
+  useEffect(cargar, [cargar]);
 
   useEffect(() => {
     if (!listo) return;
@@ -150,7 +149,119 @@ export default function Empleados() {
     }
   }
 
-  const indiceSel = sel ? empleados.findIndex((x) => x.id === sel.id) : -1;
+  const columnas: Columna<Empleado>[] = [
+    {
+      clave: "nombre",
+      titulo: "Empleado",
+      fija: true,
+      buscable: true,
+      valor: (e) => e.nombre_completo,
+      render: (e) => (
+        <div className="flex items-center gap-3">
+          <span className="relative">
+            <Avatar empleadoId={e.id} nombre={e.nombre_completo} version={e.foto_version} query={query} tam={32} />
+            <PuntoPresencia presente={presentes.has(e.id)} activo={e.activo} className="absolute -bottom-0.5 -right-0.5 ring-2 ring-white" />
+          </span>
+          <span className="truncate font-medium text-navy-900">{e.nombre_completo}</span>
+        </div>
+      ),
+    },
+    { clave: "numero", titulo: "Número", buscable: true, valor: (e) => e.numero, className: "font-mono text-xs text-slate-500" },
+    { clave: "puesto", titulo: "Puesto", buscable: true, agrupable: true, valor: (e) => e.puesto },
+    { clave: "departamento", titulo: "Departamento", buscable: true, agrupable: true, valor: (e) => e.departamento },
+    {
+      clave: "sucursal",
+      titulo: "Sucursal",
+      buscable: true,
+      agrupable: true,
+      valor: (e) => e.sucursal.nombre,
+      render: (e) => (
+        <span className="inline-flex items-center gap-1.5">
+          <span className="rounded bg-brand-50 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-brand-700">{e.sucursal.clave}</span>
+          <span className="truncate">{e.sucursal.nombre}</span>
+        </span>
+      ),
+    },
+    {
+      clave: "turno",
+      titulo: "Turno",
+      agrupable: true,
+      valor: (e) => e.turno_actual?.nombre ?? null,
+      render: (e) => e.turno_actual?.nombre ?? <span className="text-amber-600">Sin turno</span>,
+    },
+    { clave: "telefono", titulo: "Teléfono", buscable: true, visible: false, valor: (e) => e.telefono },
+    { clave: "email", titulo: "Correo", buscable: true, visible: false, valor: (e) => e.email },
+    { clave: "curp", titulo: "CURP", buscable: true, visible: false, valor: (e) => e.curp, className: "font-mono text-xs" },
+    { clave: "rfc", titulo: "RFC", buscable: true, visible: false, valor: (e) => e.rfc, className: "font-mono text-xs" },
+    { clave: "nss", titulo: "NSS", buscable: true, visible: false, valor: (e) => e.nss, className: "font-mono text-xs" },
+    { clave: "fecha_ingreso", titulo: "Fecha de ingreso", valor: (e) => e.fecha_ingreso, render: (e) => fechaCorta(e.fecha_ingreso), visible: false },
+    { clave: "anio_ingreso", titulo: "Año de ingreso", agrupable: true, visible: false, valor: (e) => e.fecha_ingreso.slice(0, 4) },
+    { clave: "salario", titulo: "Salario diario", visible: false, alinear: "derecha", sumar: true, valor: (e) => (e.salario_diario ? Number(e.salario_diario) : null) },
+    {
+      clave: "estado",
+      titulo: "Estado",
+      agrupable: true,
+      valor: (e) => (e.activo ? (presentes.has(e.id) ? "En el trabajo" : "Activo") : "Baja"),
+      render: (e) =>
+        e.activo ? (
+          presentes.has(e.id) ? (
+            <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">En el trabajo</span>
+          ) : (
+            <Badge ok>Activo</Badge>
+          )
+        ) : (
+          <Badge ok={false}>Baja</Badge>
+        ),
+    },
+  ];
+  const hace30 = new Date(Date.now() - 30 * 86_400_000).toLocaleDateString("en-CA");
+  const config: ConfigVista<Empleado> = {
+    id: "empleados",
+    columnas,
+    filtros: [
+      { clave: "presentes", titulo: "En el trabajo", grupo: "presencia", prueba: (e) => presentes.has(e.id) },
+      { clave: "ausentes", titulo: "Ausentes", grupo: "presencia", prueba: (e) => e.activo && !presentes.has(e.id) },
+      { clave: "sin_turno", titulo: "Sin turno", grupo: "datos", prueba: (e) => e.activo && !e.turno_actual },
+      { clave: "sin_pin", titulo: "Sin PIN del kiosco", grupo: "datos", prueba: (e) => e.activo && !e.tiene_pin },
+      { clave: "sin_foto", titulo: "Sin foto", grupo: "datos", prueba: (e) => e.activo && !e.foto_version },
+      { clave: "con_acceso", titulo: "Con acceso al sistema", grupo: "datos", prueba: (e) => e.tiene_acceso },
+      { clave: "nuevos", titulo: "Recién contratados (30 días)", grupo: "nuevos", prueba: (e) => e.fecha_ingreso >= hace30 },
+      { clave: "activos", titulo: "Activos", grupo: "estado", prueba: (e) => e.activo },
+      { clave: "bajas", titulo: "Bajas", grupo: "estado", prueba: (e) => !e.activo },
+    ],
+    filtrosIniciales: ["activos"],
+    ordenInicial: { clave: "nombre", dir: "asc" },
+    tarjetas: [
+      { filtro: "presentes", color: "verde" },
+      { filtro: "ausentes", color: "gris" },
+      { filtro: "sin_turno", color: "naranja" },
+      { filtro: "sin_pin", color: "morado" },
+    ],
+    clave: (e) => e.id,
+    onAbrir: (e) => abrirDetalle(e.id),
+    actividades: { modelo: "empleado", query, listo },
+    vacio: "No hay empleados con esos filtros.",
+    kanban: (e) => (
+      <div className="flex gap-3 pr-6">
+        <Avatar empleadoId={e.id} nombre={e.nombre_completo} version={e.foto_version} query={query} tam={88} cuadrado />
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <p className="truncate font-semibold text-navy-900">{e.nombre_completo}</p>
+          <p className="truncate text-xs uppercase tracking-wide text-slate-500">{e.puesto ?? "Sin puesto"}</p>
+          {e.email && <p className="truncate text-xs text-slate-600">✉ {e.email}</p>}
+          {e.telefono && <p className="truncate text-xs text-slate-600">☎ {e.telefono}</p>}
+          <div className="flex flex-wrap gap-1 pt-1">
+            <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700">{e.sucursal.nombre}</span>
+            {!e.turno_actual && e.activo && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">Sin turno</span>}
+            {!e.activo && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">Baja</span>}
+          </div>
+        </div>
+        <PuntoPresencia presente={presentes.has(e.id)} activo={e.activo} className="absolute right-3 top-3" />
+      </div>
+    ),
+  };
+  const vistaEmp = useVista(config, empleados);
+  const enOrden = vistaEmp.ordenados;
+  const indiceSel = sel ? enOrden.findIndex((x) => x.id === sel.id) : -1;
 
   function abrirNuevo() {
     // Si ya no hay lugares, avisa antes de capturar todo el formulario.
@@ -324,67 +435,7 @@ export default function Empleados() {
         }
       />
 
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_14rem_10rem]">
-        <input className="input" placeholder="Buscar por nombre, número o CURP…" value={filtros.q} onChange={(e) => setFiltros({ ...filtros, q: e.target.value })} />
-        <select className="input" value={filtros.sucursal_id} onChange={(e) => setFiltros({ ...filtros, sucursal_id: e.target.value })}>
-          <option value="">Todas las sucursales</option>
-          {sucursales.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.clave} — {s.nombre}
-            </option>
-          ))}
-        </select>
-        <select className="input" value={filtros.estado} onChange={(e) => setFiltros({ ...filtros, estado: e.target.value })}>
-          <option value="activos">Activos</option>
-          <option value="bajas">Bajas</option>
-          <option value="todos">Todos</option>
-        </select>
-      </div>
-
-      <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-4 py-3">Empleado</th>
-              <th className="hidden px-4 py-3 md:table-cell">Puesto</th>
-              <th className="hidden px-4 py-3 sm:table-cell">Sucursal</th>
-              <th className="hidden px-4 py-3 lg:table-cell">Turno</th>
-              <th className="px-4 py-3">Estado</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {empleados.map((e) => (
-              <tr key={e.id} className="cursor-pointer hover:bg-brand-50/50" onClick={() => abrirDetalle(e.id)}>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <Avatar empleadoId={e.id} nombre={e.nombre_completo} version={e.foto_version} query={query} tam={36} />
-                    <div>
-                      <p className="font-medium text-navy-900">{e.nombre_completo}</p>
-                      <p className="font-mono text-xs text-slate-500">#{e.numero}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="hidden px-4 py-3 text-slate-600 md:table-cell">{e.puesto ?? "—"}</td>
-                <td className="hidden px-4 py-3 sm:table-cell">
-                  <span className="font-mono text-xs font-semibold text-brand-600">{e.sucursal.clave}</span>
-                </td>
-                <td className="hidden px-4 py-3 text-slate-600 lg:table-cell">{e.turno_actual?.nombre ?? <span className="text-amber-600">Sin turno</span>}</td>
-                <td className="px-4 py-3">
-                  <Badge ok={e.activo}>{e.activo ? "Activo" : "Baja"}</Badge>
-                </td>
-              </tr>
-            ))}
-            {empleados.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
-                  No hay empleados con esos filtros.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      <p className="mt-2 text-xs text-slate-500">{empleados.length} empleado(s)</p>
+      <Vista vista={vistaEmp} />
 
       {/* Alta */}
       {nuevo && (
@@ -432,8 +483,8 @@ export default function Empleados() {
           titulo={sel.nombre_completo}
           subtitulo={`#${sel.numero} · ${sel.sucursal.clave} — ${sel.sucursal.nombre}`}
           indice={indiceSel >= 0 ? indiceSel : undefined}
-          total={empleados.length}
-          onIr={(i) => abrirDetalle(empleados[i].id)}
+          total={enOrden.length}
+          onIr={(i) => abrirDetalle(enOrden[i].id)}
           sucio={vista === "detalle" && sucio}
           onGuardar={guardarFicha}
           onDescartar={descartar}
@@ -725,5 +776,17 @@ function IconoCamara({ pequeno = false }: { pequeno?: boolean }) {
       <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
       <circle cx="12" cy="13" r="4" />
     </svg>
+  );
+}
+
+/** Punto de presencia como en Odoo: verde en el trabajo, gris ausente. */
+function PuntoPresencia({ presente, activo, className = "" }: { presente: boolean; activo: boolean; className?: string }) {
+  if (!activo) return null;
+  return (
+    <span
+      className={`inline-block h-3 w-3 rounded-full ${presente ? "bg-emerald-500" : "bg-slate-300"} ${className}`}
+      title={presente ? "En el trabajo" : "Ausente"}
+      aria-label={presente ? "En el trabajo" : "Ausente"}
+    />
   );
 }

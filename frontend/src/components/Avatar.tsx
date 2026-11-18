@@ -11,7 +11,7 @@ const iniciales = (n: string) =>
 
 /** Foto del empleado o sus iniciales. Pide la miniatura de 128 px para tamaños chicos
  * (listados) y la de 512 px para la ficha. `version` cambia cuando se actualiza la foto. */
-export default function Avatar({ empleadoId, nombre, version, query = "", tam = 40 }: { empleadoId: string; nombre: string; version: string | null; query?: string; tam?: number }) {
+export default function Avatar({ empleadoId, nombre, version, query = "", tam = 40, cuadrado = false }: { empleadoId: string; nombre: string; version: string | null; query?: string; tam?: number; cuadrado?: boolean }) {
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -32,9 +32,9 @@ export default function Avatar({ empleadoId, nombre, version, query = "", tam = 
 
   const estilo = { width: tam, height: tam, fontSize: Math.max(11, tam * 0.36) };
   return url ? (
-    <img src={url} alt={`Foto de ${nombre}`} style={estilo} className="shrink-0 rounded-full object-cover ring-2 ring-white" />
+    <img src={url} alt={`Foto de ${nombre}`} style={estilo} className={`shrink-0 object-cover ${cuadrado ? "rounded-lg" : "rounded-full ring-2 ring-white"}`} />
   ) : (
-    <span style={estilo} className="flex shrink-0 items-center justify-center rounded-full bg-brand-100 font-semibold text-brand-700" aria-hidden="true">
+    <span style={estilo} className={`flex shrink-0 items-center justify-center bg-brand-100 font-semibold text-brand-700 ${cuadrado ? "rounded-lg" : "rounded-full"}`} aria-hidden="true">
       {iniciales(nombre)}
     </span>
   );

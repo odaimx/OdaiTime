@@ -1,12 +1,16 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { get, type Empresa, type Licencia, type LimiteLicencia } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { FuentesOficiales } from "./LFT";
 
-export function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
+export function PageHeader({ title, subtitle, action, fuentes }: { title: string; subtitle?: string; action?: ReactNode; fuentes?: string }) {
   return (
     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
       <div>
-        <h1 className="text-2xl font-semibold text-navy-900">{title}</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-semibold text-navy-900">
+          {title}
+          {fuentes !== undefined && <FuentesOficiales articulos={fuentes || undefined} />}
+        </h1>
         {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
       </div>
       {action}

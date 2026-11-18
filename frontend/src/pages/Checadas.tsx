@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Avatar from "../components/Avatar";
-import { FuenteLFT } from "../components/LFT";
 import Bitacora from "../components/Bitacora";
 import Registro from "../components/Registro";
 import FotoChecada from "../components/FotoChecada";
@@ -86,7 +85,7 @@ export default function Checadas() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader fuentes="registro de jornada: art. 132, fracción XXXIV"
         title="Asistencias"
         subtitle="Registros de entrada y salida (checadas) de todas las sucursales"
         action={
@@ -185,7 +184,6 @@ export default function Checadas() {
         </table>
       </div>
       <p className="mt-2 text-xs text-slate-500">{checadas.length} registro(s)</p>
-      <FuenteLFT articulos="registro de jornada: art. 132, fracción XXXIV" className="mt-3" />
 
       {manual && (
         <Modal title="Registrar checada manual" onClose={() => setManual(false)}>

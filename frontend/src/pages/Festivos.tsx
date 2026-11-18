@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { ArticuloLFT, FuenteLFT } from "../components/LFT";
+import { ArticuloLFT } from "../components/LFT";
 import { ErrorBox, Modal, PageHeader } from "../components/ui";
 import { api, get, post, type Empleado, type Empresa, type Festivo } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -104,7 +104,7 @@ export default function Festivos() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader fuentes="arts. 74 y 75; jornada electoral: art. 74, fr. IX"
         title="Días festivos"
         subtitle={
           nacional
@@ -227,7 +227,6 @@ export default function Festivos() {
           </ul>
         </section>
       </div>
-      <FuenteLFT articulos="arts. 74 y 75; jornada electoral: art. 74, fr. IX" className="mt-4" />
 
       {designar && (
         <Modal title={`Personal que trabaja · ${designar.nombre}`} onClose={() => setDesignar(null)} ancho="md">

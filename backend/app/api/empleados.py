@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from app.api.deps import DB, CurrentUser, empresa_scope, require_roles
 from app.api.turnos import obtener_turno
 from app.core.security import hash_password
-from app.models import AsignacionTurno, Empleado, Rol, Sesion, Sucursal, Turno, Usuario
+from app.models import AsignacionTurno, Checada, Empleado, Rol, Sesion, Sucursal, Turno, Usuario
 from app.schemas.empleado import (
     AccesoIn,
     BajaIn,
@@ -162,6 +162,33 @@ async def listar(
         )
     consulta = consulta.order_by(Empleado.apellido_paterno, Empleado.nombre)
     return [EmpleadoOut.de(e) for e in await db.scalars(consulta)]
+
+
+@router.get("/presentes", response_model=list[uuid.UUID])
+async def presentes(
+    user: CurrentUser, db: DB, empresa_id: uuid.UUID | None = None
+) -> list[uuid.UUID]:
+    """Empleados "en el trabajo": su última checada válida (últimas 16 h) es una entrada."""
+    emp = empresa_scope(user, empresa_id)
+    desde = datetime.now(UTC) - timedelta(hours=16)
+    ultima = (
+        select(
+            Checada.empleado_id,
+            Checada.tipo,
+            func.row_number()
+            .over(partition_by=Checada.empleado_id, order_by=Checada.momento.desc())
+            .label("n"),
+        )
+        .where(Checada.empresa_id == emp, Checada.estado == "valida", Checada.momento >= desde)
+        .subquery()
+    )
+    q = select(ultima.c.empleado_id).where(ultima.c.n == 1, ultima.c.tipo == "entrada")
+    permitidas = _sucursales_permitidas(user)
+    if permitidas is not None:
+        q = q.join(Empleado, Empleado.id == ultima.c.empleado_id).where(
+            Empleado.sucursal_id.in_(permitidas)
+        )
+    return list(await db.scalars(q))
 
 
 @router.get("/plantilla", dependencies=[Depends(require_roles(*_ADMIN))])

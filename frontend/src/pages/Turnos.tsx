@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Bitacora from "../components/Bitacora";
-import { ArticuloLFT, FuenteLFT, TextoLFT } from "../components/LFT";
+import { ArticuloLFT, TextoLFT } from "../components/LFT";
 import Registro, { useFormulario } from "../components/Registro";
 import { Badge, ErrorBox, PageHeader, useEmpresaScope } from "../components/ui";
 import { DIAS, DIAS_CORTOS, get, horas, hhmm, JORNADAS, patch, post, type TipoJornada, type Turno } from "../lib/api";
@@ -129,7 +129,7 @@ export default function Turnos() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader fuentes="arts. 59 a 69: jornada, descansos y horas extra"
         title="Turnos"
         subtitle="Horarios semanales reutilizables, revisados contra la jornada máxima de la Ley Federal del Trabajo"
         action={
@@ -206,7 +206,6 @@ export default function Turnos() {
         ))}
         {turnos.length === 0 && <p className="card p-10 text-center text-slate-500 lg:col-span-2">Aún no hay turnos.</p>}
       </div>
-      <FuenteLFT articulos="arts. 59 a 69: jornada, descansos y horas extra" className="mt-4" />
 
       {editando && (
         <Registro

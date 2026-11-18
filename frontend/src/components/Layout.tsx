@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router";
 import { ROLES, urlLogo, type Rol } from "../lib/api";
-import { LFT_URL, STPS_URL } from "./LFT";
 import { useAuth } from "../lib/auth";
 
 const NAV: { to: string; label: string; roles: Rol[]; icon: string }[] = [
@@ -130,15 +129,6 @@ export default function Layout() {
           ))}
         </nav>
 
-        <div className={`space-y-1 whitespace-nowrap px-6 pb-3 text-xs text-slate-400 ${oculto}`}>
-          <p className="font-semibold uppercase tracking-wide text-slate-500">Fuentes oficiales</p>
-          <a href={LFT_URL} target="_blank" rel="noopener noreferrer" className="block hover:text-white">
-            Ley Federal del Trabajo ↗
-          </a>
-          <a href={STPS_URL} target="_blank" rel="noopener noreferrer" className="block hover:text-white">
-            Secretaría del Trabajo (STPS) ↗
-          </a>
-        </div>
         <div className={`whitespace-nowrap border-t border-navy-700 py-4 ${expandido ? "px-4" : "px-4 lg:px-2"}`}>
           <div className={oculto}>
             {usuario.empresa?.logo_version && (
