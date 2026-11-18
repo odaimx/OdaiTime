@@ -423,3 +423,97 @@ export async function imagenProtegida(path: string): Promise<string> {
   if (!r.ok) throw new ApiError(r.status, "Sin foto");
   return URL.createObjectURL(await r.blob());
 }
+
+// --- Etapa 5: tarjeta de asistencia (LFT) ---
+
+export const INCIDENCIAS: Record<string, string> = {
+  vacaciones: "Vacaciones",
+  incapacidad: "Incapacidad (IMSS)",
+  permiso_con_goce: "Permiso con goce",
+  permiso_sin_goce: "Permiso sin goce",
+  falta_justificada: "Falta justificada",
+};
+
+export interface ResumenAsistencia {
+  dias_laborables: number;
+  asistencias: number;
+  faltas: number;
+  faltas_por_retardos: number;
+  retardos: number;
+  minutos_retardo: number;
+  minutos_trabajados: number;
+  minutos_dobles: number;
+  minutos_triples: number;
+  minutos_exceso: number;
+  domingos_trabajados: number;
+  descansos_trabajados: number;
+  festivos_trabajados: number;
+  incidencias: Record<string, number>;
+  sin_salida: number;
+}
+
+export interface FilaResumen {
+  empleado: { id: string; numero: string; nombre_completo: string; foto_actualizada: string | null };
+  sucursal: SucursalRef;
+  resumen: ResumenAsistencia;
+}
+
+export interface DiaAsistencia {
+  fecha: string;
+  estado: string;
+  esperado_min: number;
+  trabajado_min: number;
+  retardo_min: number;
+  retardos: number;
+  extra_min: number;
+  dobles_min: number;
+  triples_min: number;
+  exceso_min: number;
+  festivo: string | null;
+  domingo_trabajado: boolean;
+  descanso_trabajado: boolean;
+  festivo_trabajado: boolean;
+  entradas: string[];
+  salidas: string[];
+  observaciones: string[];
+}
+
+export interface DetalleAsistencia {
+  empleado: FilaResumen["empleado"];
+  sucursal: SucursalRef;
+  zona_horaria: string;
+  dias: DiaAsistencia[];
+  resumen: ResumenAsistencia;
+}
+
+export interface IncidenciaReg {
+  id: string;
+  empleado: FilaResumen["empleado"];
+  tipo: string;
+  fecha_inicio: string;
+  fecha_fin: string;
+  notas: string | null;
+  folio: string | null;
+  created_at: string;
+}
+
+export interface Vacaciones {
+  antiguedad_anios: number;
+  periodo_inicio: string;
+  periodo_fin: string;
+  dias_correspondientes: number;
+  dias_tomados: number;
+  dias_disponibles: number;
+  proximo_aniversario: string;
+  dias_proximo_periodo: number;
+}
+
+export interface PoliticaAsistencia {
+  retardos_por_falta: number;
+  retardo_falta_min: number;
+  minimo_extra_min: number;
+  redondeo_extra_min: number;
+}
+
+/** Minutos → "7:30" */
+export const hm = (min: number) => (min ? `${Math.floor(min / 60)}:${String(min % 60).padStart(2, "0")}` : "—");

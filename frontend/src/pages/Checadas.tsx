@@ -86,8 +86,8 @@ export default function Checadas() {
   return (
     <>
       <PageHeader
-        title="Checadas"
-        subtitle="Registros de entrada y salida de todas las sucursales"
+        title="Asistencias"
+        subtitle="Registros de entrada y salida (checadas) de todas las sucursales"
         action={
           <div className="flex flex-col gap-3 sm:flex-row">
             {selector}

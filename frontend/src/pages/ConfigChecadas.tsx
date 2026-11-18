@@ -105,7 +105,7 @@ export default function ConfigChecadas() {
   return (
     <>
       <PageHeader
-        title="Configuración de checadas"
+        title="Configuración de asistencias"
         subtitle="Elige cómo checan tus empleados y qué se valida. Cada sucursal puede usar la configuración general o una propia."
         action={selector}
       />

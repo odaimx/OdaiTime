@@ -4,6 +4,7 @@ import Layout from "./components/Layout";
 import { useAuth } from "./lib/auth";
 import type { Rol } from "./lib/api";
 import Checadas from "./pages/Checadas";
+import TarjetaAsistencia from "./pages/TarjetaAsistencia";
 import Checar from "./pages/Checar";
 import ConfigChecadas from "./pages/ConfigChecadas";
 import Empleados from "./pages/Empleados";
@@ -68,6 +69,14 @@ export default function App() {
           element={
             <Requiere roles={GESTION}>
               <Checadas />
+            </Requiere>
+          }
+        />
+        <Route
+          path="asistencia"
+          element={
+            <Requiere roles={GESTION}>
+              <TarjetaAsistencia />
             </Requiere>
           }
         />
