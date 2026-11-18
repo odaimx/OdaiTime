@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import Icono from "./Iconos";
 
 /**
  * Ventana de un registro al estilo Odoo, compartida por todas las pantallas:
@@ -26,18 +27,6 @@ interface Props {
   ancho?: "md" | "lg";
   children: ReactNode;
 }
-
-function Icono({ d, className = "h-5 w-5" }: { d: string; className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <path d={d} />
-    </svg>
-  );
-}
-
-const NUBE_SUBIR = "M7 18a4.5 4.5 0 01-.6-8.96A6 6 0 0118 8.5a4 4 0 01-.5 9.5M12 12v8M9 15l3-3 3 3";
-const NUBE_OK = "M7 18a4.5 4.5 0 01-.6-8.96A6 6 0 0118 8.5a4 4 0 01-.5 9.5M9.5 15.5l2 2 4-4";
-const DESHACER = "M3 7v6h6M3 13a9 9 0 103-6.7L3 9";
 
 export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio = false, onGuardar, onDescartar, onCerrar, ancho = "lg", children }: Props) {
   const [estado, setEstado] = useState<Estado>("guardado");
@@ -95,8 +84,8 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-navy-900/40 p-3 pt-6 sm:p-4 sm:pt-12" onMouseDown={cerrar}>
-      <div className={`card w-full ${ancho === "lg" ? "max-w-2xl" : "max-w-lg"}`} onMouseDown={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3 sm:px-5">
+      <div className={`registro-hoja card w-full ${ancho === "lg" ? "max-w-5xl" : "max-w-2xl"}`} onMouseDown={(e) => e.stopPropagation()}>
+        <div className="no-imprimir flex items-center gap-2 border-b border-slate-100 px-4 py-3 sm:px-5">
           {onGuardar && (
             <>
               <button
@@ -107,11 +96,11 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
                 aria-label="Guardar"
                 className={`rounded-lg p-1.5 transition ${sucio ? "bg-brand-500 text-white hover:bg-brand-600" : "text-emerald-600"} disabled:cursor-default ${estado === "error" ? "bg-red-600 text-white" : ""}`}
               >
-                <Icono d={sucio || estado === "error" ? NUBE_SUBIR : NUBE_OK} />
+                <Icono nombre={sucio || estado === "error" ? "cloud-upload" : "cloud-check"} className="h-5 w-5" />
               </button>
               {sucio && onDescartar && (
                 <button type="button" onClick={onDescartar} title="Descartar cambios" aria-label="Descartar cambios" className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-navy-900">
-                  <Icono d={DESHACER} />
+                  <Icono nombre="undo-2" className="h-5 w-5" />
                 </button>
               )}
               <span className={`hidden text-xs sm:inline ${estado === "error" ? "text-red-600" : sucio ? "text-brand-700" : "text-slate-400"}`}>{etiqueta}</span>
@@ -125,20 +114,23 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
                   {indice + 1} / {total}
                 </span>
                 <button type="button" onClick={() => ir(indice - 1)} disabled={indice === 0} aria-label="Registro anterior" title="Anterior (Alt+←)" className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 disabled:opacity-30">
-                  <Icono d="M15 18l-6-6 6-6" />
+                  <Icono nombre="chevron-left" className="h-5 w-5" />
                 </button>
                 <button type="button" onClick={() => ir(indice + 1)} disabled={indice === total - 1} aria-label="Registro siguiente" title="Siguiente (Alt+→)" className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 disabled:opacity-30">
-                  <Icono d="M9 18l6-6-6-6" />
+                  <Icono nombre="chevron-right" className="h-5 w-5" />
                 </button>
               </>
             )}
+            <button type="button" onClick={imprimirRegistro} title="Reporte PDF de este registro" aria-label="Reporte PDF" className="ml-1 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-navy-900">
+              <Icono nombre="printer" className="h-5 w-5" />
+            </button>
             <button type="button" onClick={cerrar} aria-label="Cerrar" className="ml-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-navy-900">
-              <Icono d="M18 6L6 18M6 6l12 12" />
+              <Icono nombre="x" className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        <div className="p-5 sm:p-6">
+        <div className="p-5 sm:p-8">
           <div className="mb-5">
             <h2 className="text-lg font-semibold text-navy-900">{titulo}</h2>
             {subtitulo && <div className="mt-1 text-sm text-slate-500">{subtitulo}</div>}
@@ -148,6 +140,17 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
       </div>
     </div>
   );
+}
+
+/** Imprime solo la ventana del registro (se guarda como PDF desde el diálogo del navegador). */
+function imprimirRegistro() {
+  document.body.classList.add("imprimiendo-registro");
+  const quitar = () => {
+    document.body.classList.remove("imprimiendo-registro");
+    window.removeEventListener("afterprint", quitar);
+  };
+  window.addEventListener("afterprint", quitar);
+  window.print();
 }
 
 /** Estado de un formulario con su versión guardada, para saber si hay cambios. */

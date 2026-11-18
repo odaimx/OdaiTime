@@ -3,7 +3,7 @@ import uuid
 from datetime import UTC, datetime
 
 import jwt
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Request, Response, status
 from redis.asyncio import Redis
 from sqlalchemy import func, select, update
 
@@ -18,7 +18,7 @@ from app.core.security import (
     verify_password,
 )
 from app.core.tenant import tenant_de, url_empresa
-from app.models import Empresa, Sesion, Usuario
+from app.models import Empleado, Empresa, Sesion, Usuario
 from app.schemas.auth import LoginIn, RefreshIn, TokenOut
 from app.schemas.usuario import UsuarioOut
 
@@ -167,3 +167,14 @@ async def logout(data: RefreshIn, db: DB) -> None:
 @router.get("/me", response_model=UsuarioOut)
 async def me(user: CurrentUser) -> Usuario:
     return user
+
+
+@router.get("/me/foto")
+async def mi_foto(user: CurrentUser, db: DB) -> Response:
+    """Foto (128 px) del empleado ligado al usuario, para el botón del usuario. 404 si no hay."""
+    datos = await db.scalar(select(Empleado.foto_128).where(Empleado.usuario_id == user.id))
+    if not datos:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Sin foto")
+    return Response(
+        datos, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=3600"}
+    )

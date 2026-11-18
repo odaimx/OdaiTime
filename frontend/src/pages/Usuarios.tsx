@@ -67,6 +67,7 @@ export default function Usuarios() {
 
   const config: ConfigVista<Usuario> = {
     id: "usuarios",
+    tituloReporte: "Usuarios",
     clave: (u) => u.id,
     onAbrir: abrir,
     acciones: listo && (
@@ -153,9 +154,8 @@ export default function Usuarios() {
           onGuardar={guardar}
           onDescartar={descartar}
           onCerrar={() => setEditando(null)}
-          ancho="md"
         >
-          <form onSubmit={(e: FormEvent) => (e.preventDefault(), guardar())} className="space-y-4">
+          <form onSubmit={(e: FormEvent) => (e.preventDefault(), guardar())} className="form-2col">
             <div>
               <label className="label">Nombre</label>
               <input className="input" required value={form.nombre} onChange={set("nombre")} />
@@ -196,7 +196,7 @@ export default function Usuarios() {
             )}
 
             {editando !== "nuevo" && editando.id !== yo?.id && (
-              <div className="flex justify-end">
+              <div className="completo flex justify-end">
                 <button type="button" className="text-sm text-slate-500 hover:text-navy-900 hover:underline" onClick={() => alternar(editando)}>
                   {editando.activo ? "Desactivar usuario" : "Activar usuario"}
                 </button>

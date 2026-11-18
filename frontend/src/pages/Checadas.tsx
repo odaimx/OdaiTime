@@ -78,6 +78,8 @@ export default function Checadas() {
     clave: (c) => c.id,
     onAbrir: abrir,
     fuentes: "registro de jornada: art. 132, fracción XXXIV",
+    tituloReporte: `Asistencias · ${filtros.desde} al ${filtros.hasta}`,
+    ajustes: { titulo: "Asistencias", ancho: "xl", contenido: <ConfigChecadas incrustado scope={{ query, empresaId }} /> },
     acciones: listo && (
       <button
         className="btn-primary"
@@ -186,7 +188,6 @@ export default function Checadas() {
   return (
     <>
       <PageHeader
-        ajustes={{ titulo: "Asistencias", ancho: "xl", contenido: <ConfigChecadas incrustado scope={{ query, empresaId }} /> }}
         icono="fingerprint-pattern"
         title="Asistencias"
         subtitle="Registros de entrada y salida (checadas) de todas las sucursales"

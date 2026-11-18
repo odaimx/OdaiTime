@@ -218,6 +218,7 @@ export default function Empleados() {
   const hace30 = new Date(Date.now() - 30 * 86_400_000).toLocaleDateString("en-CA");
   const config: ConfigVista<Empleado> = {
     id: "empleados",
+    tituloReporte: "Empleados",
     columnas,
     filtros: [
       { clave: "presentes", titulo: "En el trabajo", grupo: "presencia", prueba: (e) => presentes.has(e.id) },
@@ -347,14 +348,14 @@ export default function Empleados() {
 
   const camposExpediente = (conTurno: boolean) => (
     <>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
         {input("numero", "Número *", { required: true, maxLength: 20 })}
-        <div className="sm:col-span-2">{input("nombre", "Nombre(s) *", { required: true })}</div>
+        {input("nombre", "Nombre(s) *", { required: true })}
         {input("apellido_paterno", "Apellido paterno *", { required: true })}
         {input("apellido_materno", "Apellido materno")}
         {input("fecha_ingreso", "Fecha de ingreso *", { type: "date", required: true })}
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
         <div>
           <label className="label">Sucursal *</label>
           <select className="input" required value={form.sucursal_id} onChange={set("sucursal_id")}>
@@ -384,7 +385,7 @@ export default function Empleados() {
         {input("puesto", "Puesto")}
         {input("departamento", "Departamento")}
       </div>
-      <fieldset className="grid grid-cols-1 gap-4 rounded-lg bg-slate-50 p-4 sm:grid-cols-3">
+      <fieldset className="grid grid-cols-1 gap-x-6 gap-y-4 rounded-lg bg-slate-50 p-4 md:grid-cols-2">
         <legend className="px-1 text-xs font-medium uppercase tracking-wide text-slate-500">Datos fiscales y laborales</legend>
         {input("curp", "CURP", { maxLength: 18, className: "input uppercase" })}
         {input("rfc", "RFC", { maxLength: 13, className: "input uppercase" })}
@@ -438,9 +439,9 @@ export default function Empleados() {
             <div className="flex items-center gap-4">
               <label className="group relative cursor-pointer" title="Subir foto">
                 {previa ? (
-                  <img src={previa} alt="Foto del empleado" className="h-20 w-20 rounded-full object-cover" />
+                  <span className="marco-foto inline-flex h-28 w-28"><img src={previa} alt="Foto del empleado" className="h-full w-full rounded-md object-cover" /></span>
                 ) : (
-                  <span className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-dashed border-brand-300 bg-brand-50 text-brand-500">
+                  <span className="marco-foto flex h-28 w-28 items-center justify-center bg-slate-100 text-slate-400">
                     <IconoCamara />
                   </span>
                 )}
@@ -488,7 +489,7 @@ export default function Empleados() {
             <div className="space-y-5">
               <div className="flex flex-wrap items-center gap-4">
                 <label className="group relative cursor-pointer" title={sel.foto_version ? "Cambiar foto" : "Subir foto"}>
-                  <Avatar empleadoId={sel.id} nombre={sel.nombre_completo} version={sel.foto_version} query={query} tam={88} />
+                  <Avatar empleadoId={sel.id} nombre={sel.nombre_completo} version={sel.foto_version} query={query} tam={128} />
                   <span className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-brand-500 text-white shadow ring-2 ring-white group-hover:bg-brand-600">
                     <IconoCamara pequeno />
                   </span>

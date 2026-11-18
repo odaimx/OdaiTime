@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ArticuloLFT } from "../components/LFT";
+import Icono from "../components/Iconos";
+import Vista, { useVista, type ConfigVista } from "../components/Vista";
 import { ErrorBox, Modal, PageHeader } from "../components/ui";
 import { api, get, post, type Empleado, type Empresa, type Festivo } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -99,18 +101,123 @@ export default function Festivos() {
     cargar();
   }
 
-  const obligatorios = lista?.filter((f) => f.tipo === "obligatorio") ?? [];
-  const otros = lista?.filter((f) => f.tipo !== "obligatorio") ?? [];
+  const OPCIONALES = nacional ? "Opcionales" : "Opcionales de la empresa";
+  const OBLIGATORIOS = "Obligatorios por ley (art. 74)";
+  const nuevoDia = () => {
+    setError(null);
+    setForm({ fecha: `${anio}-01-01`, nombre: "", tipo: nacional ? "obligatorio" : "opcional" });
+    setNuevo(true);
+  };
+  const config: ConfigVista<Festivo> = {
+    id: "festivos",
+    tituloReporte: `Días festivos ${anio}`,
+    clave: (f) => f.id,
+    onAbrir: (f) => !nacional && f.aplica && abrirDesignar(f),
+    fuentes: "arts. 74 y 75; jornada electoral: art. 74, fr. IX",
+    vacio: `No hay días festivos para ${anio}.`,
+    ordenInicial: { clave: "fecha", dir: "asc" },
+    agruparInicial: ["tipo"],
+    gruposAbiertos: true,
+    acciones: esAdmin && (
+      <button className="btn-primary" onClick={nuevoDia} title={nacional ? "Agregar al catálogo nacional" : "Agregar día de la empresa"}>
+        <Icono nombre="plus" /> Nuevo
+      </button>
+    ),
+    menuAcciones: nacional ? [{ etiqueta: `Cargar catálogo ${anio}`, icono: "download", onClick: generar }] : [],
+    columnas: [
+      {
+        clave: "fecha",
+        titulo: "Fecha",
+        fija: true,
+        valor: (f) => f.fecha,
+        render: (f) => <span className="capitalize text-navy-900">{fecha(f.fecha)}</span>,
+      },
+      { clave: "nombre", titulo: "Día festivo", buscable: true, valor: (f) => f.nombre, className: "font-medium text-navy-900" },
+      {
+        clave: "tipo",
+        titulo: "Tipo",
+        agrupable: true,
+        ordenGrupos: [OPCIONALES, OBLIGATORIOS],
+        valor: (f) => (f.tipo === "obligatorio" ? OBLIGATORIOS : OPCIONALES),
+        render: (f) =>
+          f.tipo === "obligatorio" ? (
+            <span className="rounded-full bg-sky-500 px-2 py-0.5 text-xs font-medium text-white">Obligatorio</span>
+          ) : (
+            <span className="rounded-full bg-brand-500 px-2 py-0.5 text-xs font-medium text-white">Opcional</span>
+          ),
+      },
+      { clave: "origen", titulo: "Origen", agrupable: true, valor: (f) => (f.origen === "empresa" ? "De la empresa" : "Nacional") },
+      {
+        clave: "aplica",
+        titulo: "Aplica",
+        agrupable: true,
+        valor: (f) => f.aplica,
+        render: (f) =>
+          f.tipo === "obligatorio" ? (
+            <span className="text-xs font-medium text-sky-700">Siempre</span>
+          ) : !nacional && f.origen === "nacional" ? (
+            <span onClick={(e) => e.stopPropagation()}>
+              <input type="checkbox" className="h-4 w-4 accent-brand-500" disabled={!esAdmin} checked={f.aplica} onChange={(e) => aplicar(f, e.target.checked)} aria-label="Aplica en la empresa" />
+            </span>
+          ) : (
+            <span className="text-xs text-slate-500">{f.aplica ? "Sí" : "—"}</span>
+          ),
+      },
+      {
+        clave: "personal",
+        titulo: "Personal que trabaja",
+        alinear: "derecha",
+        valor: (f) => conteo[f.fecha] ?? 0,
+        render: (f) =>
+          !nacional && f.aplica ? (
+            <button
+              className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline"
+              onClick={(e) => {
+                e.stopPropagation();
+                abrirDesignar(f);
+              }}
+            >
+              <Icono nombre="users" className="h-3.5 w-3.5" /> {conteo[f.fecha] ?? 0}
+            </button>
+          ) : (
+            <span className="text-slate-300">—</span>
+          ),
+      },
+      {
+        clave: "eliminar",
+        titulo: "",
+        fija: true,
+        valor: () => "",
+        render: (f) =>
+          f.editable ? (
+            <button
+              className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+              title="Eliminar"
+              aria-label="Eliminar"
+              onClick={(e) => {
+                e.stopPropagation();
+                borrar(f);
+              }}
+            >
+              <Icono nombre="trash" className="h-4 w-4" />
+            </button>
+          ) : null,
+      },
+    ],
+    filtros: [
+      { clave: "aplican", titulo: "Aplican en la empresa", grupo: "aplica", prueba: (f) => f.aplica },
+      { clave: "no_aplican", titulo: "No aplican", grupo: "aplica", prueba: (f) => !f.aplica },
+      { clave: "propios", titulo: "De la empresa", grupo: "origen", prueba: (f) => f.origen === "empresa" },
+      { clave: "proximos", titulo: "Próximos", grupo: "fecha", prueba: (f) => f.fecha >= new Date().toLocaleDateString("en-CA") },
+    ],
+  };
+  const vista = useVista(config, lista ?? []);
 
   return (
     <>
-      <PageHeader icono="calendar-heart" fuentes="arts. 74 y 75; jornada electoral: art. 74, fr. IX"
+      <PageHeader
+        icono="calendar-heart"
         title="Días festivos"
-        subtitle={
-          nacional
-            ? "Catálogo nacional que ven todas las empresas. Aquí se actualiza cuando cambia la ley o se publica una jornada electoral."
-            : "Los obligatorios por ley aplican siempre. Elige qué días opcionales otorga tu empresa y agrega los propios."
-        }
         action={
           <div className="flex flex-col gap-3 sm:flex-row">
             {esSuper && (
@@ -133,23 +240,6 @@ export default function Festivos() {
                 );
               })}
             </select>
-            {nacional && (
-              <button className="btn-secondary" onClick={generar}>
-                Cargar año {anio}
-              </button>
-            )}
-            {esAdmin && (
-              <button
-                className="btn-primary"
-                onClick={() => {
-                  setError(null);
-                  setForm({ fecha: `${anio}-01-01`, nombre: "", tipo: nacional ? "obligatorio" : "opcional" });
-                  setNuevo(true);
-                }}
-              >
-                {nacional ? "Agregar al catálogo" : "Agregar día de la empresa"}
-              </button>
-            )}
           </div>
         }
       />
@@ -157,76 +247,11 @@ export default function Festivos() {
       {mensaje && <p className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{mensaje}</p>}
       <ErrorBox message={!nuevo ? error : null} />
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="card p-5">
-          <h2 className="font-semibold text-navy-900">
-            Descanso obligatorio <span className="text-sm font-normal text-slate-500">(<ArticuloLFT art="74" />)</span>
-          </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Se descansan con goce de salario. Ese día <strong>solo pueden checar las personas que la empresa designe</strong> para trabajar; a ellas se les paga <strong>salario doble además del salario del día</strong> (<ArticuloLFT art="75" />) y, si cae en domingo, también prima dominical (<ArticuloLFT art="71" />).
-          </p>
-          <ul className="mt-4 divide-y divide-slate-100">
-            {obligatorios.map((f) => (
-              <li key={f.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                <div>
-                  <p className="font-medium text-navy-900">{f.nombre}</p>
-                  <p className="text-xs capitalize text-slate-500">{fecha(f.fecha)}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700">Siempre aplica</span>
-                  {!nacional && f.aplica && (
-                    <button className="whitespace-nowrap text-xs font-medium text-brand-600 hover:underline" onClick={() => abrirDesignar(f)}>
-                      Personal que trabaja ({conteo[f.fecha] ?? 0})
-                    </button>
-                  )}
-                  {f.editable && (
-                    <button className="text-xs text-slate-400 hover:text-red-600" onClick={() => borrar(f)}>
-                      Eliminar
-                    </button>
-                  )}
-                </div>
-              </li>
-            ))}
-            {lista && obligatorios.length === 0 && <li className="py-3 text-sm text-slate-500">Se calculan con el art. 74 (aún no hay catálogo cargado para {anio}).</li>}
-          </ul>
-        </section>
-
-        <section className="card p-5">
-          <h2 className="font-semibold text-navy-900">Opcionales y de la empresa</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            La ley no los obliga. {nacional ? "Cada empresa decide cuáles otorga." : "Marca los que tu empresa otorga; el pago si se trabajan se define en Config. asistencias."}
-          </p>
-          <ul className="mt-4 divide-y divide-slate-100">
-            {otros.map((f) => (
-              <li key={f.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                <label className={`flex flex-1 items-center gap-3 ${!nacional && f.origen === "nacional" && esAdmin ? "cursor-pointer" : ""}`}>
-                  {!nacional && f.origen === "nacional" && (
-                    <input type="checkbox" className="h-4 w-4 accent-brand-500" disabled={!esAdmin} checked={f.aplica} onChange={(e) => aplicar(f, e.target.checked)} />
-                  )}
-                  <span>
-                    <span className="block font-medium text-navy-900">{f.nombre}</span>
-                    <span className="block text-xs capitalize text-slate-500">{fecha(f.fecha)}</span>
-                  </span>
-                </label>
-                <div className="flex items-center gap-3">
-                  {f.origen === "empresa" && <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700">De la empresa</span>}
-                  {!nacional && f.aplica && (
-                    <button className="whitespace-nowrap text-xs font-medium text-brand-600 hover:underline" onClick={() => abrirDesignar(f)}>
-                      Personal que trabaja ({conteo[f.fecha] ?? 0})
-                    </button>
-                  )}
-                  {f.editable && (
-                    <button className="text-xs text-slate-400 hover:text-red-600" onClick={() => borrar(f)}>
-                      Eliminar
-                    </button>
-                  )}
-                </div>
-              </li>
-            ))}
-            {lista && otros.length === 0 && <li className="py-3 text-sm text-slate-500">Sin días opcionales para {anio}.</li>}
-          </ul>
-        </section>
-      </div>
+      <Vista vista={vista} />
+      <p className="mt-3 text-xs text-slate-500">
+        Obligatorios: se descansan con goce de salario y solo checa el personal designado; si se trabajan se paga salario doble además del del día (<ArticuloLFT art="75" />), más prima dominical si cae en domingo (
+        <ArticuloLFT art="71" />).
+      </p>
 
       {designar && (
         <Modal title={`Personal que trabaja · ${designar.nombre}`} onClose={() => setDesignar(null)} ancho="md">

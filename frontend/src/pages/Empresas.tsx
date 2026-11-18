@@ -76,6 +76,7 @@ export default function Empresas() {
     );
   const config: ConfigVista<Empresa> = {
     id: "empresas",
+    tituloReporte: "Empresas",
     clave: (e) => e.id,
     onAbrir: abrir,
     acciones: (
@@ -174,9 +175,8 @@ export default function Empresas() {
           onGuardar={guardar}
           onDescartar={descartar}
           onCerrar={() => setEditando(null)}
-          ancho="md"
         >
-          <form onSubmit={(ev: FormEvent) => (ev.preventDefault(), guardar())} className="space-y-4">
+          <form onSubmit={(ev: FormEvent) => (ev.preventDefault(), guardar())} className="form-2col">
             {editando !== "nueva" && (
               <div>
                 <label className="label">Logo</label>
@@ -255,7 +255,7 @@ export default function Empresas() {
             )}
 
             {editando !== "nueva" && (
-              <div className="flex justify-end">
+              <div className="completo flex justify-end">
                 <button type="button" className="text-sm text-slate-500 hover:text-navy-900 hover:underline" onClick={() => alternar(editando)}>
                   {editando.activa ? "Desactivar empresa" : "Activar empresa"}
                 </button>

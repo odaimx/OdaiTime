@@ -464,6 +464,8 @@ export interface FilaResumen {
   empleado: { id: string; numero: string; nombre_completo: string; foto_actualizada: string | null };
   sucursal: SucursalRef;
   resumen: ResumenAsistencia;
+  /** Conceptos listos para nómina (HE2, FALT…) con su cantidad. */
+  conceptos?: { clave: string; descripcion: string; unidad: string; cantidad: number }[];
 }
 
 export interface DiaAsistencia {
