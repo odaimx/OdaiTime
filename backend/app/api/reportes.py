@@ -161,12 +161,42 @@ async def exportar_nomina(
     hasta: date,
     sucursal_id: uuid.UUID | None = None,
     empresa_id: uuid.UUID | None = None,
+    formato: str = "xlsx",
+    tipo_periodo: str | None = None,
+    ejercicio: int | None = None,
+    numero_periodo: int | None = None,
 ) -> Response:
-    """Archivo de incidencias para el sistema de nómina, con las claves de la empresa."""
+    """Archivo de incidencias para el sistema de nómina, con las claves de la empresa.
+
+    CONTPAQi usa el layout de intercambio ODAI Time (Excel, CSV o TXT tabulado) con el tipo,
+    ejercicio y número de periodo de nómina.
+    """
     _validar_sistema(sistema)
+    opciones = None
+    if sistema == "contpaqi":
+        if formato not in ("xlsx", "csv", "txt"):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Formato no válido")
+        if tipo_periodo and tipo_periodo not in reportes.TIPOS_PERIODO:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Tipo de periodo no válido")
+        if numero_periodo is not None and not 1 <= numero_periodo <= 999:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, "Número de periodo no válido"
+            )
+        opciones = reportes.OpcionesContpaqi(
+            ejercicio=ejercicio or hasta.year,
+            tipo_periodo=tipo_periodo,
+            numero_periodo=numero_periodo,
+            formato=formato,
+        )
     emp = empresa_scope(user, empresa_id)
     periodo = await calcular_periodo(db, user, emp, desde, hasta, sucursal_id)
     contenido, mime, ext = reportes.exportar(
-        sistema, await _empresa(db, emp), desde, hasta, periodo, await _claves(db, emp, sistema)
+        sistema,
+        await _empresa(db, emp),
+        desde,
+        hasta,
+        periodo,
+        await _claves(db, emp, sistema),
+        opciones,
     )
     return _archivo(contenido, mime, f"nomina_{sistema}_{desde:%Y%m%d}_{hasta:%Y%m%d}.{ext}")

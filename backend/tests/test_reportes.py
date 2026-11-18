@@ -4,6 +4,7 @@ from io import BytesIO, StringIO
 
 from openpyxl import load_workbook
 
+from app.services import reportes
 from tests.test_asistencia import LUN, _manual, _setup
 from tests.test_logo import _archivo, _png
 
@@ -57,16 +58,41 @@ async def test_claves_y_exportacion_a_nomina(client, superadmin):
     codigos = {c["clave"]: c["codigo"] for c in r.json()}
     assert codigos["HE2"] == "102" and codigos["FALT"] == "301" and codigos["RET"] is None
 
-    r = await client.get(
-        "/api/reportes/nomina", headers=a, params={**PARAMS, "sistema": "contpaqi"}
-    )
+    extra = {"sistema": "contpaqi", "tipo_periodo": "Semanal", "numero_periodo": 7}
+    r = await client.get("/api/reportes/nomina", headers=a, params={**PARAMS, **extra})
     assert r.status_code == 200, r.text
     wb = load_workbook(BytesIO(r.content))
-    filas = [[c.value for c in f] for f in wb["Movimientos"].iter_rows(min_row=2)]
-    por_concepto = {f[1]: f[3] for f in filas}
+    assert wb.sheetnames[:3] == ["ODAI_Incidencias", "LEEME", "MAPEO_INCIDENCIAS"]
+    ws = wb["ODAI_Incidencias"]
+    assert [c.value for c in ws[1]] == reportes.COLUMNAS_CONTPAQI
+    filas = [[c.value for c in f] for f in ws.iter_rows(min_row=2) if f[0].value]
+    assert all(f[5] == "Semanal" and f[6] == LUN.year and f[7] == 7 for f in filas)
+    assert all(isinstance(f[0], str) for f in filas)
+    por_concepto: dict[str, float] = {}
+    for f in filas:
+        por_concepto[f[2]] = por_concepto.get(f[2], 0) + f[3]
     assert por_concepto["102"] == 2 and por_concepto["301"] == 3
-    assert "RET" in por_concepto  # sin clave: va con la de ODAITIME y se avisa
-    assert wb["Avisos"]["A2"].value == "RET"
+    assert "RET" in por_concepto  # sin clave: va con la de ODAITIME
+    mapeo = {f[0].value: f[1].value for f in wb["MAPEO_INCIDENCIAS"].iter_rows(min_row=2)}
+    assert mapeo["Faltas injustificadas"] == "301"
+
+    r = await client.get(
+        "/api/reportes/nomina", headers=a, params={**PARAMS, **extra, "formato": "txt"}
+    )
+    assert r.content.startswith("\ufeff".encode())
+    lineas = r.content.decode("utf-8-sig").split("\n")
+    assert lineas[0].split("\t") == reportes.COLUMNAS_CONTPAQI
+    falta = next(x.split("\t") for x in lineas[1:] if "\t301\t" in x)
+    assert len(falta[1]) == 10 and falta[1][2] == "/" and falta[3] == "1"
+
+    r = await client.get(
+        "/api/reportes/nomina", headers=a, params={**PARAMS, **extra, "formato": "csv"}
+    )
+    assert next(csv.reader(StringIO(r.content.decode("utf-8-sig")))) == reportes.COLUMNAS_CONTPAQI
+    r = await client.get(
+        "/api/reportes/nomina", headers=a, params={**PARAMS, **extra, "formato": "pdf"}
+    )
+    assert r.status_code == 422
 
     r = await client.get("/api/reportes/nomina", headers=a, params={**PARAMS, "sistema": "odoo"})
     lineas = list(csv.reader(StringIO(r.content.decode("utf-8-sig"))))

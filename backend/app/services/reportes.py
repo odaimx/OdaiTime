@@ -10,9 +10,10 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from io import BytesIO, StringIO
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.drawing.image import Image as XLImage
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
@@ -344,29 +345,20 @@ def exportar(
     hasta: date,
     periodo: Periodo,
     claves: dict[str, str],
+    opciones: "OpcionesContpaqi | None" = None,
 ) -> tuple[bytes, str, str]:
     """Devuelve (contenido, tipo MIME, extensión)."""
     if sistema == "odoo":
         return _odoo(periodo, claves, hasta), "text/csv; charset=utf-8", "csv"
+    if sistema == "contpaqi":
+        return contpaqi(periodo, claves, hasta, opciones or OpcionesContpaqi(ejercicio=hasta.year))
     wb = Workbook()
     ws = wb.active
     sin_clave = sorted(
         {m.concepto for m in movimientos(periodo, claves, hasta)}
         - {k for k, v in claves.items() if v}
     )
-    if sistema == "contpaqi":
-        ws.title = "Movimientos"
-        _tabla(
-            ws,
-            1,
-            ["Código de empleado", "Concepto", "Descripción", "Valor", "Fecha"],
-            [
-                [m.empleado.numero, m.codigo, CONCEPTOS[m.concepto][0], m.cantidad, m.fecha]
-                for m in movimientos(periodo, claves, hasta)
-            ],
-        )
-        _formato_fecha(ws, 5)
-    elif sistema == "noi":
+    if sistema == "noi":
         ws.title = "Movimientos"
         _tabla(
             ws,
@@ -491,3 +483,117 @@ def _odoo(periodo: Periodo, claves: dict[str, str], hasta: date) -> bytes:
                 ]
             )
     return ("﻿" + salida.getvalue()).encode("utf-8")  # BOM: Excel abre bien los acentos
+
+
+# --- CONTPAQi Nóminas: layout de intercambio ODAI Time (plantilla del paquete 2026) ---
+
+PLANTILLA_CONTPAQI = (
+    Path(__file__).resolve().parent.parent / "plantillas" / "contpaqi_incidencias.xlsx"
+)
+COLUMNAS_CONTPAQI = [
+    "CodigoEmpleado",
+    "Fecha",
+    "AbreviaturaIncidencia",
+    "Unidades",
+    "Observaciones",
+    "TipoPeriodo",
+    "Ejercicio",
+    "NumeroPeriodo",
+]
+TIPOS_PERIODO = ("Semanal", "Quincenal", "Catorcenal", "Mensual")
+_UNIDAD_PLANTILLA = {"horas": "Horas", "dias": "Días", "eventos": "Eventos"}
+
+
+@dataclass
+class OpcionesContpaqi:
+    ejercicio: int
+    tipo_periodo: str | None = None
+    numero_periodo: int | None = None
+    formato: str = "xlsx"  # xlsx | csv | txt
+
+
+def filas_contpaqi(
+    periodo: Periodo, claves: dict[str, str], hasta: date, op: OpcionesContpaqi
+) -> list[list]:
+    """Una fila por empleado + fecha + abreviatura, en el orden del layout."""
+    filas = []
+    vistos: set[tuple] = set()
+    for m in movimientos(periodo, claves, hasta, diario=True):
+        llave = (m.empleado.numero, m.fecha, m.codigo)
+        if llave in vistos:  # regla de integridad de la plantilla: sin duplicados
+            continue
+        vistos.add(llave)
+        filas.append(
+            [
+                str(m.empleado.numero),
+                m.fecha,
+                m.codigo,
+                m.cantidad,
+                f"{CONCEPTOS[m.concepto][0]} · {m.empleado.nombre_completo}",
+                op.tipo_periodo,
+                op.ejercicio,
+                op.numero_periodo,
+            ]
+        )
+    filas.sort(key=lambda f: (f[0], f[1], f[2]))
+    return filas
+
+
+def contpaqi(
+    periodo: Periodo, claves: dict[str, str], hasta: date, op: OpcionesContpaqi
+) -> tuple[bytes, str, str]:
+    filas = filas_contpaqi(periodo, claves, hasta, op)
+    if op.formato in ("csv", "txt"):
+        # Igual que las plantillas: UTF-8 con BOM, fin de línea LF, fecha dd/mm/aaaa.
+        texto = StringIO()
+        sep = "\t" if op.formato == "txt" else ","
+        w = csv.writer(texto, delimiter=sep, lineterminator="\n")
+        w.writerow(COLUMNAS_CONTPAQI)
+        for f in filas:
+            w.writerow(
+                [
+                    f[0],
+                    f[1].strftime("%d/%m/%Y"),
+                    f[2],
+                    f"{f[3]:g}",
+                    f[4],
+                    f[5] or "",
+                    f[6] or "",
+                    "" if f[7] is None else f[7],
+                ]
+            )
+        mime = "text/plain" if op.formato == "txt" else "text/csv"
+        return ("\ufeff" + texto.getvalue()).encode("utf-8"), f"{mime}; charset=utf-8", op.formato
+
+    wb = load_workbook(PLANTILLA_CONTPAQI)
+    ws = wb["ODAI_Incidencias"]
+    ultima = ws.max_row
+    if len(filas) + 1 > ultima:  # más filas que la plantilla: copia el formato de la fila 2
+        for r in range(ultima + 1, len(filas) + 2):
+            for c in range(1, 9):
+                ws.cell(row=r, column=c).number_format = ws.cell(row=2, column=c).number_format
+        ultima = len(filas) + 1
+    for r in range(2, ultima + 1):  # la plantilla trae el ejercicio precargado: se limpia
+        for c in range(1, 9):
+            ws.cell(row=r, column=c).value = None
+    for i, f in enumerate(filas, start=2):
+        for c, v in enumerate(f, start=1):
+            celda = ws.cell(row=i, column=c, value=v)
+            if c == 1:
+                celda.number_format = "@"  # texto: conserva ceros a la izquierda
+    for dv in ws.data_validations.dataValidation:
+        dv.sqref = type(dv.sqref)(f"F2:F{max(ultima, 2)}")
+    ws.auto_filter.ref = f"A1:H{max(len(filas) + 1, 2)}"
+
+    mapeo = wb["MAPEO_INCIDENCIAS"]
+    mapeo.delete_rows(2, mapeo.max_row)
+    for i, (k, (desc, unidad)) in enumerate(CONCEPTOS.items(), start=2):
+        mapeo.cell(row=i, column=1, value=desc)
+        mapeo.cell(row=i, column=2, value=claves.get(k) or None)
+        mapeo.cell(row=i, column=3, value=_UNIDAD_PLANTILLA.get(unidad, unidad))
+        mapeo.cell(
+            row=i,
+            column=4,
+            value="Configurada" if claves.get(k) else f"Sí: sin clave, se exportó como {k}",
+        )
+    return _libro(wb), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx"
