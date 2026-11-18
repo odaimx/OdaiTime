@@ -402,7 +402,7 @@ function Buscador<T>({ vista }: { vista: EstadoVista<T> }) {
     setSugerido(0);
   }
 
-  const facetas: { clave: string; icono: string; etiqueta: ReactNode; quitar: () => void }[] = [];
+  const facetas: { clave: string; icono: NombreIcono; etiqueta: ReactNode; quitar: () => void }[] = [];
   const nombresFiltro = (config.filtros ?? []).filter((f) => vista.filtros.includes(f.clave)).map((f) => f.titulo);
   if (nombresFiltro.length) facetas.push({ clave: "f", icono: I.filtro, etiqueta: nombresFiltro.join(" o "), quitar: () => vista.setFiltros([]) });
   if (vista.agrupar.length)
