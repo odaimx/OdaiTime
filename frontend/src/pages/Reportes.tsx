@@ -3,7 +3,7 @@ import Icono from "../components/Iconos";
 import { ArticuloLFT } from "../components/LFT";
 import Registro from "../components/Registro";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
-import { ErrorBox, PageHeader, useEmpresaScope } from "../components/ui";
+import { Ayuda, ErrorBox, PageHeader, useEmpresaScope } from "../components/ui";
 import { api, descargar, get, type ConceptoNomina, type FilaResumen, type Sucursal } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { periodo } from "../lib/periodo";
@@ -11,7 +11,7 @@ import { periodo } from "../lib/periodo";
 interface Sistema {
   clave: string;
   nombre: string;
-  formato: "xlsx" | "csv";
+  formato: "xlsx" | "csv" | "txt";
   descripcion: string;
   marcador: string;
 }
@@ -21,7 +21,7 @@ const SISTEMAS: Sistema[] = [
     clave: "contpaqi",
     nombre: "CONTPAQi Nóminas",
     formato: "xlsx",
-    descripcion: "Excel de movimientos: código de empleado, concepto, valor (horas o días) y fecha.",
+    descripcion: "Layout de intercambio ODAI Time: una fila por empleado, fecha e incidencia (CodigoEmpleado, Fecha, Abreviatura, Unidades, Observaciones, TipoPeriodo, Ejercicio y NumeroPeriodo). En Excel, CSV o TXT tabulado.",
     marcador: "Clave del concepto",
   },
   {
@@ -46,6 +46,21 @@ const SISTEMAS: Sistema[] = [
     marcador: "Clave (opcional)",
   },
 ];
+
+const TIPOS_PERIODO = ["Semanal", "Quincenal", "Catorcenal", "Mensual"];
+const FORMATOS: [Sistema["formato"], string][] = [
+  ["xlsx", "Excel"],
+  ["csv", "CSV"],
+  ["txt", "TXT tabulado"],
+];
+
+/** Número de periodo sugerido (solo cuando no depende del calendario de la empresa). */
+function sugerirPeriodo(tipo: string, desde: string): string {
+  const [, m, d] = desde.split("-").map(Number);
+  if (tipo === "Quincenal") return String((m - 1) * 2 + (d <= 15 ? 1 : 2));
+  if (tipo === "Mensual") return String(m);
+  return "";
+}
 
 const UNIDADES: Record<string, string> = { horas: "horas", dias: "días", eventos: "eventos" };
 const ARTICULO: Record<string, string> = { HE2: "66", HE3: "68", PDOM: "71", DLAB: "73", FLAB: "75" };
@@ -174,6 +189,17 @@ function ExportarSistema({
   const [filas, setFilas] = useState<FilaResumen[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [bajando, setBajando] = useState(false);
+  const esContpaqi = sistema.clave === "contpaqi";
+  const [formato, setFormato] = useState<Sistema["formato"]>(sistema.formato);
+  const [tipoPeriodo, setTipoPeriodo] = useState("Quincenal");
+  const [ejercicio, setEjercicio] = useState(rango.hasta.slice(0, 4));
+  const [numPeriodo, setNumPeriodo] = useState(sugerirPeriodo("Quincenal", rango.desde));
+
+  // Al cambiar las fechas o el tipo, se vuelve a sugerir ejercicio y número de periodo.
+  useEffect(() => {
+    setEjercicio(rango.hasta.slice(0, 4));
+    setNumPeriodo(sugerirPeriodo(tipoPeriodo, rango.desde));
+  }, [rango.desde, rango.hasta, tipoPeriodo]);
 
   useEffect(() => {
     get<Sucursal[]>(`/sucursales${query}`).then(setSucursales);
@@ -213,8 +239,15 @@ function ExportarSistema({
     setBajando(true);
     const p = new URLSearchParams({ ...rango, sistema: sistema.clave });
     if (sucursal) p.set("sucursal_id", sucursal);
+    if (esContpaqi) {
+      p.set("formato", formato);
+      p.set("tipo_periodo", tipoPeriodo);
+      if (ejercicio) p.set("ejercicio", ejercicio);
+      if (numPeriodo) p.set("numero_periodo", numPeriodo);
+    }
+    const ext = esContpaqi ? formato : sistema.formato;
     try {
-      await descargar(`/reportes/nomina${query}${sep}${p}`, `nomina_${sistema.clave}_${rango.desde.replace(/-/g, "")}_${rango.hasta.replace(/-/g, "")}.${sistema.formato}`);
+      await descargar(`/reportes/nomina${query}${sep}${p}`, `nomina_${sistema.clave}_${rango.desde.replace(/-/g, "")}_${rango.hasta.replace(/-/g, "")}.${ext}`);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -275,9 +308,47 @@ function ExportarSistema({
             </select>
           </label>
           <button className="btn-primary ml-auto" disabled={bajando || sucio} title={sucio ? "Guarda las claves antes de exportar" : undefined} onClick={bajar}>
-            <Icono nombre="download" /> {bajando ? "Generando…" : `Descargar ${sistema.formato.toUpperCase()}`}
+            <Icono nombre="download" /> {bajando ? "Generando…" : `Descargar ${(esContpaqi ? formato : sistema.formato).toUpperCase()}`}
           </button>
         </div>
+
+        {esContpaqi && (
+          <div className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+            <label className="text-xs font-medium text-slate-500">
+              Tipo de periodo
+              <select
+                className="input mt-1 w-40"
+                value={tipoPeriodo}
+                onChange={(e) => setTipoPeriodo(e.target.value)}
+              >
+                {TIPOS_PERIODO.map((t) => (
+                  <option key={t}>{t}</option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs font-medium text-slate-500">
+              Ejercicio
+              <input type="number" min={2000} max={2100} className="input mt-1 w-28" value={ejercicio} onChange={(e) => setEjercicio(e.target.value)} />
+            </label>
+            <label className="text-xs font-medium text-slate-500">
+              <span className="inline-flex items-center">
+                Número de periodo
+                <Ayuda texto="El número de periodo de nómina en CONTPAQi. Para quincenal y mensual se sugiere según la fecha; en semanal y catorcenal depende del calendario de la empresa." />
+              </span>
+              <input type="number" min={1} max={999} className="input mt-1 w-28" value={numPeriodo} onChange={(e) => setNumPeriodo(e.target.value)} />
+            </label>
+            <label className="text-xs font-medium text-slate-500">
+              Formato
+              <select className="input mt-1 w-40" value={formato} onChange={(e) => setFormato(e.target.value as Sistema["formato"])}>
+                {FORMATOS.map(([k, l]) => (
+                  <option key={k} value={k}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
 
         {sistema.clave !== "generico" && sinClave > 0 && (
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
