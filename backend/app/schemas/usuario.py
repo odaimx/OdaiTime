@@ -13,6 +13,7 @@ class EmpresaRef(BaseModel):
 
     id: uuid.UUID
     nombre: str
+    logo_version: str | None = None
 
 
 class UsuarioOut(BaseModel):

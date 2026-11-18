@@ -21,7 +21,7 @@ export interface Usuario {
   nombre: string;
   rol: Rol;
   activo: boolean;
-  empresa: { id: string; nombre: string } | null;
+  empresa: { id: string; nombre: string; logo_version: string | null } | null;
   sucursales: SucursalRef[];
   ultimo_acceso: string | null;
 }
@@ -47,13 +47,19 @@ export interface Empresa {
   slug: string;
   url: string | null;
   created_at: string;
+  logo_version: string | null;
 }
+
+/** URL pública del logo de una empresa (la versión invalida la caché al cambiarlo). */
+export const urlLogo = (empresaId: string, version: string) => `/api/tenant/logo/${empresaId}?v=${encodeURIComponent(version)}`;
 
 export interface TenantInfo {
   modo: "base" | "tenant" | "libre";
   nombre?: string | null;
   slug?: string | null;
   dominio?: string | null;
+  empresa_id?: string | null;
+  logo_version?: string | null;
 }
 
 export interface Licencia {

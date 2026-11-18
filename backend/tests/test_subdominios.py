@@ -61,6 +61,8 @@ async def test_login_ligado_al_subdominio(client, superadmin, con_dominio):
             "nombre": "Empresa Caribe",
             "slug": a["slug"],
             "dominio": BASE,
+            "empresa_id": a["id"],
+            "logo_version": None,
         }
         r = await c.post("/api/auth/login", json=cred)
         assert r.status_code == 200

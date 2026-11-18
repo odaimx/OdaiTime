@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { ErrorBox } from "../components/ui";
-import { ApiError, type TenantInfo } from "../lib/api";
+import { ApiError, urlLogo, type TenantInfo } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 export default function Login() {
@@ -65,6 +65,9 @@ export default function Login() {
           <div>
             <img src="/logo.png" alt="ODAI" className="mb-6 h-8 w-auto lg:hidden" />
             <h1 className="text-xl font-semibold text-navy-900">Iniciar sesión</h1>
+            {tenant?.empresa_id && tenant.logo_version && (
+              <img src={urlLogo(tenant.empresa_id, tenant.logo_version)} alt={tenant.nombre ?? ""} className="mb-5 max-h-16 max-w-[12rem] object-contain" />
+            )}
             {tenant?.modo === "tenant" ? (
               <p className="mt-1 text-sm font-medium text-brand-600">{tenant.nombre}</p>
             ) : (

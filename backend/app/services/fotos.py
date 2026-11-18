@@ -38,3 +38,26 @@ async def procesar(archivo: UploadFile) -> dict[int, bytes]:
         copia.save(salida, "JPEG", quality=82 if lado > 128 else 78, optimize=True)
         resultado[lado] = salida.getvalue()
     return resultado
+
+
+LOGO_LADO = 512
+
+
+async def procesar_logo(archivo: UploadFile) -> bytes:
+    """Logo de la empresa: PNG de máx. 512 px que conserva la transparencia."""
+    datos = await archivo.read(MAX_ENTRADA + 1)
+    if len(datos) > MAX_ENTRADA:
+        raise error("logo_grande", "El logo supera 10 MB.")
+    try:
+        img = Image.open(BytesIO(datos))
+        img.load()
+    except (UnidentifiedImageError, OSError):
+        raise error(
+            "logo_invalido", "El archivo no es una imagen válida (usa PNG o JPG)."
+        ) from None
+    img = ImageOps.exif_transpose(img)
+    img = img.convert("RGBA" if img.mode in ("RGBA", "LA", "P", "PA") else "RGB")
+    img.thumbnail((LOGO_LADO, LOGO_LADO))
+    salida = BytesIO()
+    img.save(salida, "PNG", optimize=True)
+    return salida.getvalue()

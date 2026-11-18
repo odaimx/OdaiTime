@@ -1,12 +1,18 @@
 """Endpoints públicos sobre el subdominio actual."""
 
-from fastapi import APIRouter, HTTPException, Request, Response, status
+import uuid
+from datetime import UTC, datetime
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from app.api.deps import DB
+from app.api.deps import DB, CurrentUser, empresa_scope, require_roles
 from app.core.tenant import base_domain, tenant_de, tenant_de_host
 from app.models import Empresa
+from app.models.usuario import Rol
+from app.services import fotos
 
 router = APIRouter(prefix="/tenant", tags=["subdominio"])
 
@@ -16,6 +22,8 @@ class TenantOut(BaseModel):
     nombre: str | None = None
     slug: str | None = None
     dominio: str | None = None  # dominio de los clientes, p. ej. odai.lat
+    empresa_id: uuid.UUID | None = None
+    logo_version: str | None = None
 
 
 @router.get("", response_model=TenantOut)
@@ -28,7 +36,66 @@ async def actual(request: Request, db: DB) -> TenantOut:
     empresa = await db.scalar(select(Empresa).where(Empresa.slug == t.slug, Empresa.activa))
     if empresa is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Empresa no encontrada")
-    return TenantOut(modo="tenant", nombre=empresa.nombre, slug=empresa.slug, dominio=dominio)
+    return TenantOut(
+        modo="tenant",
+        nombre=empresa.nombre,
+        slug=empresa.slug,
+        dominio=dominio,
+        empresa_id=empresa.id,
+        logo_version=empresa.logo_version,
+    )
+
+
+# --- Logo de la empresa ---
+
+
+@router.get("/logo/{empresa_id}")
+async def ver_logo(empresa_id: uuid.UUID, db: DB) -> Response:
+    """Público: el logo se muestra en el login del subdominio, en el menú y en los reportes."""
+    datos = await db.scalar(select(Empresa.logo).where(Empresa.id == empresa_id))
+    if not datos:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Sin logo")
+    # La URL lleva ?v=<versión>, así que se puede guardar en caché mucho tiempo.
+    return Response(
+        datos, media_type="image/png", headers={"Cache-Control": "public, max-age=31536000"}
+    )
+
+
+CACHE_LARGA = {"Cache-Control": "public, max-age=31536000"}
+
+
+class LogoOut(BaseModel):
+    logo_version: str | None
+
+
+_admin = Depends(require_roles(Rol.SUPERADMIN, Rol.ADMIN_EMPRESA))
+
+
+@router.put("/logo", response_model=LogoOut, dependencies=[_admin])
+async def subir_logo(
+    user: CurrentUser,
+    db: DB,
+    archivo: Annotated[UploadFile, File()],
+    empresa_id: uuid.UUID | None = None,
+) -> LogoOut:
+    empresa = await db.get(Empresa, empresa_scope(user, empresa_id))
+    if empresa is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Empresa no encontrada")
+    empresa.logo = await fotos.procesar_logo(archivo)
+    empresa.logo_actualizado = datetime.now(UTC)
+    await db.commit()
+    return LogoOut(logo_version=empresa.logo_version)
+
+
+@router.delete("/logo", response_model=LogoOut, dependencies=[_admin])
+async def quitar_logo(user: CurrentUser, db: DB, empresa_id: uuid.UUID | None = None) -> LogoOut:
+    empresa = await db.get(Empresa, empresa_scope(user, empresa_id))
+    if empresa is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Empresa no encontrada")
+    empresa.logo = None
+    empresa.logo_actualizado = None
+    await db.commit()
+    return LogoOut(logo_version=None)
 
 
 @router.get("/permitido", include_in_schema=False)

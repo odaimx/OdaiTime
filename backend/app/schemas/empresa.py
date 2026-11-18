@@ -62,6 +62,7 @@ class EmpresaOut(EmpresaBase):
     max_empleados: int
     licencia_vence: date | None
     created_at: datetime
+    logo_version: str | None = None
 
     @computed_field
     @property

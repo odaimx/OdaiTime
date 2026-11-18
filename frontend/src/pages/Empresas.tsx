@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import LogoEmpresa from "../components/LogoEmpresa";
 import Registro, { useFormulario } from "../components/Registro";
 import { Badge, ErrorBox, PageHeader } from "../components/ui";
 import { get, patch, post, type Empresa, type TenantInfo } from "../lib/api";
@@ -130,6 +131,21 @@ export default function Empresas() {
           ancho="md"
         >
           <form onSubmit={(ev: FormEvent) => (ev.preventDefault(), guardar())} className="space-y-4">
+            {editando !== "nueva" && (
+              <div>
+                <label className="label">Logo</label>
+                <LogoEmpresa
+                  empresaId={editando.id}
+                  version={editando.logo_version}
+                  query={`?empresa_id=${editando.id}`}
+                  onCambio={(v) => {
+                    const e = { ...editando, logo_version: v };
+                    setEditando(e);
+                    setEmpresas((l) => l.map((x) => (x.id === e.id ? e : x)));
+                  }}
+                />
+              </div>
+            )}
             <div>
               <label className="label">Nombre comercial</label>
               <input className="input" required value={form.nombre} onChange={set("nombre")} />

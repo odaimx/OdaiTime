@@ -1,3 +1,4 @@
+import LogoEmpresa from "../components/LogoEmpresa";
 import { useEffect, useState } from "react";
 import { PageHeader, UsoLicencia } from "../components/ui";
 import { get, ROLES, type Licencia } from "../lib/api";
@@ -6,7 +7,7 @@ import { useAuth } from "../lib/auth";
 type Ready = { status: string; checks: Record<string, string> };
 
 export default function Inicio() {
-  const { usuario } = useAuth();
+  const { usuario, refrescar } = useAuth();
   const [ready, setReady] = useState<Ready | null>(null);
   const [lic, setLic] = useState<Licencia | null>(null);
   const verLicencia = usuario?.rol === "admin_empresa" || usuario?.rol === "gerente_sucursal";
@@ -29,6 +30,12 @@ export default function Inicio() {
       <PageHeader title={`Hola, ${usuario.nombre.split(" ")[0]}`} subtitle={`${ROLES[usuario.rol]}${usuario.empresa ? ` · ${usuario.empresa.nombre}` : ""}`} />
 
       <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
+        {usuario.rol === "admin_empresa" && usuario.empresa && (
+          <div className="card p-6">
+            <h2 className="mb-3 text-sm font-medium text-slate-500">Logo de la empresa</h2>
+            <LogoEmpresa empresaId={usuario.empresa.id} version={usuario.empresa.logo_version} onCambio={() => refrescar()} />
+          </div>
+        )}
         {lic && (
           <div className="card p-6">
             <h2 className="mb-3 text-sm font-medium text-slate-500">Tu licencia</h2>
