@@ -538,3 +538,12 @@ export interface Festivo {
   aplica: boolean;
   editable: boolean;
 }
+
+// --- Etapa 6: reportes y nómina ---
+
+export interface ConceptoNomina {
+  clave: string;
+  descripcion: string;
+  unidad: string;
+  codigo: string | null;
+}
