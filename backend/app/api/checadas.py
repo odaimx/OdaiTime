@@ -94,6 +94,7 @@ async def hoy(user: CurrentUser, db: DB) -> EstadoHoy:
             entrada=turno.inicio,
             salida=turno.fin,
             tolerancia_minutos=turno.tolerancia,
+            bloques=[{"entrada": a, "salida": b} for a, b in turno.bloques],
         )
         if turno
         else None,

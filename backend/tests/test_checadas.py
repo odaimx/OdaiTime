@@ -339,3 +339,56 @@ async def test_bitacora_de_empleado(client, superadmin):
         "/api/actividad", headers=otro, params={"modelo": "empleado", "registro_id": emp["id"]}
     )
     assert r.status_code == 404
+
+
+async def test_turno_quebrado_y_retardo_al_regresar(client, superadmin):
+    a, _, _, emp = await _setup(client, superadmin)
+    dias = [
+        {
+            "dia_semana": d,
+            "entrada": "09:00",
+            "salida": "14:00",
+            "entrada2": "16:00",
+            "salida2": "19:00",
+        }
+        for d in range(5)
+    ]
+    r = await client.post(
+        "/api/turnos",
+        headers=a,
+        json={"nombre": "Quebrado", "tipo_jornada": "diurna", "dias": dias},
+    )
+    assert r.status_code == 201, r.text
+    turno = r.json()
+    assert turno["minutos_semana"] == 40 * 60 and turno["advertencias"] == []
+    assert turno["dias"][0]["entrada2"] == "16:00:00"
+
+    # Validaciones del segundo horario.
+    malo = [{"dia_semana": 0, "entrada": "09:00", "salida": "14:00", "entrada2": "16:00"}]
+    r = await client.post(
+        "/api/turnos", headers=a, json={"nombre": "Malo", "tipo_jornada": "diurna", "dias": malo}
+    )
+    assert r.status_code == 422
+
+    r = await client.post(
+        f"/api/empleados/{emp['id']}/turno",
+        headers=a,
+        json={"turno_id": turno["id"], "fecha_inicio": "2025-01-15"},
+    )
+    assert r.status_code == 200
+
+    async def manual(tipo, hora_local):
+        # Lunes 3 de marzo de 2025 en Cancún (UTC-5).
+        momento = f"2025-03-03T{hora_local}:00-05:00"
+        r = await client.post(
+            "/api/checadas/manual",
+            headers=a,
+            json={"empleado_id": emp["id"], "tipo": tipo, "momento": momento, "motivo": "Prueba"},
+        )
+        assert r.status_code == 201, r.text
+        return r.json()
+
+    assert (await manual("entrada", "09:05"))["retardo_minutos"] is None  # dentro de tolerancia
+    await manual("salida", "14:00")
+    assert (await manual("entrada", "16:20"))["retardo_minutos"] == 20  # regreso de comer
+    await manual("salida", "19:00")

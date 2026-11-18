@@ -37,6 +37,9 @@ class Horario:
     entrada: time
     salida: time  # si es menor que la entrada, termina al día siguiente
     comida_minutos: int = 0
+    # Segundo bloque del turno quebrado (opcional).
+    entrada2: time | None = None
+    salida2: time | None = None
 
 
 def _min(t: time) -> int:
@@ -58,8 +61,40 @@ def minutos_nocturnos(entrada: time, salida: time) -> int:
     )
 
 
+def bloques(h: Horario) -> list[tuple[int, int]]:
+    """Bloques como (inicio, fin) en minutos desde las 0:00 del día de entrada.
+
+    El segundo bloque empieza después del primero (puede cruzar medianoche)."""
+    ini1 = _min(h.entrada)
+    fin1 = ini1 + duracion(h.entrada, h.salida)
+    res = [(ini1, fin1)]
+    if h.entrada2 is not None and h.salida2 is not None:
+        ini2 = ini1 + (_min(h.entrada2) - ini1) % 1440
+        if ini2 < fin1:
+            ini2 += 1440
+        res.append((ini2, ini2 + duracion(h.entrada2, h.salida2)))
+    return res
+
+
+def validar_bloques(h: Horario) -> str | None:
+    """Mensaje de error si el turno quebrado es incongruente; None si está bien."""
+    b = bloques(h)
+    if len(b) == 2 and b[1][1] - b[0][0] > 1440:
+        return "Los dos horarios del día suman más de 24 h"
+    return None
+
+
 def efectivos(h: Horario) -> int:
-    return duracion(h.entrada, h.salida) - h.comida_minutos
+    return sum(fin - ini for ini, fin in bloques(h)) - h.comida_minutos
+
+
+def _nocturnos(h: Horario) -> int:
+    return sum(
+        1
+        for ini, fin in bloques(h)
+        for m in range(ini, fin)
+        if m % 1440 >= _NOCHE_INICIO or m % 1440 < _NOCHE_FIN
+    )
 
 
 def fmt(minutos: int) -> str:
@@ -76,9 +111,9 @@ def analizar(tipo: TipoJornada, horarios: list[Horario]) -> tuple[int, list[str]
     maximo = JORNADA_MAX_MIN[tipo]
     for h in sorted(horarios, key=lambda x: x.dia_semana):
         dia = DIAS[h.dia_semana]
-        total = duracion(h.entrada, h.salida)
+        total = sum(fin - ini for ini, fin in bloques(h))
         trabajo = efectivos(h)
-        noche = minutos_nocturnos(h.entrada, h.salida)
+        noche = _nocturnos(h)
         dia_min = total - noche
 
         if trabajo > maximo:

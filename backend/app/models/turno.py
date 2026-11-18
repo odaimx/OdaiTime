@@ -37,7 +37,11 @@ class Turno(UUIDPkMixin, TimestampMixin, Base):
 
 
 class TurnoDia(Base):
-    """Un día laborable del turno. Los días que no aparecen son de descanso."""
+    """Un día laborable del turno. Los días que no aparecen son de descanso.
+
+    Turno quebrado: entrada2/salida2 es un segundo bloque (p. ej. 9-14 y 16-19); el empleado
+    sale y regresa checando. El tiempo entre bloques no cuenta como trabajado.
+    """
 
     __tablename__ = "turno_dias"
     __table_args__ = (CheckConstraint("dia_semana BETWEEN 0 AND 6", name="ck_turno_dia_semana"),)
@@ -49,6 +53,12 @@ class TurnoDia(Base):
     entrada: Mapped[time] = mapped_column(Time)
     salida: Mapped[time] = mapped_column(Time)
     comida_minutos: Mapped[int] = mapped_column(default=0)
+    entrada2: Mapped[time | None] = mapped_column(Time)
+    salida2: Mapped[time | None] = mapped_column(Time)
+
+    @property
+    def quebrado(self) -> bool:
+        return self.entrada2 is not None and self.salida2 is not None
 
 
 class AsignacionTurno(UUIDPkMixin, Base):

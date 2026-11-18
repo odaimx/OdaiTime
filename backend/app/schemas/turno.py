@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from app.models import Turno
 from app.schemas.common import Nombre
-from app.services.lft import Horario, TipoJornada, analizar, duracion
+from app.services.lft import Horario, TipoJornada, analizar, efectivos, validar_bloques
 
 
 class TurnoDiaIn(BaseModel):
@@ -15,12 +15,32 @@ class TurnoDiaIn(BaseModel):
     entrada: time
     salida: time
     comida_minutos: int = Field(default=0, ge=0, le=180)
+    # Turno quebrado: segundo horario del día (ambos o ninguno).
+    entrada2: time | None = None
+    salida2: time | None = None
 
     @model_validator(mode="after")
     def _validar(self):
         if self.entrada == self.salida:
             raise ValueError("La entrada y la salida no pueden ser iguales")
-        if self.comida_minutos >= duracion(self.entrada, self.salida):
+        if (self.entrada2 is None) != (self.salida2 is None):
+            raise ValueError("El segundo horario necesita entrada y salida")
+        if self.entrada2 is not None:
+            if self.entrada2 == self.salida2:
+                raise ValueError("La entrada y la salida del segundo horario no pueden ser iguales")
+            if self.entrada2 == self.salida:
+                raise ValueError("Entre los dos horarios debe haber un descanso")
+        h = Horario(
+            self.dia_semana,
+            self.entrada,
+            self.salida,
+            self.comida_minutos,
+            self.entrada2,
+            self.salida2,
+        )
+        if msg := validar_bloques(h):
+            raise ValueError(msg)
+        if efectivos(h) <= 0:
             raise ValueError("El tiempo de comida no puede ser mayor que la jornada")
         return self
 
@@ -64,7 +84,10 @@ class TurnoOut(BaseModel):
     def de(cls, t: Turno) -> "TurnoOut":
         semana, avisos = analizar(
             t.tipo_jornada,
-            [Horario(d.dia_semana, d.entrada, d.salida, d.comida_minutos) for d in t.dias],
+            [
+                Horario(d.dia_semana, d.entrada, d.salida, d.comida_minutos, d.entrada2, d.salida2)
+                for d in t.dias
+            ],
         )
         return cls(
             id=t.id,

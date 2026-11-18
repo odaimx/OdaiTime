@@ -6,7 +6,7 @@ import math
 import secrets
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -16,6 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.models import Checada, ConfigChecadas, Empleado, Sucursal, TurnoDia
+from app.services.lft import Horario
+from app.services.lft import bloques as lft_bloques
 
 CAMPOS_CONFIG = (
     "permitir_movil",
@@ -122,8 +124,15 @@ class TurnoHoy:
     nombre: str
     tolerancia: int
     dia: TurnoDia
-    inicio: datetime  # con zona horaria de la sucursal
-    fin: datetime
+    bloques: list[tuple[datetime, datetime]]  # (entrada, salida) con zona de la sucursal
+
+    @property
+    def inicio(self) -> datetime:
+        return self.bloques[0][0]
+
+    @property
+    def fin(self) -> datetime:
+        return self.bloques[-1][1]
 
 
 def zona(sucursal: Sucursal) -> ZoneInfo:
@@ -138,11 +147,13 @@ def turno_del_dia(empleado: Empleado, dia: date, tz: ZoneInfo) -> TurnoHoy | Non
     d = next((x for x in turno.dias if x.dia_semana == dia.weekday()), None)
     if d is None:
         return None
-    inicio = datetime.combine(dia, d.entrada, tz)
-    fin = datetime.combine(dia, d.salida, tz)
-    if fin <= inicio:
-        fin += timedelta(days=1)
-    return TurnoHoy(turno.nombre, turno.tolerancia_minutos, d, inicio, fin)
+    base = datetime.combine(dia, time(0), tz)
+    horario = Horario(d.dia_semana, d.entrada, d.salida, d.comida_minutos, d.entrada2, d.salida2)
+    rangos = [
+        (base + timedelta(minutes=ini), base + timedelta(minutes=fin))
+        for ini, fin in lft_bloques(horario)
+    ]
+    return TurnoHoy(turno.nombre, turno.tolerancia_minutos, d, rangos)
 
 
 async def ultima_checada(db: AsyncSession, empleado_id: uuid.UUID) -> Checada | None:
@@ -160,10 +171,21 @@ def siguiente_tipo(ultima: Checada | None, ahora: datetime) -> str:
     return "entrada"
 
 
+def bloque_de(turno: TurnoHoy, momento: datetime) -> tuple[datetime, datetime]:
+    """Bloque al que corresponde una entrada: en turno quebrado, el regreso de comida
+    (después de la mitad del descanso) se compara contra el segundo horario."""
+    if len(turno.bloques) == 2:
+        (_, fin1), (ini2, _) = turno.bloques
+        if momento >= fin1 + (ini2 - fin1) / 2:
+            return turno.bloques[1]
+    return turno.bloques[0]
+
+
 def retardo(turno: TurnoHoy | None, momento: datetime) -> int | None:
     if turno is None:
         return None
-    minutos = math.floor((momento - turno.inicio).total_seconds() / 60)
+    inicio, _ = bloque_de(turno, momento)
+    minutos = math.floor((momento - inicio).total_seconds() / 60)
     return minutos if minutos > turno.tolerancia else None
 
 

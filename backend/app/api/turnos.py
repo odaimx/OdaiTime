@@ -14,6 +14,7 @@ from app.services.lft import DIAS
 def _horario(dias) -> str:
     partes = [
         f"{DIAS[d.dia_semana][:3]} {d.entrada:%H:%M}-{d.salida:%H:%M}"
+        + (f" y {d.entrada2:%H:%M}-{d.salida2:%H:%M}" if d.entrada2 and d.salida2 else "")
         + (f" ({d.comida_minutos} min comida)" if d.comida_minutos else "")
         for d in sorted(dias, key=lambda x: x.dia_semana)
     ]

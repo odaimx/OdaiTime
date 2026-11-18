@@ -84,11 +84,17 @@ class SucursalChecar(BaseModel):
     radio_metros: int
 
 
+class BloqueOut(BaseModel):
+    entrada: datetime
+    salida: datetime
+
+
 class TurnoHoyOut(BaseModel):
     nombre: str
     entrada: datetime
     salida: datetime
     tolerancia_minutos: int
+    bloques: list[BloqueOut]
 
 
 class Requisitos(BaseModel):
