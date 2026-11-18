@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent, typ
 import Avatar from "../components/Avatar";
 import Bitacora from "../components/Bitacora";
 import Camara from "../components/Camara";
+import VacacionesIncidencias from "../components/VacacionesIncidencias";
 import { AvisoLicencia, Badge, ErrorBox, Modal, PageHeader, UsoLicencia, useEmpresaScope } from "../components/ui";
 import {
   api,
@@ -451,6 +452,11 @@ export default function Empleados() {
                     Reactivar
                   </button>
                 )}
+              </div>
+
+              <div className="border-t border-slate-100 pt-4">
+                <h3 className="mb-3 text-sm font-medium text-navy-900">Vacaciones e incidencias</h3>
+                <VacacionesIncidencias empleadoId={sel.id} query={query} onCambio={() => setHistorial((n) => n + 1)} />
               </div>
 
               <div className="border-t border-slate-100 pt-4">
