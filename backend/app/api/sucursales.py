@@ -1,11 +1,11 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import DB, CurrentUser, empresa_scope, require_roles
-from app.models import Rol, Sucursal, Usuario
+from app.models import Checada, Empleado, Rol, Sucursal, Usuario
 from app.schemas.sucursal import SucursalCreate, SucursalOut, SucursalUpdate
 from app.services import bitacora
 
@@ -118,3 +118,28 @@ async def actualizar(
         await db.rollback()
         raise _DUPLICADA from None
     return sucursal
+
+
+@router.delete(
+    "/{sucursal_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_roles(*_ADMIN))],
+)
+async def eliminar(
+    sucursal_id: uuid.UUID, user: CurrentUser, db: DB, empresa_id: uuid.UUID | None = None
+) -> None:
+    """Borra una sucursal sin empleados ni checadas; si ya se usó, se desactiva."""
+    sucursal = await _get(db, user, sucursal_id, empresa_scope(user, empresa_id))
+    empleados = await db.scalar(
+        select(func.count()).select_from(Empleado).where(Empleado.sucursal_id == sucursal.id)
+    )
+    checadas = await db.scalar(
+        select(func.count()).select_from(Checada).where(Checada.sucursal_id == sucursal.id)
+    )
+    if empleados or checadas:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"La sucursal {sucursal.nombre} tiene empleados o checadas. Desactívala en su lugar.",
+        )
+    await db.delete(sucursal)
+    await db.commit()

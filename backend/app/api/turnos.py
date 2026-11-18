@@ -1,11 +1,11 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import DB, CurrentUser, empresa_scope, require_roles
-from app.models import Rol, Turno, TurnoDia
+from app.models import AsignacionTurno, Rol, Turno, TurnoDia
 from app.schemas.turno import TurnoCreate, TurnoOut, TurnoUpdate
 from app.services import bitacora
 from app.services.lft import DIAS
@@ -132,3 +132,27 @@ async def actualizar(
     )
     await db.commit()
     return TurnoOut.de(turno)
+
+
+@router.delete(
+    "/{turno_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_roles(*_ADMIN))],
+)
+async def eliminar(
+    turno_id: uuid.UUID, user: CurrentUser, db: DB, empresa_id: uuid.UUID | None = None
+) -> None:
+    """Borra un turno que nunca se asignó; si ya se usó, se desactiva."""
+    turno = await obtener_turno(db, turno_id, empresa_scope(user, empresa_id))
+    usos = await db.scalar(
+        select(func.count())
+        .select_from(AsignacionTurno)
+        .where(AsignacionTurno.turno_id == turno.id)
+    )
+    if usos:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"El turno {turno.nombre} ya se asignó a empleados. Desactívalo en su lugar.",
+        )
+    await db.delete(turno)
+    await db.commit()

@@ -11,36 +11,83 @@ export const escapar = (v: unknown) =>
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
+/** Dirección principal de Odai: va en el pie de todos los reportes. */
+export const URL_ODAI = "https://odai.lat";
+
 const ESTILO = `
-  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #1a2c4f; font-size: 11px; margin: 0; }
-  header { display: flex; align-items: center; gap: 12px; border-bottom: 3px solid #13204a; padding-bottom: 8px; margin-bottom: 12px; }
-  header img { max-height: 42px; max-width: 140px; object-fit: contain; }
-  h1 { font-size: 18px; margin: 0; } .sub { color: #64748b; margin: 2px 0 0; }
-  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #8a64de; margin: 16px 0 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px; }
-  .filtros { margin: 0 0 10px; color: #475569; }
-  table { width: 100%; border-collapse: collapse; }
-  th { background: #13204a; color: #e2c68f; text-align: left; padding: 6px; font-weight: 600; }
-  td { padding: 5px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
-  tr:nth-child(even) td { background: #f8f7fc; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #1a2c4f; font-size: 11px; margin: 0; padding: 0 14mm; }
+  /* Rejilla de la hoja: el encabezado y el espacio del pie se repiten en cada página. */
+  table.hoja { width: 100%; border-collapse: collapse; }
+  table.hoja > thead > tr > td, table.hoja > tbody > tr > td, table.hoja > tfoot > tr > td { padding: 0; border: 0; background: none; }
+  .encabezado { display: flex; align-items: center; gap: 14px; padding: 10mm 0 8px; border-bottom: 3px solid #13204a; margin-bottom: 12px; }
+  .encabezado img { max-height: 46px; max-width: 150px; object-fit: contain; }
+  .encabezado h1 { font-size: 18px; margin: 0; } .encabezado .sub { color: #64748b; margin: 2px 0 0; }
+  .espacio-pie { height: 22mm; }
+  .pie { position: fixed; left: 14mm; right: 14mm; bottom: 7mm; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+         border-top: 1px solid #cbd5e1; padding-top: 6px; color: #64748b; font-size: 9.5px; }
+  .pie img { height: 18px; width: auto; }
+  .pie .odai { display: flex; align-items: center; gap: 8px; }
+  .contenido h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #8a64de; margin: 16px 0 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px; }
+  .contenido .filtros { margin: 0 0 10px; color: #475569; }
+  .contenido table { width: 100%; border-collapse: collapse; }
+  .contenido th { background: #13204a; color: #e2c68f; text-align: left; padding: 6px; font-weight: 600; }
+  .contenido td { padding: 5px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+  .contenido tr:nth-child(even) td { background: #f8f7fc; }
+  .contenido tr { break-inside: avoid; }
   .campos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 28px; }
   .campo dt { color: #64748b; font-size: 10px; } .campo dd { margin: 1px 0 0; font-size: 12px; font-weight: 500; min-height: 14px; }
-  footer { margin-top: 14px; color: #94a3b8; font-size: 10px; }
+  @media screen { body { max-width: 210mm; margin: 0 auto; } .pie { position: static; margin-top: 16px; } }
 `;
 
-/** Abre la hoja con el contenido HTML y lanza la impresión. */
+/**
+ * Abre la hoja y lanza la impresión. Formato estándar de todos los PDF:
+ * arriba el logo de la empresa con el título; abajo una raya, el logo de ODAI con su dirección,
+ * la versión y la fecha de impresión (en cada página). Sin márgenes de página, el navegador no
+ * agrega su propio encabezado con la fecha y el título.
+ */
 export function imprimirHtml(titulo: string, cuerpo: string, horizontal = false) {
   const e = REPORTE.empresa;
+  const impreso = new Date().toLocaleString("es-MX", { dateStyle: "long", timeStyle: "short" });
+  const logoOdai = `${location.origin}/logo.png`;
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>${escapar(titulo)}</title>
-<style>@page { size: ${horizontal ? "landscape" : "portrait"}; margin: 14mm; }${ESTILO}</style></head><body>
-<header>${e.logo ? `<img src="${e.logo}" alt="">` : ""}<div><h1>${escapar(titulo)}</h1><p class="sub">${escapar(e.nombre)} · ${new Date().toLocaleString("es-MX", { dateStyle: "long", timeStyle: "short" })}</p></div></header>
-${cuerpo}
-<footer>Generado con ODAITIME</footer>
-<script>window.onload = () => setTimeout(() => window.print(), 200);</script>
+<style>@page { size: ${horizontal ? "landscape" : "portrait"}; margin: 0; }${ESTILO}</style></head><body>
+<table class="hoja">
+<thead><tr><td><div class="encabezado">${e.logo ? `<img src="${e.logo}" alt="">` : ""}<div><h1>${escapar(titulo)}</h1><p class="sub">${escapar(e.nombre)}</p></div></div></td></tr></thead>
+<tbody><tr><td><div class="contenido">${cuerpo}</div></td></tr></tbody>
+<tfoot><tr><td><div class="espacio-pie"></div></td></tr></tfoot>
+</table>
+<div class="pie"><span class="odai"><img src="${logoOdai}" alt="ODAI"><span>${escapar(URL_ODAI.replace(/^https?:\/\//, ""))} · ODAITIME v${escapar(__VERSION__)}</span></span><span>Impreso el ${escapar(impreso)}</span></div>
+<script>
+  // Espera a que carguen los logos antes de imprimir.
+  window.onload = () => setTimeout(() => window.print(), 250);
+</script>
 </body></html>`;
   const w = window.open("", "_blank");
   if (!w) return alert("Permite las ventanas emergentes para generar el PDF.");
   w.document.write(html);
   w.document.close();
+}
+
+/** Secciones de una ficha: campos en dos columnas o una tabla, con título opcional. */
+export type Seccion = { titulo?: string; campos?: [string, unknown][]; tabla?: { columnas: string[]; filas: unknown[][] } };
+
+const tablaHtml = (columnas: string[], filas: unknown[][]) =>
+  `<table><thead><tr>${columnas.map((c) => `<th>${escapar(c)}</th>`).join("")}</tr></thead><tbody>${filas
+    .map((f) => `<tr>${f.map((v) => `<td>${escapar(v)}</td>`).join("")}</tr>`)
+    .join("")}</tbody></table>`;
+
+/** Reporte de la ficha de un registro con el formato estándar. */
+export function imprimirSecciones(titulo: string, secciones: Seccion[]) {
+  const cuerpo = secciones
+    .map(
+      (s) =>
+        `${s.titulo ? `<h2>${escapar(s.titulo)}</h2>` : ""}${s.campos ? campos(s.campos) : ""}${
+          s.tabla ? (s.tabla.filas.length ? tablaHtml(s.tabla.columnas, s.tabla.filas) : "<p>Sin registros.</p>") : ""
+        }`,
+    )
+    .join("\n");
+  imprimirHtml(titulo, cuerpo);
 }
 
 /** Tabla con encabezado y filtros aplicados. */

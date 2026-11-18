@@ -350,8 +350,8 @@ export function FormActividad({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             {tarea && (
-              <button type="button" className="text-sm text-slate-500 hover:text-red-600 hover:underline" onClick={borrar}>
-                Eliminar
+              <button type="button" className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Eliminar" aria-label="Eliminar" onClick={borrar}>
+                <Icono nombre="trash" className="h-4 w-4" />
               </button>
             )}
           </div>

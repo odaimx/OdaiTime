@@ -6,11 +6,12 @@ import Registro, { useFormulario } from "../components/Registro";
 import Icono from "../components/Iconos";
 import { columnaCategorias, filtrosCategorias, GestorCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
+import { imprimirSecciones } from "../lib/imprimir";
 import { Ayuda, Badge, ErrorBox, PageHeader } from "../components/ui";
-import { get, patch, post, urlLogo, type Categoria, type Empresa, type TenantInfo } from "../lib/api";
+import { api, get, patch, post, urlLogo, type Categoria, type Empresa, type TenantInfo } from "../lib/api";
 
-type Form = { nombre: string; slug: string; razon_social: string; rfc: string; max_empleados: string; licencia_vence: string; admin_nombre: string; admin_email: string; admin_password: string };
-const VACIO: Form = { nombre: "", slug: "", razon_social: "", rfc: "", max_empleados: "15", licencia_vence: "", admin_nombre: "", admin_email: "", admin_password: "" };
+type Form = { nombre: string; slug: string; razon_social: string; rfc: string; max_empleados: string; licencia_vence: string; demo: boolean; admin_nombre: string; admin_email: string; admin_password: string };
+const VACIO: Form = { nombre: "", slug: "", razon_social: "", rfc: "", max_empleados: "15", licencia_vence: "", demo: false, admin_nombre: "", admin_email: "", admin_password: "" };
 
 export default function Empresas() {
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
@@ -31,7 +32,7 @@ export default function Empresas() {
     cargarForm(
       e === "nueva"
         ? VACIO
-        : { ...VACIO, nombre: e.nombre, slug: e.slug, razon_social: e.razon_social ?? "", rfc: e.rfc ?? "", max_empleados: String(e.max_empleados), licencia_vence: e.licencia_vence ?? "" },
+        : { ...VACIO, nombre: e.nombre, slug: e.slug, razon_social: e.razon_social ?? "", rfc: e.rfc ?? "", max_empleados: String(e.max_empleados), licencia_vence: e.licencia_vence ?? "", demo: !!e.demo },
     );
     setEditando(e);
   }
@@ -45,6 +46,7 @@ export default function Empresas() {
       rfc: form.rfc || null,
       max_empleados: Number(form.max_empleados) || 15,
       licencia_vence: form.licencia_vence || null,
+      demo: form.demo,
     };
     try {
       const r =
@@ -84,6 +86,7 @@ export default function Empresas() {
     tituloReporte: "Empresas",
     ajustes: { titulo: "Sistema (todas las empresas)", ancho: "xl", contenido: <ConfigSistema /> },
     clave: (e) => e.id,
+    eliminar: { borrar: (e) => api(`/empresas/${e.id}`, { method: "DELETE" }), despues: cargar },
     onAbrir: abrir,
     acciones: (
       <button className="btn-primary" onClick={() => abrir("nueva")}>
@@ -135,6 +138,7 @@ export default function Empresas() {
       { clave: "prueba", titulo: "Licencia de prueba (15)", grupo: "lic", prueba: (e) => e.max_empleados <= 15 },
       { clave: "por_vencer", titulo: "Vence en 30 días", grupo: "venc", prueba: (e) => !!e.licencia_vence && e.licencia_vence >= hoy && e.licencia_vence <= en30 },
       { clave: "vencidas", titulo: "Vencidas", grupo: "venc", prueba: (e) => !!e.licencia_vence && e.licencia_vence < hoy },
+      { clave: "demo", titulo: "Empresas demo", grupo: "tipo", prueba: (e) => !!e.demo },
       { clave: "activas", titulo: "Activas", grupo: "estado", prueba: (e) => e.activa },
       { clave: "inactivas", titulo: "Inactivas", grupo: "estado", prueba: (e) => !e.activa },
     ],
@@ -181,6 +185,32 @@ export default function Empresas() {
       {editando && (
         <Registro
           titulo={editando === "nueva" ? "Nueva empresa" : editando.nombre}
+          onImprimir={
+            editando === "nueva"
+              ? undefined
+              : () =>
+                  imprimirSecciones(`Empresa · ${editando.nombre}`, [
+                    {
+                      campos: [
+                        ["Nombre", editando.nombre],
+                        ["Dirección (subdominio)", editando.url ?? editando.slug],
+                        ["Razón social", editando.razon_social],
+                        ["RFC", editando.rfc],
+                        ["Estado", editando.activa ? "Activa" : "Inactiva"],
+                        ["Alta", new Date(editando.created_at).toLocaleDateString("es-MX", { dateStyle: "medium" })],
+                        ["Categorías", cats.de(editando.id).map((c) => c.nombre).join(", ")],
+                      ],
+                    },
+                    {
+                      titulo: "Licencia",
+                      campos: [
+                        ["Empleados activos permitidos", editando.max_empleados],
+                        ["Vence", editando.licencia_vence ?? "Sin vencimiento"],
+                        ["Empresa demo", editando.demo ? "Sí" : "No"],
+                      ],
+                    },
+                  ])
+          }
           indice={indice >= 0 ? indice : undefined}
           total={enOrden.length}
           onIr={(i) => abrir(enOrden[i])}
@@ -266,6 +296,11 @@ export default function Empresas() {
                 <label className="label">Vence (opcional)</label>
                 <input className="input" type="date" value={form.licencia_vence} onChange={set("licencia_vence")} />
               </div>
+              <label className="flex items-center gap-2 text-sm text-tinta-900 sm:col-span-2">
+                <input type="checkbox" checked={form.demo} onChange={(e) => setForm({ ...form, demo: e.target.checked })} />
+                Empresa demo
+                <Ayuda texto="Para presentaciones (p. ej. demo.odai.lat): el pie muestra Licencia demo y se puede eliminar aunque tenga checadas." />
+              </label>
             </fieldset>
 
             {editando !== "nueva" && (

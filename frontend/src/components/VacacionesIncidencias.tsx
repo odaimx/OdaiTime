@@ -1,3 +1,4 @@
+import Icono from "./Iconos";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api, get, INCIDENCIAS, post, type IncidenciaReg, type Vacaciones } from "../lib/api";
 import { ArticuloLFT } from "./LFT";
@@ -117,8 +118,8 @@ export default function VacacionesIncidencias({ empleadoId, query, onCambio }: {
                   {i.notas && ` · ${i.notas}`}
                 </p>
               </div>
-              <button type="button" className="text-xs text-slate-400 hover:text-red-600" onClick={() => borrar(i.id)}>
-                Eliminar
+              <button type="button" className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Eliminar" aria-label="Eliminar" onClick={() => borrar(i.id)}>
+                <Icono nombre="trash" className="h-4 w-4" />
               </button>
             </li>
           ))}

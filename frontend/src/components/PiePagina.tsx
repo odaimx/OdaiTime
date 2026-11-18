@@ -12,15 +12,17 @@ const fecha = (iso: string) => new Date(iso + "T12:00").toLocaleDateString("es-M
 /** Pie de página en una sola línea: derechos, estado del sistema, licencia y versión. */
 export default function PiePagina() {
   const { usuario } = useAuth();
-  const [demo, setDemo] = useState(false);
+  const [servidorDemo, setServidorDemo] = useState(false);
   const [ready, setReady] = useState<Ready | null>(null);
   const [lic, setLic] = useState<Licencia | null>(null);
   const esSuper = usuario?.rol === "superadmin";
+  // Demo: la empresa marcada como demo (presentaciones) o todo el servidor (DEMO=true).
+  const demo = servidorDemo || !!usuario?.empresa?.demo;
   const verLicencia = usuario?.rol === "admin_empresa" || usuario?.rol === "gerente_sucursal";
 
   useEffect(() => {
     temaActual()
-      .then((t) => setDemo(!!t.demo))
+      .then((t) => setServidorDemo(!!t.demo))
       .catch(() => {});
   }, []);
 
@@ -64,7 +66,7 @@ export default function PiePagina() {
         {demo ? (
           <>
             {separador}
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800" title="Base de datos de demostración">
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800" title="Empresa de demostración">
               Licencia demo
             </span>
           </>

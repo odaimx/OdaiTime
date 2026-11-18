@@ -3,9 +3,10 @@ import Bitacora from "../components/Bitacora";
 import { ArticuloLFT, TextoLFT } from "../components/LFT";
 import Icono from "../components/Iconos";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
+import { imprimirSecciones } from "../lib/imprimir";
 import Registro, { useFormulario } from "../components/Registro";
 import { Badge, ErrorBox, PageHeader, useEmpresaScope, Plegable } from "../components/ui";
-import { DIAS, DIAS_CORTOS, get, horas, hhmm, JORNADAS, patch, post, type TipoJornada, type Turno } from "../lib/api";
+import { api, DIAS, DIAS_CORTOS, get, horas, hhmm, JORNADAS, patch, post, type TipoJornada, type Turno } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 type FilaDia = { activo: boolean; entrada: string; salida: string; comida: string; quebrado: boolean; entrada2: string; salida2: string };
@@ -130,6 +131,7 @@ export default function Turnos() {
     id: "turnos",
     tituloReporte: "Turnos",
     clave: (t) => t.id,
+    eliminar: puedeEditar ? { borrar: (t) => api(`/turnos/${t.id}${query}`, { method: "DELETE" }), despues: cargar } : undefined,
     onAbrir: abrir,
     fuentes: "arts. 59 a 69: jornada, descansos y horas extra",
     acciones: puedeEditar && listo && (
@@ -244,6 +246,33 @@ export default function Turnos() {
       {editando && (
         <Registro
           titulo={editando === "nuevo" ? "Nuevo turno" : editando.nombre}
+          onImprimir={
+            editando === "nuevo"
+              ? undefined
+              : () =>
+                  imprimirSecciones(`Turno · ${editando.nombre}`, [
+                    {
+                      campos: [
+                        ["Nombre", editando.nombre],
+                        ["Tipo de jornada", `${JORNADAS[editando.tipo_jornada].label} (máx. ${JORNADAS[editando.tipo_jornada].max})`],
+                        ["Tolerancia de retardo", `${editando.tolerancia_minutos} min`],
+                        ["Total semanal", horas(editando.minutos_semana)],
+                        ["Estado", editando.activo ? "Activo" : "Inactivo"],
+                      ],
+                    },
+                    {
+                      titulo: "Horario",
+                      tabla: {
+                        columnas: ["Día", "Entrada", "Salida", "Comida", "Segundo horario"],
+                        filas: DIAS.map((dia, i) => {
+                          const d = editando.dias.find((x) => x.dia_semana === i);
+                          return d ? [dia, hhmm(d.entrada), hhmm(d.salida), `${d.comida_minutos} min`, d.entrada2 && d.salida2 ? `${hhmm(d.entrada2)} – ${hhmm(d.salida2)}` : "—"] : [dia, "Descanso", "", "", ""];
+                        }),
+                      },
+                    },
+                    ...(editando.advertencias.length ? [{ titulo: "Observaciones (LFT)", tabla: { columnas: ["Detalle"], filas: editando.advertencias.map((a) => [a]) } }] : []),
+                  ])
+          }
           indice={indice >= 0 ? indice : undefined}
           total={enOrden.length}
           onIr={(i) => abrir(enOrden[i])}

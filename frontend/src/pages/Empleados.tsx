@@ -273,6 +273,7 @@ export default function Empleados() {
       { filtro: "sin_pin", color: "morado" },
     ],
     clave: (e) => e.id,
+    eliminar: esAdmin ? { borrar: (e) => api(`/empleados/${e.id}${query}`, { method: "DELETE" }), despues: () => (cargar(), cargarLicencia()) } : undefined,
     onAbrir: (e) => abrirDetalle(e.id),
     acciones: listo && (
       <button className="btn-primary" onClick={abrirNuevo}>

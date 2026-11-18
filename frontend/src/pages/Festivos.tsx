@@ -57,13 +57,6 @@ export default function Festivos() {
     }
   }
 
-  async function borrar(filas: Festivo[]) {
-    try {
-      for (const f of filas) await api(`/festivos/${f.id}`, { method: "DELETE" });
-    } finally {
-      cargar();
-    }
-  }
 
   // Cuántos designados tiene cada festivo que aplica (para mostrarlo en la lista).
   useEffect(() => {
@@ -185,7 +178,7 @@ export default function Festivos() {
           ),
       },
     ],
-    eliminar: { puede: (f) => f.editable, ejecutar: borrar },
+    eliminar: { puede: (f) => f.editable, borrar: (f) => api(`/festivos/${f.id}`, { method: "DELETE" }), despues: cargar },
     filtros: [
       { clave: "aplican", titulo: "Aplican en la empresa", grupo: "aplica", prueba: (f) => f.aplica },
       { clave: "no_aplican", titulo: "No aplican", grupo: "aplica", prueba: (f) => !f.aplica },

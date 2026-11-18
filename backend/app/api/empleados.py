@@ -12,7 +12,17 @@ from sqlalchemy.exc import IntegrityError
 from app.api.deps import DB, CurrentUser, empresa_scope, require_roles
 from app.api.turnos import obtener_turno
 from app.core.security import hash_password
-from app.models import AsignacionTurno, Checada, Empleado, Rol, Sesion, Sucursal, Turno, Usuario
+from app.models import (
+    AsignacionTurno,
+    Checada,
+    Empleado,
+    Incidencia,
+    Rol,
+    Sesion,
+    Sucursal,
+    Turno,
+    Usuario,
+)
 from app.schemas.empleado import (
     AccesoIn,
     BajaIn,
@@ -612,3 +622,32 @@ async def ver_foto(
     return Response(
         datos, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=86400"}
     )
+
+
+@router.delete(
+    "/{empleado_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_roles(*_ADMIN))],
+)
+async def eliminar(
+    empleado_id: uuid.UUID, user: CurrentUser, db: DB, empresa_id: uuid.UUID | None = None
+) -> None:
+    """Borra un empleado capturado por error. Si ya tiene checadas o incidencias, se da de baja."""
+    empleado = await _get(db, user, empleado_id, empresa_scope(user, empresa_id))
+    checadas = await db.scalar(
+        select(func.count()).select_from(Checada).where(Checada.empleado_id == empleado.id)
+    )
+    incidencias = await db.scalar(
+        select(func.count()).select_from(Incidencia).where(Incidencia.empleado_id == empleado.id)
+    )
+    if checadas or incidencias:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"{empleado.nombre_completo} ya tiene checadas o incidencias; la Ley Federal del "
+            "Trabajo pide conservar ese historial. Dalo de baja en su lugar.",
+        )
+    portal = await db.get(Usuario, empleado.usuario_id) if empleado.usuario_id else None
+    await db.delete(empleado)
+    if portal is not None and portal.rol == Rol.EMPLEADO:
+        await db.delete(portal)
+    await db.commit()

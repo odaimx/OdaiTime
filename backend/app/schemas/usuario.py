@@ -16,6 +16,7 @@ class EmpresaRef(BaseModel):
     logo_version: str | None = None
     fondo_color: str | None = None
     fondo_version: str | None = None
+    demo: bool = False
 
 
 class UsuarioOut(BaseModel):

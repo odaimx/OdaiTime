@@ -45,8 +45,8 @@ export function PageHeader({
       <div className={`banda -mx-4 -mt-4 bg-navy-950 px-4 py-2.5 sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:-mt-8 lg:px-8 lg:py-2.5 ${submenu?.length ? "" : "mb-5"}`}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            {icono && <Icono nombre={icono} className="h-8 w-8 shrink-0 text-oro-400 sm:h-10 sm:w-10" />}
-            <h1 className="truncate text-[1.75rem] font-semibold leading-tight tracking-tight text-oro-400 sm:text-[2.125rem]">{title}</h1>
+            {icono && <Icono nombre={icono} className="h-7 w-7 shrink-0 text-oro-400 sm:h-9 sm:w-9" />}
+            <h1 className="truncate text-[1.6rem] font-semibold leading-tight tracking-tight text-oro-400 sm:text-[1.95rem]">{title}</h1>
             {fuentes !== undefined && <FuentesOficiales articulos={fuentes || undefined} oscuro />}
           </div>
           <div className="flex items-center gap-3">
