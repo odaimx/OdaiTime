@@ -53,7 +53,9 @@ def _out(c: ConfigSistema) -> TemaOut:
 async def tema(db: DB) -> TemaOut:
     """Público: los colores se aplican desde la pantalla de acceso."""
     c = await db.get(ConfigSistema, 1)
-    return _out(c) if c else TemaOut(colores=Colores(), imagen_version=None, demo=get_settings().demo)
+    if c is None:
+        return TemaOut(colores=Colores(), imagen_version=None, demo=get_settings().demo)
+    return _out(c)
 
 
 @router.put("/tema", response_model=TemaOut, dependencies=_SUPER)
