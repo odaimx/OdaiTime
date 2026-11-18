@@ -133,7 +133,7 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-navy-900/40 p-3 pt-6 sm:p-4 sm:pt-12" onMouseDown={cerrar}>
-      <div className={`registro-hoja card flex max-h-[calc(100dvh-3rem)] w-full flex-col sm:max-h-[calc(100dvh-6rem)] ${ancho === "lg" ? "max-w-5xl" : "max-w-2xl"}`} onMouseDown={(e) => e.stopPropagation()}>
+      <div className={`registro-hoja card flex max-h-[calc(100dvh-3rem)] w-full flex-col overflow-hidden sm:max-h-[calc(100dvh-7rem)] ${ancho === "lg" ? "max-w-5xl" : "max-w-2xl"}`} onMouseDown={(e) => e.stopPropagation()}>
         <div className="no-imprimir flex shrink-0 items-center gap-2 rounded-t-xl border-b border-slate-200 bg-slate-100/70 px-4 py-2.5 sm:px-5">
           {menuAcciones}
           {onGuardar && (
@@ -177,7 +177,7 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
           </div>
         </div>
 
-        <div className="overflow-y-auto p-5 sm:p-8">
+        <div className="min-h-0 overflow-y-auto p-5 pb-12 sm:p-8 sm:pb-14">
           <div className="mb-5">
             <h2 className="text-lg font-semibold text-tinta-900">{titulo}</h2>
             {subtitulo && <div className="mt-1 text-sm text-slate-500">{subtitulo}</div>}

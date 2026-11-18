@@ -127,6 +127,7 @@ async def test_tema_e_imagen_de_inicio(client, superadmin):
     assert r.status_code == 200, r.text
     tema = (await client.get("/api/sistema/tema")).json()  # público
     assert tema["colores"]["marca"] == "#123abc" and tema["colores"]["acento"] is None
+    assert tema["demo"] is False
     img = BytesIO()
     Image.new("RGB", (800, 400), (10, 20, 30)).save(img, "JPEG")
     r = await client.put(

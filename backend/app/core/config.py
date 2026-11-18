@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     # Licencia de prueba mientras no exista el panel central de licencias de Odai.
     licencia_max_empleados_default: int = 15
     licencia_url_compra: str = "https://odai.lat"
+    # Base de datos de demostración: el pie de página lo indica en lugar de la licencia.
+    demo: bool = False
 
     # Intentos de login fallidos permitidos por correo+IP en la ventana.
     login_max_attempts: int = 5

@@ -205,14 +205,14 @@ export function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-navy-900/40 p-3 pt-6 sm:p-4 sm:pt-12" onMouseDown={onClose}>
       {/* La ventana nunca pasa del alto de la pantalla: su contenido se desplaza por dentro. */}
-      <div className={`card flex max-h-[calc(100dvh-3rem)] w-full flex-col overflow-hidden sm:max-h-[calc(100dvh-6rem)] ${ancho === "xl" ? "max-w-5xl" : ancho === "lg" ? "max-w-2xl" : "max-w-lg"}`} onMouseDown={(e) => e.stopPropagation()}>
+      <div className={`card flex max-h-[calc(100dvh-3rem)] w-full flex-col overflow-hidden sm:max-h-[calc(100dvh-7rem)] ${ancho === "xl" ? "max-w-5xl" : ancho === "lg" ? "max-w-2xl" : "max-w-lg"}`} onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-slate-100/70 px-5 py-3 sm:px-6">
           <h2 className="text-lg font-semibold text-tinta-900">{title}</h2>
           <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-white hover:text-tinta-900" aria-label="Cerrar">
             <Icono nombre="x" className="h-5 w-5" />
           </button>
         </div>
-        <div className="overflow-y-auto p-5 sm:p-6">{children}</div>
+        <div className="min-h-0 overflow-y-auto p-5 pb-10 sm:p-6 sm:pb-12">{children}</div>
       </div>
     </div>
   );
@@ -334,7 +334,7 @@ export function Ayuda({ texto }: { texto: ReactNode }) {
       <button
         type="button"
         onClick={(e) => (e.preventDefault(), setVer((v) => !v))}
-        className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-600 hover:bg-brand-500 hover:text-white"
+        className="ml-0.5 inline-flex items-center justify-center px-0.5 text-xs font-bold leading-none text-slate-400 hover:text-brand-600"
         aria-label="Ayuda"
       >
         ?
@@ -393,11 +393,12 @@ export function ImagenEditable({
   className?: string;
   acepta?: string;
 }) {
-  const boton = "flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-tinta-900 shadow ring-1 ring-slate-200 hover:bg-brand-500 hover:text-white";
+  const boton = "flex h-6 w-6 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-brand-600";
   return (
-    <div className={`group relative inline-block ${className}`}>
+    <div className={`inline-flex flex-col items-center ${className}`}>
       {children}
-      <div className="absolute inset-x-0 bottom-1.5 flex justify-center gap-1.5 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
+      {/* Acciones debajo de la imagen, en una fila compacta. */}
+      <div className="mt-1 flex justify-center gap-0.5">
         <label className={`${boton} cursor-pointer`} title="Cambiar">
           <Icono nombre="pencil" className="h-3.5 w-3.5" />
           <input type="file" accept={acepta} className="sr-only" onChange={(e) => e.target.files?.[0] && onCambiar(e.target.files[0])} />
@@ -408,7 +409,7 @@ export function ImagenEditable({
           </button>
         )}
         {onQuitar && (
-          <button type="button" className={`${boton} hover:!bg-red-600`} title="Quitar" onClick={onQuitar}>
+          <button type="button" className={`${boton} hover:!bg-red-50 hover:!text-red-600`} title="Quitar" onClick={onQuitar}>
             <Icono nombre="trash" className="h-3.5 w-3.5" />
           </button>
         )}
