@@ -107,7 +107,7 @@ export default function ConfigChecadas({ incrustado = false, scope }: { incrusta
 
   return (
     <>
-      {!incrustado && <PageHeader
+      {!incrustado && <PageHeader icono="settings"
         title="Configuración de asistencias"
         subtitle="Elige cómo checan tus empleados y qué se valida. Cada sucursal puede usar la configuración general o una propia."
         action={selector}

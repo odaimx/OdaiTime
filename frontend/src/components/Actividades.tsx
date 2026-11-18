@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import Icono, { type NombreIcono } from "./Iconos";
 import { api, diasHasta, get, hoyISO, patch, post, type Ref, type ResumenTarea, type Tarea, type TipoTarea } from "../lib/api";
 import { ErrorBox, Modal } from "./ui";
 
@@ -10,23 +11,13 @@ import { ErrorBox, Modal } from "./ui";
  * - <Calendario>: vista de mes o semana con las actividades.
  */
 
-export const TIPOS: Record<TipoTarea, { label: string; icono: string; color: string }> = {
-  llamada: { label: "Llamada", icono: "M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 012.1 4.2 2 2 0 014.1 2h3a2 2 0 012 1.7c.1.9.4 1.8.7 2.7a2 2 0 01-.5 2.1L8 9.8a16 16 0 006 6l1.3-1.3a2 2 0 012.1-.4c.9.3 1.8.6 2.7.7a2 2 0 011.7 2z", color: "bg-sky-100 text-sky-800 ring-sky-200" },
-  reunion: { label: "Reunión", icono: "M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zm14 10v-2a4 4 0 00-3-3.9M16 3.1a4 4 0 010 7.8", color: "bg-violet-100 text-violet-800 ring-violet-200" },
-  correo: { label: "Correo", icono: "M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2zm18 2l-10 7L2 6", color: "bg-amber-100 text-amber-800 ring-amber-200" },
-  tarea: { label: "Tarea", icono: "M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11", color: "bg-emerald-100 text-emerald-800 ring-emerald-200" },
-  recordatorio: { label: "Recordatorio", icono: "M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0", color: "bg-rose-100 text-rose-800 ring-rose-200" },
+export const TIPOS: Record<TipoTarea, { label: string; icono: NombreIcono; color: string; punto: string }> = {
+  llamada: { label: "Llamada", icono: "phone", color: "bg-sky-100 text-sky-800 ring-sky-200", punto: "bg-sky-500" },
+  reunion: { label: "Reunión", icono: "users", color: "bg-violet-100 text-violet-800 ring-violet-200", punto: "bg-violet-500" },
+  correo: { label: "Correo", icono: "mail", color: "bg-amber-100 text-amber-800 ring-amber-200", punto: "bg-amber-500" },
+  tarea: { label: "Tarea", icono: "square-check-big", color: "bg-emerald-100 text-emerald-800 ring-emerald-200", punto: "bg-emerald-500" },
+  recordatorio: { label: "Recordatorio", icono: "bell", color: "bg-rose-100 text-rose-800 ring-rose-200", punto: "bg-rose-500" },
 };
-
-const RELOJ = "M12 7v5l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z";
-
-export function Icono({ d, className = "h-4 w-4" }: { d: string; className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-      <path d={d} />
-    </svg>
-  );
-}
 
 /** Color del reloj según la actividad más próxima. */
 export function colorFecha(fecha: string | undefined): string {
@@ -151,7 +142,7 @@ export function RelojActividad({
         title={resumen ? `${resumen.pendientes} actividad(es) · ${textoFecha(resumen.proxima)}` : "Programar una actividad"}
         aria-label="Actividades"
       >
-        <Icono d={RELOJ} className="h-5 w-5" />
+        <Icono nombre="clock" className="h-5 w-5" />
         {resumen && resumen.pendientes > 1 && (
           <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-navy-900 px-1 text-[10px] font-semibold text-white">{resumen.pendientes}</span>
         )}
@@ -165,7 +156,7 @@ export function RelojActividad({
               <div key={t.id} className="rounded-lg px-3 py-2 hover:bg-slate-50">
                 <div className="flex items-start gap-2">
                   <span className={`mt-0.5 rounded-md p-1 ring-1 ${TIPOS[t.tipo].color}`}>
-                    <Icono d={TIPOS[t.tipo].icono} className="h-3.5 w-3.5" />
+                    <Icono nombre={TIPOS[t.tipo].icono} className="h-3.5 w-3.5" />
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-navy-900">{t.resumen}</p>
@@ -229,6 +220,7 @@ export function FormActividad({
   modelo = null,
   registroId = null,
   fecha,
+  hora,
   query,
   onCerrar,
   onGuardado,
@@ -237,6 +229,7 @@ export function FormActividad({
   modelo?: string | null;
   registroId?: string | null;
   fecha?: string;
+  hora?: string;
   query: string;
   onCerrar: () => void;
   onGuardado: () => void;
@@ -249,7 +242,7 @@ export function FormActividad({
     resumen: tarea?.resumen ?? "",
     nota: tarea?.nota ?? "",
     fecha: tarea?.fecha ?? fecha ?? hoyISO(),
-    hora: horaCorta(tarea?.hora ?? null),
+    hora: tarea ? horaCorta(tarea.hora) : (hora ?? ""),
     asignado_id: tarea?.asignado?.id ?? "",
   });
 
@@ -307,7 +300,7 @@ export function FormActividad({
               onClick={() => setF({ ...f, tipo: k })}
               className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm ring-1 transition ${f.tipo === k ? TIPOS[k].color + " font-medium" : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"}`}
             >
-              <Icono d={TIPOS[k].icono} className="h-3.5 w-3.5" />
+              <Icono nombre={TIPOS[k].icono} className="h-3.5 w-3.5" />
               {TIPOS[k].label}
             </button>
           ))}
@@ -375,152 +368,6 @@ export function FormActividad({
         </div>
       </form>
     </Modal>
-  );
-}
-
-// --- Calendario ---
-
-const iso = (d: Date) => d.toLocaleDateString("en-CA");
-const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-
-function inicioSemana(d: Date): Date {
-  const r = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  r.setDate(r.getDate() - ((r.getDay() + 6) % 7));
-  return r;
-}
-
-/** Calendario de actividades (mes o semana). `modelo` limita a un tipo de registro. */
-export function Calendario({ query, modelo, extra }: { query: string; modelo?: string; extra?: ReactNode }) {
-  const [modo, setModo] = useState<"mes" | "semana">(() => (window.innerWidth < 640 ? "semana" : "mes"));
-  const [ref, setRef] = useState(() => new Date());
-  const [mias, setMias] = useState(false);
-  const [tareas, setTareas] = useState<Tarea[]>([]);
-  const [form, setForm] = useState<{ tarea: Tarea | null; fecha?: string } | null>(null);
-  const sep = query ? "&" : "?";
-
-  const dias = useMemo(() => {
-    const ini = modo === "mes" ? inicioSemana(new Date(ref.getFullYear(), ref.getMonth(), 1)) : inicioSemana(ref);
-    const n = modo === "mes" ? 42 : 7;
-    return Array.from({ length: n }, (_, i) => new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() + i));
-  }, [modo, ref]);
-
-  const cargar = useCallback(() => {
-    const p = new URLSearchParams({ desde: iso(dias[0]), hasta: iso(dias[dias.length - 1]) });
-    if (modelo) p.set("modelo", modelo);
-    if (mias) p.set("mias", "true");
-    get<Tarea[]>(`/tareas/calendario${query}${sep}${p}`).then(setTareas);
-  }, [dias, modelo, mias, query, sep]);
-  useEffect(cargar, [cargar]);
-
-  const porDia = useMemo(() => {
-    const m: Record<string, Tarea[]> = {};
-    for (const t of tareas) (m[t.fecha] ??= []).push(t);
-    return m;
-  }, [tareas]);
-
-  function mover(n: number) {
-    const r = new Date(ref);
-    if (modo === "mes") r.setMonth(r.getMonth() + n, 1);
-    else r.setDate(r.getDate() + 7 * n);
-    setRef(r);
-  }
-
-  const titulo =
-    modo === "mes"
-      ? ref.toLocaleDateString("es-MX", { month: "long", year: "numeric" })
-      : `${dias[0].toLocaleDateString("es-MX", { day: "numeric", month: "short" })} – ${dias[6].toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" })}`;
-  const hoy = hoyISO();
-
-  return (
-    <div className="card overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <button className="btn-icono" onClick={() => mover(-1)} aria-label="Anterior">
-            ‹
-          </button>
-          <button className="btn-secondary py-1.5" onClick={() => setRef(new Date())}>
-            Hoy
-          </button>
-          <button className="btn-icono" onClick={() => mover(1)} aria-label="Siguiente">
-            ›
-          </button>
-          <h2 className="ml-2 text-lg font-semibold capitalize text-navy-900">{titulo}</h2>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {extra}
-          <label className="flex items-center gap-2 text-sm text-slate-600">
-            <input type="checkbox" className="accent-brand-500" checked={mias} onChange={(e) => setMias(e.target.checked)} />
-            Solo mías
-          </label>
-          <div className="flex rounded-lg bg-slate-100 p-1">
-            {(["mes", "semana"] as const).map((m) => (
-              <button key={m} onClick={() => setModo(m)} className={`rounded-md px-3 py-1 text-sm font-medium capitalize ${modo === m ? "bg-white text-navy-900 shadow-sm" : "text-slate-600"}`}>
-                {m}
-              </button>
-            ))}
-          </div>
-          <button className="btn-primary py-1.5" onClick={() => setForm({ tarea: null, fecha: hoy })}>
-            + Actividad
-          </button>
-        </div>
-      </div>
-      <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50 text-center text-xs font-medium uppercase tracking-wide text-slate-500">
-        {DIAS.map((d) => (
-          <div key={d} className="py-2">
-            {d}
-          </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-7">
-        {dias.map((d) => {
-          const k = iso(d);
-          const fuera = modo === "mes" && d.getMonth() !== ref.getMonth();
-          const lista = porDia[k] ?? [];
-          return (
-            <div
-              key={k}
-              onClick={() => setForm({ tarea: null, fecha: k })}
-              className={`group cursor-pointer border-b border-r border-slate-100 p-1.5 transition hover:bg-brand-50/40 ${modo === "mes" ? "min-h-24 sm:min-h-28" : "min-h-64"} ${fuera ? "bg-slate-50/60" : ""}`}
-            >
-              <div className="mb-1 flex items-center justify-between">
-                <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${k === hoy ? "bg-brand-500 font-semibold text-white" : fuera ? "text-slate-300" : "text-slate-600"}`}>{d.getDate()}</span>
-                <span className="hidden text-xs text-brand-500 group-hover:inline">+</span>
-              </div>
-              <div className="space-y-1">
-                {lista.slice(0, modo === "mes" ? 3 : 20).map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setForm({ tarea: t });
-                    }}
-                    title={`${TIPOS[t.tipo].label}: ${t.resumen}${t.registro_nombre ? ` · ${t.registro_nombre}` : ""}`}
-                    className={`flex w-full items-center gap-1 truncate rounded px-1.5 py-0.5 text-left text-[11px] ring-1 ${TIPOS[t.tipo].color} ${t.hecha_en ? "line-through opacity-50" : ""} ${!t.hecha_en && t.fecha < hoy ? "ring-red-300" : ""}`}
-                  >
-                    <Icono d={TIPOS[t.tipo].icono} className="h-3 w-3 shrink-0" />
-                    {t.hora && <span className="font-semibold">{horaCorta(t.hora)}</span>}
-                    <span className="truncate">{t.resumen}</span>
-                  </button>
-                ))}
-                {modo === "mes" && lista.length > 3 && <p className="px-1 text-[11px] font-medium text-slate-500">+{lista.length - 3} más</p>}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      {form && (
-        <FormActividad
-          tarea={form.tarea}
-          fecha={form.fecha}
-          query={query}
-          onCerrar={() => setForm(null)}
-          onGuardado={() => {
-            setForm(null);
-            cargar();
-          }}
-        />
-      )}
-    </div>
   );
 }
 

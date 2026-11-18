@@ -104,7 +104,7 @@ export default function Festivos() {
 
   return (
     <>
-      <PageHeader fuentes="arts. 74 y 75; jornada electoral: art. 74, fr. IX"
+      <PageHeader icono="calendar-heart" fuentes="arts. 74 y 75; jornada electoral: art. 74, fr. IX"
         title="Días festivos"
         subtitle={
           nacional

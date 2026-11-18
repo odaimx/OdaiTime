@@ -17,7 +17,7 @@ export default function MisRegistros() {
 
   return (
     <div className="mx-auto max-w-md">
-      <PageHeader title="Mis registros" subtitle="Últimos 15 días" />
+      <PageHeader icono="list-checks" title="Mis registros" subtitle="Últimos 15 días" />
       {checadas === null && <p className="text-sm text-slate-500">Cargando…</p>}
       {checadas?.length === 0 && <p className="card p-6 text-center text-slate-500">Aún no tienes checadas.</p>}
       <div className="space-y-4">

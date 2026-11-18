@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import Registro, { useFormulario } from "../components/Registro";
+import Icono from "../components/Iconos";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
 import { Badge, ErrorBox, PageHeader, useEmpresaScope } from "../components/ui";
 import { get, patch, post, ROLES, type Rol, type Sucursal, type Usuario } from "../lib/api";
@@ -68,6 +69,11 @@ export default function Usuarios() {
     id: "usuarios",
     clave: (u) => u.id,
     onAbrir: abrir,
+    acciones: listo && (
+      <button className="btn-primary" onClick={() => abrir("nuevo")}>
+        <Icono nombre="plus" /> Nuevo
+      </button>
+    ),
     vacio: "Aún no hay usuarios.",
     ordenInicial: { clave: "nombre", dir: "asc" },
     columnas: [
@@ -128,14 +134,10 @@ export default function Usuarios() {
   return (
     <>
       <PageHeader
+        icono="users"
         title="Usuarios"
         subtitle="Quién entra a ODAITIME y qué puede ver"
-        action={
-          <div className="flex flex-col gap-3 sm:flex-row">
-            {selector}
-            {listo && <button className="btn-primary" onClick={() => abrir("nuevo")}>Nuevo usuario</button>}
-          </div>
-        }
+        action={selector}
       />
 
       <Vista vista={vista} />

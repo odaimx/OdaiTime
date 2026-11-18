@@ -4,6 +4,7 @@ import Bitacora from "../components/Bitacora";
 import Camara from "../components/Camara";
 import Registro, { useFormulario } from "../components/Registro";
 import VacacionesIncidencias from "../components/VacacionesIncidencias";
+import Icono from "../components/Iconos";
 import Vista, { useVista, type Columna, type ConfigVista } from "../components/Vista";
 import { AvisoLicencia, Badge, ErrorBox, Modal, PageHeader, UsoLicencia, useEmpresaScope } from "../components/ui";
 import {
@@ -239,6 +240,19 @@ export default function Empleados() {
     ],
     clave: (e) => e.id,
     onAbrir: (e) => abrirDetalle(e.id),
+    acciones: listo && (
+      <>
+        <button className="btn-primary" onClick={abrirNuevo}>
+          <Icono nombre="plus" /> Nuevo
+        </button>
+        {esAdmin && (
+          <button className="btn-icono h-10 w-10" onClick={() => setImportando(true)} title="Importar desde Excel" aria-label="Importar desde Excel">
+            <Icono nombre="upload" />
+          </button>
+        )}
+      </>
+    ),
+    extra: lic && <UsoLicencia lic={lic} compacto />,
     actividades: { modelo: "empleado", query, listo },
     vacio: "No hay empleados con esos filtros.",
     kanban: (e) => (
@@ -415,24 +429,10 @@ export default function Empleados() {
   return (
     <>
       <PageHeader
+        icono="contact-round"
         title="Empleados"
         subtitle="Expediente, sucursal y turno de cada colaborador"
-        action={
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            {lic && <UsoLicencia lic={lic} compacto />}
-            {selector}
-            {esAdmin && listo && (
-              <button className="btn-secondary" onClick={() => setImportando(true)}>
-                Importar Excel
-              </button>
-            )}
-            {listo && (
-              <button className="btn-primary" onClick={abrirNuevo}>
-                Nuevo empleado
-              </button>
-            )}
-          </div>
-        }
+        action={selector}
       />
 
       <Vista vista={vistaEmp} />

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Bitacora from "../components/Bitacora";
 import { ArticuloLFT, TextoLFT } from "../components/LFT";
+import Icono from "../components/Iconos";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
 import Registro, { useFormulario } from "../components/Registro";
 import { Badge, ErrorBox, PageHeader, useEmpresaScope } from "../components/ui";
@@ -129,6 +130,12 @@ export default function Turnos() {
     id: "turnos",
     clave: (t) => t.id,
     onAbrir: abrir,
+    fuentes: "arts. 59 a 69: jornada, descansos y horas extra",
+    acciones: puedeEditar && listo && (
+      <button className="btn-primary" onClick={() => abrir("nuevo")}>
+        <Icono nombre="plus" /> Nuevo
+      </button>
+    ),
     modoInicial: "kanban",
     actividades: { modelo: "turno", query, listo },
     vacio: "Aún no hay turnos.",
@@ -224,19 +231,11 @@ export default function Turnos() {
 
   return (
     <>
-      <PageHeader fuentes="arts. 59 a 69: jornada, descansos y horas extra"
+      <PageHeader
+        icono="calendar-clock"
         title="Turnos"
         subtitle="Horarios semanales reutilizables, revisados contra la jornada máxima de la Ley Federal del Trabajo"
-        action={
-          <div className="flex flex-col gap-3 sm:flex-row">
-            {selector}
-            {puedeEditar && listo && (
-              <button className="btn-primary" onClick={() => abrir("nuevo")}>
-                Nuevo turno
-              </button>
-            )}
-          </div>
-        }
+        action={selector}
       />
 
       <Vista vista={vista} />

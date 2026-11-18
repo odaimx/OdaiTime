@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { get, type Empresa, type Licencia, type LimiteLicencia } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { FuentesOficiales } from "./LFT";
+import Icono, { type NombreIcono } from "./Iconos";
 
 export interface Ajustes {
   /** Título del modal, p. ej. "Reglas de la tarjeta de asistencia". */
@@ -10,38 +11,55 @@ export interface Ajustes {
   ancho?: "md" | "lg" | "xl";
 }
 
-export function PageHeader({ title, subtitle, action, fuentes, ajustes }: { title: string; subtitle?: string; action?: ReactNode; fuentes?: string; ajustes?: Ajustes }) {
+export function PageHeader({
+  title,
+  subtitle,
+  action,
+  fuentes,
+  ajustes,
+  icono,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: ReactNode;
+  fuentes?: string;
+  ajustes?: Ajustes;
+  icono?: NombreIcono;
+}) {
   const [config, setConfig] = useState(false);
   return (
-    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
-      <div>
-        <h1 className="flex items-center gap-2 text-2xl font-semibold text-navy-900">
-          {title}
-          {ajustes && (
-            <button
-              type="button"
-              onClick={() => setConfig(true)}
-              title={`Configuración: ${ajustes.titulo}`}
-              aria-label="Configuración"
-              className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-brand-50 hover:text-brand-600"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="3" />
-                <path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z" />
-              </svg>
-            </button>
-          )}
-          {fuentes !== undefined && <FuentesOficiales articulos={fuentes || undefined} />}
-        </h1>
-        {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
+    <>
+    <div className="banda -mx-4 -mt-4 mb-5 bg-navy-950 px-4 py-4 sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:-mt-8 lg:px-8 lg:py-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-3">
+            {icono && <Icono nombre={icono} className="h-8 w-8 shrink-0 text-oro-400 sm:h-9 sm:w-9" grosor={1.8} />}
+            <h1 className="truncate text-2xl font-semibold tracking-tight text-oro-400 sm:text-3xl">{title}</h1>
+            {ajustes && (
+              <button
+                type="button"
+                onClick={() => setConfig(true)}
+                title={`Configuración: ${ajustes.titulo}`}
+                aria-label="Configuración"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-oro-300/80 transition hover:bg-white/10 hover:text-oro-300"
+              >
+                <Icono nombre="settings" className="h-5 w-5" />
+              </button>
+            )}
+            {fuentes !== undefined && <FuentesOficiales articulos={fuentes || undefined} oscuro />}
+          </div>
+          {subtitle && <p className="mt-1 hidden text-sm text-slate-300 md:block">{subtitle}</p>}
+        </div>
+        {action && <div className="flex flex-col gap-3 sm:flex-row sm:items-center">{action}</div>}
       </div>
-      {action}
+    </div>
+      {/* Fuera de la banda para que el formulario no herede sus estilos oscuros */}
       {ajustes && config && (
         <Modal title={`Configuración · ${ajustes.titulo}`} onClose={() => setConfig(false)} ancho={ajustes.ancho ?? "lg"}>
           {ajustes.contenido}
         </Modal>
       )}
-    </div>
+    </>
   );
 }
 
@@ -86,7 +104,7 @@ export function Badge({ ok, children }: { ok: boolean; children: ReactNode }) {
   return (
     <span
       className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-        ok ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+        ok ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-600"
       }`}
     >
       {children}
@@ -164,16 +182,16 @@ export function AvisoLicencia({ info, onClose }: { info: LimiteLicencia; onClose
 /** Barra de uso de la licencia. */
 export function UsoLicencia({ lic, compacto = false }: { lic: Licencia; compacto?: boolean }) {
   const pct = Math.min(100, Math.round((lic.activos / lic.max_empleados) * 100));
-  const color = lic.vencida || pct >= 100 ? "bg-red-500" : pct >= 80 ? "bg-amber-500" : "bg-brand-500";
+  const color = lic.vencida || pct >= 100 ? "bg-red-500" : pct >= 80 ? "bg-amber-500" : "bg-navy-900";
   return (
-    <div className={compacto ? "w-full sm:w-56" : ""}>
-      <div className="flex items-baseline justify-between text-xs">
-        <span className="text-slate-500">Licencia{lic.vencida && <span className="ml-1 font-medium text-red-600">vencida</span>}</span>
+    <div className={compacto ? "w-full sm:w-64" : ""}>
+      <div className="flex items-baseline justify-between gap-4 text-sm">
+        <span className="text-navy-900">Licencia{lic.vencida && <span className="ml-1 font-medium text-red-600">vencida</span>}</span>
         <span className="font-medium text-navy-900">
           {lic.activos} de {lic.max_empleados} empleados
         </span>
       </div>
-      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200">
+      <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-200">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
       {!compacto && lic.disponibles <= Math.max(1, Math.ceil(lic.max_empleados * 0.2)) && (

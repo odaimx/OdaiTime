@@ -2,30 +2,23 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router";
 import { get, hoyISO, ROLES, urlLogo, type Rol, type Tarea } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import Icono, { type NombreIcono } from "./Iconos";
 
-const NAV: { to: string; label: string; roles: Rol[]; icon: string }[] = [
-  { to: "/checar", label: "Checar", roles: ["empleado"], icon: "M12 7v5l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" },
-  { to: "/mis-registros", label: "Mis registros", roles: ["empleado"], icon: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" },
-  { to: "/", label: "Inicio", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "M3 12l9-9 9 9M5 10v10h14V10" },
-  { to: "/empresas", label: "Empresas", roles: ["superadmin"], icon: "M3 21h18M5 21V7l7-4 7 4v14M9 9h1m4 0h1M9 13h1m4 0h1M9 17h1m4 0h1" },
-  { to: "/sucursales", label: "Sucursales", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "M12 21s-7-6.2-7-11a7 7 0 1114 0c0 4.8-7 11-7 11zm0-8a3 3 0 100-6 3 3 0 000 6z" },
-  { to: "/empleados", label: "Empleados", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "M15 7a3 3 0 11-6 0 3 3 0 016 0zM4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1" },
-  { to: "/asistencia", label: "Tarjeta de asistencia", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2zM8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" },
-  { to: "/checadas", label: "Asistencias", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" },
-  { to: "/actividades", label: "Actividades", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "M12 7v5l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" },
-  { to: "/reportes", label: "Reportes y nómina", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "M9 17v-6m3 6V7m3 10v-3M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z" },
-  { to: "/turnos", label: "Turnos", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "M12 7v5l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" },
-  { to: "/festivos", label: "Días festivos", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2zM12 14l1 2 2 .3-1.5 1.4.4 2.1-1.9-1-1.9 1 .4-2.1L9 16.3l2-.3z" },
-  { to: "/usuarios", label: "Usuarios", roles: ["superadmin", "admin_empresa"], icon: "M16 19v-1a4 4 0 00-4-4H6a4 4 0 00-4 4v1M9 10a3 3 0 100-6 3 3 0 000 6zm13 9v-1a4 4 0 00-3-3.9M16 4.1a3 3 0 010 5.8" },
+const NAV: { to: string; label: string; roles: Rol[]; icon: NombreIcono }[] = [
+  { to: "/checar", label: "Checar", roles: ["empleado"], icon: "fingerprint-pattern" },
+  { to: "/mis-registros", label: "Mis registros", roles: ["empleado"], icon: "list-checks" },
+  { to: "/", label: "Inicio", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "house" },
+  { to: "/empresas", label: "Empresas", roles: ["superadmin"], icon: "building" },
+  { to: "/sucursales", label: "Sucursales", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "store" },
+  { to: "/empleados", label: "Empleados", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "contact-round" },
+  { to: "/asistencia", label: "Tarjeta de asistencia", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "clipboard-list" },
+  { to: "/checadas", label: "Asistencias", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "fingerprint-pattern" },
+  { to: "/actividades", label: "Actividades", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "calendar-check" },
+  { to: "/reportes", label: "Reportes y nómina", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "file-chart-column" },
+  { to: "/turnos", label: "Turnos", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "calendar-clock" },
+  { to: "/festivos", label: "Días festivos", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "calendar-heart" },
+  { to: "/usuarios", label: "Usuarios", roles: ["superadmin", "admin_empresa"], icon: "users" },
 ];
-
-function Icon({ d }: { d: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 shrink-0">
-      <path d={d} />
-    </svg>
-  );
-}
 
 const FIJO_KEY = "odaitime.menuFijo";
 
@@ -77,12 +70,12 @@ export default function Layout() {
   const oculto = expandido ? "" : "lg:hidden"; // textos que solo se ven con el menú abierto
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-white">
       {/* Barra superior (solo móvil/tablet) */}
-      <header className="sticky top-0 z-30 flex items-center justify-between bg-navy-900 px-4 py-3 lg:hidden">
+      <header className="sticky top-0 z-30 flex items-center justify-between bg-navy-950 px-4 py-3 lg:hidden">
         <img src="/logo.png" alt="ODAI" className="h-6 w-auto" />
         <button onClick={() => setAbierto(true)} className="rounded-lg p-2 text-white hover:bg-navy-800" aria-label="Abrir menú">
-          <Icon d="M4 6h16M4 12h16M4 18h16" />
+          <Icono nombre="menu" className="h-5 w-5" />
         </button>
       </header>
 
@@ -93,7 +86,7 @@ export default function Layout() {
         onMouseLeave={() => setHover(false)}
         onFocus={() => setHover(true)}
         onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setHover(false)}
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col overflow-hidden bg-navy-900 text-slate-300 transition-all duration-200 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col overflow-hidden bg-navy-950 text-oro-400 transition-all duration-200 lg:translate-x-0 ${
           abierto ? "translate-x-0" : "-translate-x-full"
         } ${expandido ? "lg:w-64" : "lg:w-16"} ${hover && !fijo ? "lg:shadow-2xl" : ""}`}
       >
@@ -107,12 +100,12 @@ export default function Layout() {
               OT
             </span>
           )}
-          <button onClick={() => setAbierto(false)} className="text-slate-400 hover:text-white lg:hidden" aria-label="Cerrar menú">
+          <button onClick={() => setAbierto(false)} className="text-oro-400 hover:text-oro-300 lg:hidden" aria-label="Cerrar menú">
             ✕
           </button>
           <button
             onClick={alternarFijo}
-            className={`hidden rounded-md p-1 text-slate-400 hover:bg-navy-800 hover:text-white ${expandido ? "lg:block" : ""}`}
+            className={`hidden rounded-md p-1 text-oro-400/70 hover:bg-navy-800 hover:text-oro-300 ${expandido ? "lg:block" : ""}`}
             aria-label={fijo ? "Ocultar menú automáticamente" : "Fijar menú abierto"}
             title={fijo ? "Ocultar automáticamente" : "Fijar menú"}
           >
@@ -131,12 +124,12 @@ export default function Layout() {
               title={expandido ? undefined : n.label}
               className={({ isActive }) =>
                 `flex items-center gap-3 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition ${
-                  isActive ? "bg-brand-500 text-white" : "hover:bg-navy-800 hover:text-white"
+                  isActive ? "bg-brand-500 text-white" : "text-oro-400 hover:bg-navy-800 hover:text-oro-300"
                 }`
               }
             >
               <span className="relative">
-                <Icon d={n.icon} />
+                <Icono nombre={n.icon} className="h-5 w-5 shrink-0" grosor={1.8} />
                 {n.to === "/actividades" && pendientes > 0 && (
                   <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">{pendientes}</span>
                 )}
@@ -153,12 +146,13 @@ export default function Layout() {
                 <img src={urlLogo(usuario.empresa.id, usuario.empresa.logo_version)} alt={usuario.empresa.nombre} className="max-h-full max-w-full object-contain" />
               </div>
             )}
-            <p className="truncate text-sm font-medium text-white">{usuario.nombre}</p>
-            <p className="truncate text-xs text-slate-400">
+            <p className="truncate text-sm font-medium text-oro-300">{usuario.nombre}</p>
+            <p className="truncate text-xs text-oro-400/70">
               {ROLES[usuario.rol]}
               {usuario.empresa && ` · ${usuario.empresa.nombre}`}
             </p>
-            <button onClick={logout} className="mt-3 text-xs font-medium text-accent-500 hover:text-white">
+            <button onClick={logout} className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-oro-400 hover:text-oro-300">
+              <Icono nombre="log-out" className="h-3.5 w-3.5" />
               Cerrar sesión
             </button>
           </div>
@@ -176,8 +170,10 @@ export default function Layout() {
       </aside>
 
       {/* El contenido deja espacio para la barra de íconos (o para el menú fijo). */}
-      <main className={`min-w-0 p-4 transition-[padding] duration-200 sm:p-6 ${fijo ? "lg:pl-72" : "lg:pl-24"} lg:pr-8 lg:pt-8 lg:pb-8`}>
-        <Outlet />
+      <main className={`min-w-0 transition-[padding] duration-200 ${fijo ? "lg:pl-64" : "lg:pl-16"}`}>
+        <div className="p-4 sm:p-6 lg:p-8">
+          <Outlet />
+        </div>
       </main>
     </div>
   );
