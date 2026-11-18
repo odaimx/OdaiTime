@@ -4,6 +4,8 @@ import { ApiError, get, session, setOnSessionExpired, type Usuario } from "./api
 interface AuthState {
   usuario: Usuario | null;
   login: (email: string, password: string) => Promise<void>;
+  /** Inicia la sesión con los tokens que ya devolvió la API (p. ej. al crear la contraseña). */
+  entrar: (body: { usuario: Usuario }) => void;
   logout: () => Promise<void>;
   /** Vuelve a leer el usuario (p. ej. después de cambiar el logo de la empresa). */
   refrescar: () => Promise<void>;
@@ -32,6 +34,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario(body.usuario);
   }, []);
 
+  const entrar = useCallback((body: { usuario: Usuario }) => {
+    session.set(body as Parameters<typeof session.set>[0]);
+    setUsuario(body.usuario);
+  }, []);
+
   const refrescar = useCallback(async () => {
     const u = await get<Usuario>("/auth/me");
     const actual = session.get();
@@ -52,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  return <AuthContext.Provider value={{ usuario, login, logout, refrescar }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ usuario, login, entrar, logout, refrescar }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthState {

@@ -1,9 +1,11 @@
+import secrets
 import uuid
 from datetime import UTC, date, datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import Response
+from pydantic import BaseModel, EmailStr
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 
@@ -21,7 +23,7 @@ from app.schemas.empleado import (
     ImportResultado,
 )
 from app.schemas.turno import AsignarTurnoIn
-from app.services import bitacora, fotos, importar, licencia
+from app.services import accesos, bitacora, fotos, importar, licencia
 
 _ADMIN = (Rol.SUPERADMIN, Rol.ADMIN_EMPRESA)
 _GESTION = (*_ADMIN, Rol.GERENTE_SUCURSAL)
@@ -127,7 +129,7 @@ async def _asignar(db: DB, empleado: Empleado, turno: Turno, inicio: date) -> No
 
 
 async def _recargar(db: DB, empleado: Empleado) -> Empleado:
-    await db.refresh(empleado, attribute_names=["sucursal", "asignaciones"])
+    await db.refresh(empleado, attribute_names=["sucursal", "asignaciones", "usuario"])
     return empleado
 
 
@@ -469,6 +471,89 @@ async def crear_acceso(
     await db.flush()
     empleado.usuario_id = usuario.id
     await _log(db, user, empleado, "cambio", f"Acceso a la app creado ({email})")
+    await db.commit()
+    return EmpleadoDetalle.de(await _recargar(db, empleado))
+
+
+# --- Portal del trabajador (invitación por correo) ---
+
+
+class PortalIn(BaseModel):
+    email: EmailStr | None = None  # si no se manda, se usa el correo del expediente
+
+
+class PortalOut(BaseModel):
+    empleado: EmpleadoDetalle
+    enviado: bool  # se mandó el correo de invitación
+    enlace: str | None = None  # solo si no se pudo enviar, para compartirlo a mano
+
+
+@router.post("/{empleado_id}/portal", response_model=PortalOut)
+async def dar_portal(
+    empleado_id: uuid.UUID,
+    data: PortalIn,
+    request: Request,
+    user: CurrentUser,
+    db: DB,
+    empresa_id: uuid.UUID | None = None,
+) -> PortalOut:
+    """Da acceso al portal: crea (o reactiva) su usuario y le manda el enlace para su clave."""
+    emp = empresa_scope(user, empresa_id)
+    empleado = await _get(db, user, empleado_id, emp)
+    if not empleado.activo:
+        raise HTTPException(status.HTTP_409_CONFLICT, "El empleado está dado de baja")
+    usuario = await db.get(Usuario, empleado.usuario_id) if empleado.usuario_id else None
+    if usuario is None:
+        email = (data.email or empleado.email or "").lower()
+        if not email:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Captura el correo del empleado para enviarle su acceso",
+            )
+        if await db.scalar(select(func.count()).where(func.lower(Usuario.email) == email)):
+            raise HTTPException(status.HTTP_409_CONFLICT, "Ya existe un usuario con ese correo")
+        usuario = Usuario(
+            empresa_id=emp,
+            email=email,
+            nombre=empleado.nombre_completo,
+            # Clave aleatoria que nadie conoce: la persona crea la suya con el enlace del correo.
+            password_hash=hash_password(secrets.token_urlsafe(32)),
+            rol=Rol.EMPLEADO,
+            sucursales=[empleado.sucursal],
+        )
+        db.add(usuario)
+        await db.flush()
+        empleado.usuario_id = usuario.id
+    else:
+        usuario.activo = True
+    enviado, enlace = await accesos.enviar_enlace(db, request, usuario, "invitacion")
+    await _log(
+        db,
+        user,
+        empleado,
+        "cambio",
+        f"Acceso al portal ({usuario.email}): "
+        + (
+            "invitación enviada por correo"
+            if enviado
+            else "invitación sin enviar (correo no configurado)"
+        ),
+    )
+    await db.commit()
+    return PortalOut(
+        empleado=EmpleadoDetalle.de(await _recargar(db, empleado)),
+        enviado=enviado,
+        enlace=None if enviado else enlace,
+    )
+
+
+@router.delete("/{empleado_id}/portal", response_model=EmpleadoDetalle)
+async def quitar_portal(
+    empleado_id: uuid.UUID, user: CurrentUser, db: DB, empresa_id: uuid.UUID | None = None
+) -> EmpleadoDetalle:
+    empleado = await _get(db, user, empleado_id, empresa_scope(user, empresa_id))
+    await _cerrar_acceso(db, empleado.usuario_id, activo=False)
+    await _log(db, user, empleado, "cambio", "Acceso al portal retirado")
     await db.commit()
     return EmpleadoDetalle.de(await _recargar(db, empleado))
 

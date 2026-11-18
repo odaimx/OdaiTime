@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router";
-import { get, hoyISO, ROLES, urlLogo, type Rol, type Tarea } from "../lib/api";
+import { estiloFondo, get, hoyISO, urlLogo, type Rol, type Tarea } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import Icono, { type NombreIcono } from "./Iconos";
 import { REPORTE } from "./Vista";
@@ -199,7 +199,7 @@ export default function Layout() {
       </aside>
 
       {/* El contenido deja espacio para la barra de íconos (o para el menú fijo). */}
-      <main className={`min-w-0 transition-[padding] duration-200 ${fijo ? "lg:pl-64" : "lg:pl-16"}`}>
+      <main style={estiloFondo(usuario.empresa)} className={`min-w-0 transition-[padding] duration-200 ${fijo ? "lg:pl-64" : "lg:pl-16"}`}>
         <div className="flex min-h-screen flex-col p-4 sm:p-6 lg:p-8">
           <div className="flex-1">
             <Outlet />

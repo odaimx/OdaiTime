@@ -14,6 +14,8 @@ class EmpresaRef(BaseModel):
     id: uuid.UUID
     nombre: str
     logo_version: str | None = None
+    fondo_color: str | None = None
+    fondo_version: str | None = None
 
 
 class UsuarioOut(BaseModel):

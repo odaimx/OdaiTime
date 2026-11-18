@@ -61,3 +61,25 @@ async def procesar_logo(archivo: UploadFile) -> bytes:
     salida = BytesIO()
     img.save(salida, "PNG", optimize=True)
     return salida.getvalue()
+
+
+FONDO_ANCHO = 1920
+
+
+async def procesar_fondo(archivo: UploadFile) -> bytes:
+    """Imagen de fondo de la empresa: JPEG de máx. 1920 px de ancho."""
+    datos = await archivo.read(MAX_ENTRADA + 1)
+    if len(datos) > MAX_ENTRADA:
+        raise error("fondo_grande", "La imagen supera 10 MB.")
+    try:
+        img = Image.open(BytesIO(datos))
+        img.load()
+    except (UnidentifiedImageError, OSError):
+        raise error(
+            "fondo_invalido", "El archivo no es una imagen válida (usa PNG o JPG)."
+        ) from None
+    img = ImageOps.exif_transpose(img).convert("RGB")
+    img.thumbnail((FONDO_ANCHO, FONDO_ANCHO))
+    salida = BytesIO()
+    img.save(salida, "JPEG", quality=82, optimize=True, progressive=True)
+    return salida.getvalue()

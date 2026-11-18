@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { ErrorBox } from "../components/ui";
-import { ApiError, urlLogo, type TenantInfo } from "../lib/api";
+import { ApiError, estiloFondo, urlLogo, type TenantInfo } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 export default function Login() {
@@ -15,6 +15,24 @@ export default function Login() {
   const [tenant, setTenant] = useState<TenantInfo | null>(null);
   const [noExiste, setNoExiste] = useState(false);
   const [redirigir, setRedirigir] = useState<{ mensaje: string; url: string } | null>(null);
+  const [recuperando, setRecuperando] = useState(false);
+  const [recuperado, setRecuperado] = useState<string | null>(null);
+
+  async function recuperar(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setEnviando(true);
+    try {
+      const r = await fetch("/api/auth/recuperar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
+      const b = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(typeof b?.detail === "string" ? b.detail : "No se pudo enviar la solicitud.");
+      setRecuperado(b.mensaje);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setEnviando(false);
+    }
+  }
 
   useEffect(() => {
     fetch("/api/tenant")
@@ -60,11 +78,11 @@ export default function Login() {
         <p className="text-xs text-slate-500">© {new Date().getFullYear()} Odai · Cancún, México</p>
       </div>
 
-      <div className="flex flex-1 items-center justify-center bg-slate-50 p-6">
-        <form onSubmit={onSubmit} className="card w-full max-w-sm space-y-5 p-8">
+      <div className="flex flex-1 items-center justify-center bg-slate-50 p-6" style={tenant?.empresa_id ? estiloFondo({ id: tenant.empresa_id, fondo_color: tenant.fondo_color, fondo_version: tenant.fondo_version }) : undefined}>
+        <form onSubmit={recuperando ? recuperar : onSubmit} className="card w-full max-w-sm space-y-5 p-8">
           <div>
             <img src="/logo.png" alt="ODAI" className="mb-6 h-8 w-auto lg:hidden" />
-            <h1 className="text-xl font-semibold text-navy-900">Iniciar sesión</h1>
+            <h1 className="text-xl font-semibold text-navy-900">{recuperando ? "Recuperar contraseña" : "Iniciar sesión"}</h1>
             {tenant?.empresa_id && tenant.logo_version && (
               <img src={urlLogo(tenant.empresa_id, tenant.logo_version)} alt={tenant.nombre ?? ""} className="mb-5 max-h-16 max-w-[12rem] object-contain" />
             )}
@@ -95,16 +113,35 @@ export default function Login() {
             <label className="label" htmlFor="email">Correo</label>
             <input id="email" type="email" className="input" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
-          <div>
-            <label className="label" htmlFor="password">Contraseña</label>
-            <input id="password" type="password" className="input" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-          </div>
+          {!recuperando && (
+            <div>
+              <div className="flex items-baseline justify-between">
+                <label className="label" htmlFor="password">Contraseña</label>
+                <button type="button" className="text-xs font-medium text-brand-600 hover:underline" onClick={() => (setRecuperando(true), setError(null), setRecuperado(null))}>
+                  ¿Olvidaste tu contraseña?
+                </button>
+              </div>
+              <input id="password" type="password" className="input" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+            </div>
+          )}
 
+          {recuperado && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 ring-1 ring-emerald-200">{recuperado}</p>}
           <ErrorBox message={error} />
 
-          <button type="submit" className="btn-primary w-full" disabled={enviando}>
-            {enviando ? "Entrando…" : "Entrar"}
-          </button>
+          {recuperando ? (
+            <>
+              <button type="submit" className="btn-primary w-full" disabled={enviando || !!recuperado}>
+                {enviando ? "Enviando…" : "Enviarme el enlace"}
+              </button>
+              <button type="button" className="w-full text-sm text-slate-500 hover:text-navy-900 hover:underline" onClick={() => (setRecuperando(false), setError(null))}>
+                Volver a iniciar sesión
+              </button>
+            </>
+          ) : (
+            <button type="submit" className="btn-primary w-full" disabled={enviando}>
+              {enviando ? "Entrando…" : "Entrar"}
+            </button>
+          )}
         </form>
       </div>
     </div>

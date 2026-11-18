@@ -63,6 +63,8 @@ class EmpresaOut(EmpresaBase):
     licencia_vence: date | None
     created_at: datetime
     logo_version: str | None = None
+    fondo_color: str | None = None
+    fondo_version: str | None = None
 
     @computed_field
     @property

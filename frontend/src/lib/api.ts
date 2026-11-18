@@ -21,7 +21,7 @@ export interface Usuario {
   nombre: string;
   rol: Rol;
   activo: boolean;
-  empresa: { id: string; nombre: string; logo_version: string | null } | null;
+  empresa: { id: string; nombre: string; logo_version: string | null; fondo_color?: string | null; fondo_version?: string | null } | null;
   sucursales: SucursalRef[];
   ultimo_acceso: string | null;
 }
@@ -48,6 +48,19 @@ export interface Empresa {
   url: string | null;
   created_at: string;
   logo_version: string | null;
+  fondo_color?: string | null;
+  fondo_version?: string | null;
+}
+
+/** URL pública de la imagen de fondo de una empresa. */
+export const urlFondo = (empresaId: string, version: string) => `/api/tenant/fondo/${empresaId}?v=${encodeURIComponent(version)}`;
+
+/** Estilo del fondo principal de una empresa (color o imagen). */
+export function estiloFondo(e: { id: string; fondo_color?: string | null; fondo_version?: string | null } | null | undefined): Record<string, string> {
+  if (!e) return {};
+  if (e.fondo_version) return { backgroundImage: `url(${urlFondo(e.id, e.fondo_version)})`, backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: "fixed" };
+  if (e.fondo_color) return { backgroundColor: e.fondo_color };
+  return {};
 }
 
 /** URL pública del logo de una empresa (la versión invalida la caché al cambiarlo). */
@@ -60,6 +73,8 @@ export interface TenantInfo {
   dominio?: string | null;
   empresa_id?: string | null;
   logo_version?: string | null;
+  fondo_color?: string | null;
+  fondo_version?: string | null;
 }
 
 export interface Licencia {
@@ -267,6 +282,9 @@ export interface Empleado {
   sucursal: SucursalRef;
   turno_actual: Ref | null;
   tiene_acceso: boolean;
+  /** Acceso al portal del trabajador activo. */
+  portal: boolean;
+  portal_email: string | null;
   tiene_pin: boolean;
   foto_version: string | null;
   activo: boolean;
@@ -582,4 +600,16 @@ export function diasHasta(iso: string): number {
   const a = Date.UTC(y, m - 1, d);
   const b = Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
   return Math.round((a - b) / 86_400_000);
+}
+
+// --- Categorías (etiquetas) ---
+
+export type ModeloCategoria = "empleado" | "sucursal" | "usuario" | "empresa";
+
+export interface Categoria {
+  id: string;
+  modelo: ModeloCategoria;
+  nombre: string;
+  color: number;
+  registros: number;
 }

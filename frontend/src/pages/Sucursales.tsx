@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } fr
 import Bitacora from "../components/Bitacora";
 import Registro, { useFormulario } from "../components/Registro";
 import Icono from "../components/Iconos";
+import { columnaCategorias, filtrosCategorias, GestorCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
 import { Badge, ErrorBox, PageHeader, useEmpresaScope } from "../components/ui";
-import { get, patch, post, ZONAS_MX, type Sucursal } from "../lib/api";
+import { get, patch, post, ZONAS_MX, type Categoria, type Sucursal } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 type Form = { clave: string; nombre: string; zona_horaria: string; direccion: string; latitud: string; longitud: string; radio_metros: string };
@@ -72,6 +73,8 @@ export default function Sucursales() {
     cargar();
   }
 
+  const cats = useCategorias("sucursal", query, listo);
+  const [gestorCats, setGestorCats] = useState(false);
   const config: ConfigVista<Sucursal> = {
     id: "sucursales",
     tituloReporte: "Sucursales",
@@ -109,8 +112,10 @@ export default function Sucursales() {
         render: (s) => (s.latitud != null && s.longitud != null ? `${s.radio_metros} m` : <span className="text-slate-400">Sin ubicación</span>),
       },
       { clave: "estado", titulo: "Estado", agrupable: true, valor: (s) => (s.activa ? "Activa" : "Inactiva"), render: (s) => <Badge ok={s.activa}>{s.activa ? "Activa" : "Inactiva"}</Badge> },
+      columnaCategorias<Sucursal>((s) => s.id, cats.de),
     ],
     filtros: [
+      ...filtrosCategorias<Sucursal>(cats.lista, (s) => s.id, cats.asignadas),
       { clave: "sin_ubicacion", titulo: "Sin ubicación (geocerca)", grupo: "datos", prueba: (s) => s.latitud == null || s.longitud == null },
       { clave: "activas", titulo: "Activas", grupo: "estado", prueba: (s) => s.activa },
       { clave: "inactivas", titulo: "Inactivas", grupo: "estado", prueba: (s) => !s.activa },
@@ -144,11 +149,16 @@ export default function Sucursales() {
   return (
     <>
       <PageHeader
+        submenu={[
+          { etiqueta: "Sucursales", activo: true },
+          { etiqueta: "Categorías", onClick: () => setGestorCats(true) },
+        ]}
         icono="store"
         title="Sucursales"
         subtitle="Cada sucursal tiene su zona horaria y su geocerca para validar checadas"
         action={selector}
       />
+      {gestorCats && <GestorCategorias modelo="sucursal" query={query} puedeEditar={puedeEditar} onCerrar={() => setGestorCats(false)} onCambio={cats.recargar} />}
 
       <Vista vista={vista} />
 
@@ -165,6 +175,21 @@ export default function Sucursales() {
           ancho="md"
         >
           <form onSubmit={(e: FormEvent) => (e.preventDefault(), guardar())} className="space-y-4">
+            {editando !== "nueva" && (
+              <div className="completo">
+                <SelectorCategorias
+                  todas={cats.lista}
+                  valor={cats.asignadas[editando.id] ?? []}
+                  onCambio={(ids) => cats.asignar(editando.id, ids).then(cats.recargar)}
+                  puedeCrear={puedeEditar}
+                  onCrear={async (nombre) => {
+                    const c = await post<Categoria>(`/categorias${query || "?"}${query ? "&" : ""}modelo=sucursal`, { nombre, color: 7 });
+                    cats.recargar();
+                    return c;
+                  }}
+                />
+              </div>
+            )}
             <fieldset disabled={!puedeEditar} className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>

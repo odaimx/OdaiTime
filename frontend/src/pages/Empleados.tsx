@@ -5,6 +5,7 @@ import Camara from "../components/Camara";
 import Registro, { useFormulario } from "../components/Registro";
 import VacacionesIncidencias from "../components/VacacionesIncidencias";
 import Icono from "../components/Iconos";
+import { columnaCategorias, Chips, filtrosCategorias, GestorCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
 import Vista, { useVista, type Columna, type ConfigVista } from "../components/Vista";
 import { AvisoLicencia, Badge, ErrorBox, Modal, PageHeader, UsoLicencia, useEmpresaScope } from "../components/ui";
 import {
@@ -22,6 +23,7 @@ import {
   type EmpleadoDetalle,
   type Licencia,
   type LimiteLicencia,
+  type Categoria,
   type Sucursal,
   type Turno,
 } from "../lib/api";
@@ -57,6 +59,9 @@ export default function Empleados() {
 
   const [nuevo, setNuevo] = useState(false);
   const [sel, setSel] = useState<EmpleadoDetalle | null>(null);
+  const [gestorCats, setGestorCats] = useState(false);
+  const [enlacePortal, setEnlacePortal] = useState<string | null>(null);
+  const [avisoPortal, setAvisoPortal] = useState<string | null>(null);
   const [vista, setVista] = useState<Vista>("detalle");
   const { form, setForm, cargar: cargarForm, sucio, descartar } = useFormulario<Form>(vacio());
   const [extra, setExtra] = useState({ turno_id: "", fecha: hoyISO(), motivo: "", email: "", password: "" });
@@ -150,6 +155,27 @@ export default function Empleados() {
     }
   }
 
+  const cats = useCategorias("empleado", query, listo);
+
+  /** Casilla "Dar acceso al portal": crea su usuario y le manda la invitación por correo. */
+  async function alternarPortal(dar: boolean) {
+    if (!sel) return;
+    setEnlacePortal(null);
+    setAvisoPortal(null);
+    if (!dar) return ejecutar(() => api<EmpleadoDetalle>(`/empleados/${sel.id}/portal${query}`, { method: "DELETE" }));
+    let email = sel.portal_email ?? sel.email;
+    if (!email) {
+      email = prompt(`Correo de ${sel.nombre_completo} para enviarle su acceso:`)?.trim() ?? "";
+      if (!email) return;
+    }
+    await ejecutar(async () => {
+      const r = await post<{ empleado: EmpleadoDetalle; enviado: boolean; enlace: string | null }>(`/empleados/${sel.id}/portal${query}`, { email });
+      if (r.enviado) setAvisoPortal(`Se envió la invitación a ${r.empleado.portal_email}.`);
+      else setEnlacePortal(r.enlace);
+      return r.empleado;
+    });
+  }
+
   const columnas: Columna<Empleado>[] = [
     {
       clave: "nombre",
@@ -183,6 +209,7 @@ export default function Empleados() {
         </span>
       ),
     },
+    columnaCategorias<Empleado>((e) => e.id, cats.de),
     {
       clave: "turno",
       titulo: "Turno",
@@ -221,6 +248,7 @@ export default function Empleados() {
     tituloReporte: "Empleados",
     columnas,
     filtros: [
+      ...filtrosCategorias<Empleado>(cats.lista, (e) => e.id, cats.asignadas),
       { clave: "presentes", titulo: "En el trabajo", grupo: "presencia", prueba: (e) => presentes.has(e.id) },
       { clave: "ausentes", titulo: "Ausentes", grupo: "presencia", prueba: (e) => e.activo && !presentes.has(e.id) },
       { clave: "sin_turno", titulo: "Sin turno", grupo: "datos", prueba: (e) => e.activo && !e.turno_actual },
@@ -260,6 +288,7 @@ export default function Empleados() {
           {e.telefono && <p className="truncate text-xs text-slate-600">☎ {e.telefono}</p>}
           <div className="flex flex-wrap gap-1 pt-1">
             <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700">{e.sucursal.nombre}</span>
+            <Chips lista={cats.de(e.id)} />
             {!e.turno_actual && e.activo && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">Sin turno</span>}
             {!e.activo && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">Baja</span>}
           </div>
@@ -426,9 +455,13 @@ export default function Empleados() {
       <PageHeader
         icono="contact-round"
         title="Empleados"
-        subtitle="Expediente, sucursal y turno de cada colaborador"
+        submenu={[
+          { etiqueta: "Empleados", activo: true },
+          { etiqueta: "Categorías", onClick: () => setGestorCats(true) },
+        ]}
         action={selector}
       />
+      {gestorCats && <GestorCategorias modelo="empleado" query={query} puedeEditar={esAdmin} onCerrar={() => setGestorCats(false)} onCambio={cats.recargar} />}
 
       <Vista vista={vistaEmp} />
 
@@ -514,9 +547,52 @@ export default function Empleados() {
                 <span className="font-mono text-xs text-slate-500">#{sel.numero}</span>
                 <Badge ok={sel.activo}>{sel.activo ? "Activo" : `Baja ${fechaCorta(sel.fecha_baja)}`}</Badge>
                 {sel.tiene_pin && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">PIN de kiosco</span>}
-                {sel.tiene_acceso && <span className="rounded-full bg-accent-500/10 px-2 py-0.5 text-xs font-medium text-accent-500">Con acceso a la app</span>}
+                {sel.portal && <span className="rounded-full bg-accent-500/10 px-2 py-0.5 text-xs font-medium text-accent-500">Con acceso al portal</span>}
               </div>
               {!sel.activo && sel.motivo_baja && <p className="text-sm text-slate-600">Motivo de baja: {sel.motivo_baja}</p>}
+
+              <SelectorCategorias
+                todas={cats.lista}
+                valor={cats.asignadas[sel.id] ?? []}
+                onCambio={(ids) => cats.asignar(sel.id, ids).then(cats.recargar)}
+                puedeCrear={esAdmin}
+                onCrear={async (nombre) => {
+                  const c = await post<Categoria>(`/categorias${query}${sep}modelo=empleado`, { nombre, color: 7 });
+                  cats.recargar();
+                  return c;
+                }}
+              />
+
+              {sel.activo && (
+                <div className="flex items-start gap-3 rounded-lg border border-slate-200 p-4">
+                  <input id="portal" type="checkbox" className="mt-0.5 h-4 w-4 accent-brand-500" checked={sel.portal} onChange={(e) => alternarPortal(e.target.checked)} />
+                  <div className="min-w-0 flex-1 text-sm">
+                    <label htmlFor="portal" className="cursor-pointer font-medium text-navy-900">
+                      Dar acceso al portal
+                    </label>
+                    <p className="text-slate-500">
+                      Podrá registrar su asistencia y consultar su historial. Recibe un correo{sel.portal_email ? ` en ${sel.portal_email}` : ""} para crear su contraseña la primera vez.
+                    </p>
+                    {sel.portal && (
+                      <button type="button" className="mt-1 text-xs font-medium text-brand-600 hover:underline" onClick={() => alternarPortal(true)}>
+                        Reenviar invitación
+                      </button>
+                    )}
+                    {avisoPortal && <p className="mt-2 text-emerald-700">{avisoPortal}</p>}
+                    {enlacePortal && (
+                      <div className="mt-2 space-y-1 rounded-lg bg-amber-50 p-3 text-amber-900">
+                        <p>El correo saliente no está configurado. Comparte este enlace con la persona (vence en 72 horas):</p>
+                        <div className="flex gap-2">
+                          <input className="input flex-1 font-mono text-xs" readOnly value={enlacePortal} onFocus={(e) => e.target.select()} />
+                          <button type="button" className="btn-secondary" onClick={() => navigator.clipboard?.writeText(enlacePortal)}>
+                            Copiar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <form className="space-y-4" onSubmit={(ev) => (ev.preventDefault(), guardarFicha())}>
                 {camposExpediente(false)}
@@ -548,11 +624,6 @@ export default function Empleados() {
                 {sel.activo && (
                   <button className="btn-secondary" onClick={() => irA("turno")}>
                     Cambiar turno
-                  </button>
-                )}
-                {sel.activo && !sel.tiene_acceso && (
-                  <button className="btn-secondary" onClick={() => irA("acceso")}>
-                    Dar acceso a la app
                   </button>
                 )}
                 {sel.activo ? (

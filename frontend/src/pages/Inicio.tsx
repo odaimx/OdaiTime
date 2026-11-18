@@ -1,3 +1,4 @@
+import FondoEmpresa from "../components/FondoEmpresa";
 import LogoEmpresa from "../components/LogoEmpresa";
 import { useEffect, useState } from "react";
 import { PageHeader, UsoLicencia } from "../components/ui";
@@ -34,6 +35,12 @@ export default function Inicio() {
           <div className="card p-6">
             <h2 className="mb-3 text-sm font-medium text-slate-500">Logo de la empresa</h2>
             <LogoEmpresa empresaId={usuario.empresa.id} version={usuario.empresa.logo_version} onCambio={() => refrescar()} />
+          </div>
+        )}
+        {usuario.rol === "admin_empresa" && usuario.empresa && (
+          <div className="card p-6">
+            <h2 className="mb-3 text-sm font-medium text-slate-500">Fondo principal de la empresa</h2>
+            <FondoEmpresa empresaId={usuario.empresa.id} color={usuario.empresa.fondo_color} version={usuario.empresa.fondo_version} onCambio={() => refrescar()} />
           </div>
         )}
         {lic && (
