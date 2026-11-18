@@ -13,6 +13,7 @@ import Festivos from "./pages/Festivos";
 import Inicio from "./pages/Inicio";
 import Kiosco from "./pages/Kiosco";
 import Login from "./pages/Login";
+import Reportes from "./pages/Reportes";
 import MisRegistros from "./pages/MisRegistros";
 import Sucursales from "./pages/Sucursales";
 import Turnos from "./pages/Turnos";
@@ -86,6 +87,14 @@ export default function App() {
           element={
             <Requiere roles={GESTION}>
               <TarjetaAsistencia />
+            </Requiere>
+          }
+        />
+        <Route
+          path="reportes"
+          element={
+            <Requiere roles={GESTION}>
+              <Reportes />
             </Requiere>
           }
         />

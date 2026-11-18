@@ -3,37 +3,8 @@ import Avatar from "../components/Avatar";
 import { ArticuloLFT, FuenteLFT } from "../components/LFT";
 import Registro from "../components/Registro";
 import { ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
+import { periodo } from "../lib/periodo";
 import { get, hm, hora, INCIDENCIAS, post, type DetalleAsistencia, type DiaAsistencia, type FilaResumen, type Sucursal } from "../lib/api";
-
-const iso = (d: Date) => d.toLocaleDateString("en-CA");
-
-function periodo(clave: string): { desde: string; hasta: string } {
-  const hoy = new Date();
-  const lunes = new Date(hoy);
-  lunes.setDate(hoy.getDate() - ((hoy.getDay() + 6) % 7));
-  switch (clave) {
-    case "semana_pasada": {
-      const ini = new Date(lunes);
-      ini.setDate(lunes.getDate() - 7);
-      const fin = new Date(ini);
-      fin.setDate(ini.getDate() + 6);
-      return { desde: iso(ini), hasta: iso(fin) };
-    }
-    case "quincena": {
-      const q1 = hoy.getDate() <= 15;
-      const ini = new Date(hoy.getFullYear(), hoy.getMonth(), q1 ? 1 : 16);
-      const fin = q1 ? new Date(hoy.getFullYear(), hoy.getMonth(), 15) : new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
-      return { desde: iso(ini), hasta: iso(fin) };
-    }
-    case "mes":
-      return { desde: iso(new Date(hoy.getFullYear(), hoy.getMonth(), 1)), hasta: iso(new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0)) };
-    default: {
-      const fin = new Date(lunes);
-      fin.setDate(lunes.getDate() + 6);
-      return { desde: iso(lunes), hasta: iso(fin) };
-    }
-  }
-}
 
 const ESTADOS: Record<string, { label: string; clase: string }> = {
   asistencia: { label: "Asistencia", clase: "bg-emerald-50 text-emerald-700" },

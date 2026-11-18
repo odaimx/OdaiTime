@@ -183,8 +183,31 @@ async def resumen(
     empresa_id: uuid.UUID | None = None,
 ) -> list[FilaResumen]:
     """Resumen por empleado del periodo (faltas, retardos, extras, domingos, festivos…)."""
-    _validar_rango(desde, hasta)
     emp = empresa_scope(user, empresa_id)
+    return [
+        FilaResumen(
+            empleado=_ref(e),
+            sucursal=SucursalRef.model_validate(e.sucursal),
+            resumen=ResumenOut.model_validate(r),
+            conceptos=motor.conceptos_nomina(r),
+        )
+        for e, _, r in await calcular_periodo(db, user, emp, desde, hasta, sucursal_id)
+    ]
+
+
+async def calcular_periodo(
+    db: DB,
+    user: Usuario,
+    emp: uuid.UUID,
+    desde: date,
+    hasta: date,
+    sucursal_id: uuid.UUID | None = None,
+) -> list[tuple[Empleado, list[motor.Dia], motor.Resumen]]:
+    """Tarjeta de cada empleado (visible para el usuario) que estuvo activo en el periodo.
+
+    La usan el resumen, los reportes y la exportación a nómina.
+    """
+    _validar_rango(desde, hasta)
     q = select(Empleado).where(
         Empleado.empresa_id == emp,
         Empleado.fecha_ingreso <= hasta,
@@ -223,18 +246,11 @@ async def resumen(
 
     pol = _a_motor(await _politica(db, emp))
     fest = await festivos_svc.aplicables(db, emp, desde, hasta)
-    filas = []
+    resultado = []
     for e in empleados:
-        _, r = _calcular(e, desde, hasta, por_emp[e.id], inc_emp[e.id], pol, fest)
-        filas.append(
-            FilaResumen(
-                empleado=_ref(e),
-                sucursal=SucursalRef.model_validate(e.sucursal),
-                resumen=ResumenOut.model_validate(r),
-                conceptos=motor.conceptos_nomina(r),
-            )
-        )
-    return filas
+        dias, r = _calcular(e, desde, hasta, por_emp[e.id], inc_emp[e.id], pol, fest)
+        resultado.append((e, dias, r))
+    return resultado
 
 
 @router.get(

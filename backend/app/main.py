@@ -13,6 +13,7 @@ from app.api import (
     health,
     kiosco,
     licencia,
+    reportes,
     sucursales,
     tenant,
     turnos,
@@ -53,5 +54,6 @@ for r in (
     kiosco.router,
     asistencia.router,
     festivos.router,
+    reportes.router,
 ):
     app.include_router(r, prefix="/api")

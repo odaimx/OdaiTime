@@ -25,7 +25,8 @@ async def limpiar_bd():
     async with SessionLocal() as db:
         await db.execute(
             text(
-                "TRUNCATE festivo_designados, empresa_festivos, incidencias, politica_asistencia, "
+                "TRUNCATE claves_nomina, festivo_designados, empresa_festivos, incidencias, "
+                "politica_asistencia, "
                 "actividades, checadas, dispositivos, config_checadas, "
                 "asignaciones_turno, empleados, turno_dias, turnos, sesiones, "
                 "usuario_sucursales, usuarios, sucursales, empresas CASCADE"
