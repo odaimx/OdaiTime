@@ -63,9 +63,20 @@ export default function Empleados() {
   const [lic, setLic] = useState<Licencia | null>(null);
   const [historial, setHistorial] = useState(0);
   const [camaraFoto, setCamaraFoto] = useState(false);
+  const [fotoNueva, setFotoNueva] = useState<Blob | null>(null);
+  const [previa, setPrevia] = useState<string | null>(null);
+
+  function elegirFotoNueva(b: Blob | null) {
+    setCamaraFoto(false);
+    setFotoNueva(b);
+    setPrevia((ant) => {
+      if (ant) URL.revokeObjectURL(ant);
+      return b ? URL.createObjectURL(b) : null;
+    });
+  }
 
   async function guardarFoto(archivo: Blob) {
-    if (!sel) return;
+    if (!sel) return elegirFotoNueva(archivo); // en el alta, la foto se sube al crear
     setCamaraFoto(false);
     const body = new FormData();
     body.append("archivo", await comprimir(archivo, 1200), "foto.jpg");
@@ -155,6 +166,7 @@ export default function Empleados() {
     }
     setError(null);
     cargarForm(vacio(sucursalesActivas.length === 1 ? sucursalesActivas[0].id : ""));
+    elegirFotoNueva(null);
     setNuevo(true);
   }
 
@@ -186,10 +198,16 @@ export default function Empleados() {
     setError(null);
     try {
       const { turno_id, pin, ...datos } = form;
-      const creado = await post<EmpleadoDetalle>(`/empleados${query}`, { ...datos, turno_id: turno_id || null, pin: pin || null });
+      let creado = await post<EmpleadoDetalle>(`/empleados${query}`, { ...datos, turno_id: turno_id || null, pin: pin || null });
+      if (fotoNueva) {
+        const body = new FormData();
+        body.append("archivo", await comprimir(fotoNueva, 1200), "foto.jpg");
+        creado = await api<EmpleadoDetalle>(`/empleados/${creado.id}/foto${query}`, { method: "PUT", body });
+      }
+      elegirFotoNueva(null);
       setNuevo(false);
       cargar();
-      setSel(creado);
+      mostrar(creado);
       setVista("detalle");
     } catch (err) {
       const l = errorLicencia(err);
@@ -372,6 +390,35 @@ export default function Empleados() {
       {nuevo && (
         <Modal title="Nuevo empleado" onClose={() => setNuevo(false)} ancho="lg">
           <form onSubmit={crear} className="space-y-4">
+            <div className="flex items-center gap-4">
+              <label className="group relative cursor-pointer" title="Subir foto">
+                {previa ? (
+                  <img src={previa} alt="Foto del empleado" className="h-20 w-20 rounded-full object-cover" />
+                ) : (
+                  <span className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-dashed border-brand-300 bg-brand-50 text-brand-500">
+                    <IconoCamara />
+                  </span>
+                )}
+                <input type="file" accept="image/*" className="sr-only" onChange={(e) => e.target.files?.[0] && elegirFotoNueva(e.target.files[0])} />
+              </label>
+              <div className="flex flex-col gap-1 text-sm">
+                <span className="font-medium text-navy-900">Foto del empleado</span>
+                <div className="flex gap-3">
+                  <label className="cursor-pointer font-medium text-brand-600 hover:underline">
+                    {previa ? "Cambiar" : "Subir foto"}
+                    <input type="file" accept="image/*" className="sr-only" onChange={(e) => e.target.files?.[0] && elegirFotoNueva(e.target.files[0])} />
+                  </label>
+                  <button type="button" className="font-medium text-brand-600 hover:underline" onClick={() => setCamaraFoto(true)}>
+                    Tomar con la cámara
+                  </button>
+                  {previa && (
+                    <button type="button" className="text-slate-500 hover:text-red-600 hover:underline" onClick={() => elegirFotoNueva(null)}>
+                      Quitar
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
             {camposExpediente(true)}
             <ErrorBox message={error} />
             {botones(() => setNuevo(false))}
@@ -395,7 +442,13 @@ export default function Empleados() {
           {vista === "detalle" && (
             <div className="space-y-5">
               <div className="flex flex-wrap items-center gap-4">
-                <Avatar empleadoId={sel.id} nombre={sel.nombre_completo} version={sel.foto_version} query={query} tam={88} />
+                <label className="group relative cursor-pointer" title={sel.foto_version ? "Cambiar foto" : "Subir foto"}>
+                  <Avatar empleadoId={sel.id} nombre={sel.nombre_completo} version={sel.foto_version} query={query} tam={88} />
+                  <span className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-brand-500 text-white shadow ring-2 ring-white group-hover:bg-brand-600">
+                    <IconoCamara pequeno />
+                  </span>
+                  <input type="file" accept="image/*" className="sr-only" onChange={(e) => e.target.files?.[0] && guardarFoto(e.target.files[0])} />
+                </label>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
                   <label className="cursor-pointer font-medium text-brand-600 hover:underline">
                     {sel.foto_version ? "Cambiar foto" : "Subir foto"}
@@ -662,5 +715,15 @@ function Importar({
         </div>
       </form>
     </Modal>
+  );
+}
+
+function IconoCamara({ pequeno = false }: { pequeno?: boolean }) {
+  const t = pequeno ? 16 : 28;
+  return (
+    <svg width={t} height={t} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+      <circle cx="12" cy="13" r="4" />
+    </svg>
   );
 }
