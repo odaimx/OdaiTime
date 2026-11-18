@@ -198,7 +198,7 @@ export default function Empresas() {
                   onCambio={(ids) => cats.asignar(editando.id, ids).then(cats.recargar)}
                   puedeCrear={true}
                   onCrear={async (nombre) => {
-                    const c = await post<Categoria>(`/categorias${"" || "?"}${"" ? "&" : ""}modelo=empresa`, { nombre, color: 7 });
+                    const c = await post<Categoria>("/categorias?modelo=empresa", { nombre, color: 7 });
                     cats.recargar();
                     return c;
                   }}
