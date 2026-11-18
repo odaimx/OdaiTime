@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import Registro, { useFormulario } from "../components/Registro";
 import Icono from "../components/Iconos";
+import { columnaCategorias, filtrosCategorias, GestorCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
 import { Badge, ErrorBox, PageHeader, useEmpresaScope } from "../components/ui";
-import { get, patch, post, ROLES, type Rol, type Sucursal, type Usuario } from "../lib/api";
+import { get, patch, post, ROLES, type Categoria, type Rol, type Sucursal, type Usuario } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 type Form = { nombre: string; email: string; password: string; rol: Rol; sucursal_ids: string[] };
@@ -65,6 +66,8 @@ export default function Usuarios() {
     }
   }
 
+  const cats = useCategorias("usuario", query, listo);
+  const [gestorCats, setGestorCats] = useState(false);
   const config: ConfigVista<Usuario> = {
     id: "usuarios",
     tituloReporte: "Usuarios",
@@ -96,8 +99,10 @@ export default function Usuarios() {
       { clave: "sucursales", titulo: "Sucursales", buscable: true, valor: (u) => (u.rol === "admin_empresa" ? "Todas" : u.sucursales.map((x) => x.clave).join(", ")) },
       { clave: "acceso", titulo: "Último acceso", valor: (u) => u.ultimo_acceso, render: (u) => fecha(u.ultimo_acceso) },
       { clave: "estado", titulo: "Estado", agrupable: true, valor: (u) => (u.activo ? "Activo" : "Inactivo"), render: (u) => <Badge ok={u.activo}>{u.activo ? "Activo" : "Inactivo"}</Badge> },
+      columnaCategorias<Usuario>((u) => u.id, cats.de),
     ],
     filtros: [
+      ...filtrosCategorias<Usuario>(cats.lista, (u) => u.id, cats.asignadas),
       { clave: "admins", titulo: "Administradores", grupo: "rol", prueba: (u) => u.rol === "admin_empresa" },
       { clave: "gerentes", titulo: "Gerentes de sucursal", grupo: "rol", prueba: (u) => u.rol === "gerente_sucursal" },
       { clave: "empleados", titulo: "Empleados", grupo: "rol", prueba: (u) => u.rol === "empleado" },
@@ -135,11 +140,16 @@ export default function Usuarios() {
   return (
     <>
       <PageHeader
+        submenu={[
+          { etiqueta: "Usuarios", activo: true },
+          { etiqueta: "Categorías", onClick: () => setGestorCats(true) },
+        ]}
         icono="users"
         title="Usuarios"
         subtitle="Quién entra a ODAITIME y qué puede ver"
         action={selector}
       />
+      {gestorCats && <GestorCategorias modelo="usuario" query={query} puedeEditar={true} onCerrar={() => setGestorCats(false)} onCambio={cats.recargar} />}
 
       <Vista vista={vista} />
 
@@ -156,6 +166,21 @@ export default function Usuarios() {
           onCerrar={() => setEditando(null)}
         >
           <form onSubmit={(e: FormEvent) => (e.preventDefault(), guardar())} className="form-2col">
+            {editando !== "nuevo" && (
+              <div className="completo">
+                <SelectorCategorias
+                  todas={cats.lista}
+                  valor={cats.asignadas[editando.id] ?? []}
+                  onCambio={(ids) => cats.asignar(editando.id, ids).then(cats.recargar)}
+                  puedeCrear={true}
+                  onCrear={async (nombre) => {
+                    const c = await post<Categoria>(`/categorias${query || "?"}${query ? "&" : ""}modelo=usuario`, { nombre, color: 7 });
+                    cats.recargar();
+                    return c;
+                  }}
+                />
+              </div>
+            )}
             <div>
               <label className="label">Nombre</label>
               <input className="input" required value={form.nombre} onChange={set("nombre")} />

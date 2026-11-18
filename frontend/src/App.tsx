@@ -15,6 +15,7 @@ import Inicio from "./pages/Inicio";
 import Kiosco from "./pages/Kiosco";
 import Login from "./pages/Login";
 import Reportes from "./pages/Reportes";
+import Restablecer from "./pages/Restablecer";
 import MisRegistros from "./pages/MisRegistros";
 import Sucursales from "./pages/Sucursales";
 import Turnos from "./pages/Turnos";
@@ -41,6 +42,7 @@ export default function App() {
       <Routes>
         <Route path="/kiosco" element={<Kiosco />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/restablecer" element={<Restablecer />} />
         <Route path="*" element={<AlLogin />} />
       </Routes>
     );

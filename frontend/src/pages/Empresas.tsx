@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import CorreoSaliente from "../components/CorreoSaliente";
+import FondoEmpresa from "../components/FondoEmpresa";
 import LogoEmpresa from "../components/LogoEmpresa";
 import Registro, { useFormulario } from "../components/Registro";
 import Icono from "../components/Iconos";
+import { columnaCategorias, filtrosCategorias, GestorCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
 import { Badge, ErrorBox, PageHeader } from "../components/ui";
-import { get, patch, post, urlLogo, type Empresa, type TenantInfo } from "../lib/api";
+import { get, patch, post, urlLogo, type Categoria, type Empresa, type TenantInfo } from "../lib/api";
 
 type Form = { nombre: string; slug: string; razon_social: string; rfc: string; max_empleados: string; licencia_vence: string; admin_nombre: string; admin_email: string; admin_password: string };
 const VACIO: Form = { nombre: "", slug: "", razon_social: "", rfc: "", max_empleados: "15", licencia_vence: "", admin_nombre: "", admin_email: "", admin_password: "" };
@@ -74,9 +77,12 @@ export default function Empresas() {
     ) : (
       <span className={`${tam} flex shrink-0 items-center justify-center rounded-lg bg-navy-900 text-xs font-semibold text-white`}>{e.nombre.slice(0, 2).toUpperCase()}</span>
     );
+  const cats = useCategorias("empresa", "", true);
+  const [gestorCats, setGestorCats] = useState(false);
   const config: ConfigVista<Empresa> = {
     id: "empresas",
     tituloReporte: "Empresas",
+    ajustes: { titulo: "Correo saliente", ancho: "xl", contenido: <CorreoSaliente /> },
     clave: (e) => e.id,
     onAbrir: abrir,
     acciones: (
@@ -122,8 +128,10 @@ export default function Empresas() {
       { clave: "vence", titulo: "Vence", valor: (e) => e.licencia_vence, render: (e) => (e.licencia_vence ? <span className={e.licencia_vence < hoy ? "font-medium text-red-600" : ""}>{e.licencia_vence}</span> : "—") },
       { clave: "alta", titulo: "Alta", visible: false, valor: (e) => e.created_at.slice(0, 10) },
       { clave: "estado", titulo: "Estado", agrupable: true, valor: (e) => (e.activa ? "Activa" : "Inactiva"), render: (e) => <Badge ok={e.activa}>{e.activa ? "Activa" : "Inactiva"}</Badge> },
+      columnaCategorias<Empresa>((e) => e.id, cats.de),
     ],
     filtros: [
+      ...filtrosCategorias<Empresa>(cats.lista, (e) => e.id, cats.asignadas),
       { clave: "prueba", titulo: "Licencia de prueba (15)", grupo: "lic", prueba: (e) => e.max_empleados <= 15 },
       { clave: "por_vencer", titulo: "Vence en 30 días", grupo: "venc", prueba: (e) => !!e.licencia_vence && e.licencia_vence >= hoy && e.licencia_vence <= en30 },
       { clave: "vencidas", titulo: "Vencidas", grupo: "venc", prueba: (e) => !!e.licencia_vence && e.licencia_vence < hoy },
@@ -158,10 +166,15 @@ export default function Empresas() {
   return (
     <>
       <PageHeader
+        submenu={[
+          { etiqueta: "Empresas", activo: true },
+          { etiqueta: "Categorías", onClick: () => setGestorCats(true) },
+        ]}
         icono="building"
         title="Empresas"
         subtitle="Clientes de ODAITIME"
       />
+      {gestorCats && <GestorCategorias modelo="empresa" query={""} puedeEditar={true} onCerrar={() => setGestorCats(false)} onCambio={cats.recargar} />}
 
       <Vista vista={vista} />
 
@@ -178,6 +191,21 @@ export default function Empresas() {
         >
           <form onSubmit={(ev: FormEvent) => (ev.preventDefault(), guardar())} className="form-2col">
             {editando !== "nueva" && (
+              <div className="completo">
+                <SelectorCategorias
+                  todas={cats.lista}
+                  valor={cats.asignadas[editando.id] ?? []}
+                  onCambio={(ids) => cats.asignar(editando.id, ids).then(cats.recargar)}
+                  puedeCrear={true}
+                  onCrear={async (nombre) => {
+                    const c = await post<Categoria>(`/categorias${"" || "?"}${"" ? "&" : ""}modelo=empresa`, { nombre, color: 7 });
+                    cats.recargar();
+                    return c;
+                  }}
+                />
+              </div>
+            )}
+            {editando !== "nueva" && (
               <div>
                 <label className="label">Logo</label>
                 <LogoEmpresa
@@ -186,6 +214,22 @@ export default function Empresas() {
                   query={`?empresa_id=${editando.id}`}
                   onCambio={(v) => {
                     const e = { ...editando, logo_version: v };
+                    setEditando(e);
+                    setEmpresas((l) => l.map((x) => (x.id === e.id ? e : x)));
+                  }}
+                />
+              </div>
+            )}
+            {editando !== "nueva" && (
+              <div>
+                <label className="label">Fondo principal</label>
+                <FondoEmpresa
+                  empresaId={editando.id}
+                  color={editando.fondo_color}
+                  version={editando.fondo_version}
+                  query={`?empresa_id=${editando.id}`}
+                  onCambio={(f) => {
+                    const e = { ...editando, ...f };
                     setEditando(e);
                     setEmpresas((l) => l.map((x) => (x.id === e.id ? e : x)));
                   }}
