@@ -9,6 +9,7 @@ from app.api import (
     dispositivos,
     empleados,
     empresas,
+    festivos,
     health,
     kiosco,
     licencia,
@@ -51,5 +52,6 @@ for r in (
     dispositivos.router,
     kiosco.router,
     asistencia.router,
+    festivos.router,
 ):
     app.include_router(r, prefix="/api")

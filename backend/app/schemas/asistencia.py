@@ -17,6 +17,7 @@ class PoliticaIn(BaseModel):
     retardo_falta_min: int = Field(default=0, ge=0, le=480)
     minimo_extra_min: int = Field(default=30, ge=0, le=240)
     redondeo_extra_min: int = Field(default=30, ge=1, le=120)
+    festivo_opcional_pago: Literal["doble", "normal"] = "doble"
 
 
 class PoliticaOut(PoliticaIn):
@@ -43,10 +44,18 @@ class ResumenOut(BaseModel):
     sin_salida: int
 
 
+class Concepto(BaseModel):
+    clave: str
+    descripcion: str
+    unidad: str
+    cantidad: float
+
+
 class FilaResumen(BaseModel):
     empleado: EmpleadoRef
     sucursal: SucursalRef
     resumen: ResumenOut
+    conceptos: list[Concepto] = []
 
 
 class DiaOut(BaseModel):
@@ -63,6 +72,7 @@ class DiaOut(BaseModel):
     triples_min: int
     exceso_min: int
     festivo: str | None
+    festivo_obligatorio: bool
     domingo_trabajado: bool
     descanso_trabajado: bool
     festivo_trabajado: bool
@@ -77,6 +87,7 @@ class DetalleAsistencia(BaseModel):
     zona_horaria: str
     dias: list[DiaOut]
     resumen: ResumenOut
+    conceptos: list[Concepto] = []
 
 
 class IncidenciaIn(BaseModel):

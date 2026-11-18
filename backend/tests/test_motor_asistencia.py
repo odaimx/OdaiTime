@@ -154,3 +154,35 @@ def test_turno_nocturno_y_entrada_sin_salida():
     dias, r = correr(marcas, LUN, LUN + timedelta(1))
     assert dias[0].trabajado_min == 7 * 60  # el par cuenta al día de la entrada
     assert "Entrada sin salida" in dias[1].observaciones and r.sin_salida == 1
+
+
+def test_festivo_opcional_segun_politica():
+    from app.services.asistencia import conceptos_nomina
+    from app.services.calendario import pascua
+
+    assert pascua(2027) == date(2027, 3, 28) and pascua(2026) == date(2026, 4, 5)
+
+    mie, jue = LUN + timedelta(2), LUN + timedelta(3)
+    marcas = [Marca(dt(mie, 9), "entrada"), Marca(dt(mie, 17), "salida")]
+    marcas += [Marca(dt(jue, 9), "entrada"), Marca(dt(jue, 17), "salida")]
+    fest = {mie: "Obligatorio", jue: "Opcional de la empresa"}
+    args = dict(
+        desde=LUN,
+        hasta=LUN + timedelta(4),
+        tz=TZ,
+        turno_de=turno_lv,
+        marcas=marcas,
+        incidencias=[],
+        festivos=fest,
+        ingreso=date(2025, 1, 1),
+        festivos_obligatorios={mie},
+    )
+    dias, r = calcular(politica=Politica(festivo_opcional_pago="normal"), **args)
+    assert dias[2].festivo_trabajado and dias[2].festivo_obligatorio
+    assert dias[3].estado == "festivo" and not dias[3].festivo_trabajado
+    assert r.festivos_trabajados == 1
+    _, r = calcular(politica=Politica(festivo_opcional_pago="doble"), **args)
+    assert r.festivos_trabajados == 2
+
+    conceptos = {c["clave"]: c["cantidad"] for c in conceptos_nomina(r)}
+    assert conceptos["FLAB"] == 2 and conceptos["FALT"] == 3  # lun, mar y vie

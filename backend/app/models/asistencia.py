@@ -43,3 +43,5 @@ class PoliticaAsistencia(UUIDPkMixin, TimestampMixin, Base):
     retardo_falta_min: Mapped[int] = mapped_column(default=0)
     minimo_extra_min: Mapped[int] = mapped_column(default=30)
     redondeo_extra_min: Mapped[int] = mapped_column(default=30)
+    # Pago al trabajar un festivo OPCIONAL (los obligatorios siempre: salario doble, art. 75).
+    festivo_opcional_pago: Mapped[str] = mapped_column(String(10), default="doble")  # doble|normal

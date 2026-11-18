@@ -8,7 +8,10 @@ Reglas de la LFT (fuente oficial: https://www.diputados.gob.mx/LeyesBiblio/ref/l
   ("triples"). Lo que pase de eso se reporta como exceso (no permitido).
 - Prima dominical (art. 71): al menos 25 % adicional por trabajar en domingo.
 - Descanso semanal trabajado (art. 73) y descanso obligatorio trabajado (arts. 74 y 75):
-  salario doble adicional.
+  salario doble ADEMÁS del salario del día (en total, triple). Si además cae en domingo,
+  también corresponde la prima dominical.
+- Festivos opcionales (no obligatorios por ley) que la empresa decidió otorgar: se descansan;
+  si se trabajan, se pagan según la política de la empresa (doble o normal).
 Los retardos y su conversión a faltas no están en la LFT: dependen del reglamento interior
 de cada empresa (política configurable).
 """
@@ -64,6 +67,7 @@ class Politica:
     retardo_falta_min: int = 0  # retardo de N min o más cuenta como falta (0 = no aplica)
     minimo_extra_min: int = 30  # tiempo extra menor a esto no se cuenta
     redondeo_extra_min: int = 30  # el tiempo extra se cuenta en bloques de N min
+    festivo_opcional_pago: str = "doble"  # doble | normal
 
 
 @dataclass
@@ -79,6 +83,7 @@ class Dia:
     triples_min: int = 0
     exceso_min: int = 0
     festivo: str | None = None
+    festivo_obligatorio: bool = False
     domingo_trabajado: bool = False
     descanso_trabajado: bool = False
     festivo_trabajado: bool = False
@@ -123,10 +128,20 @@ def calcular(
     incidencias: list[Incidencia],
     festivos: dict[date, str],
     politica: Politica,
+    festivos_obligatorios: set[date] | None = None,
     ingreso: date,
     baja: date | None = None,
 ) -> tuple[list[Dia], Resumen]:
-    """turno_de(fecha) → ("laborable", DiaTurno) | ("descanso", None) | ("sin_turno", None)."""
+    """turno_de(fecha) → ("laborable", DiaTurno) | ("descanso", None) | ("sin_turno", None).
+
+    festivos: todos los días festivos que aplican a la empresa (se descansan).
+    festivos_obligatorios: cuáles son del art. 74 (None = todos lo son).
+    """
+    obligatorios = set(festivos) if festivos_obligatorios is None else festivos_obligatorios
+
+    def paga_doble(d: date) -> bool:
+        return d in obligatorios or politica.festivo_opcional_pago == "doble"
+
     # 1) Emparejar entradas y salidas. Cada par pertenece al día local de su entrada.
     pares: dict[date, list[tuple[datetime, datetime | None]]] = defaultdict(list)
     sueltas: dict[date, int] = defaultdict(int)
@@ -154,7 +169,12 @@ def calcular(
     dias: list[Dia] = []
     d = desde
     while d <= hasta:
-        dia = Dia(fecha=d, estado="asistencia", festivo=festivos.get(d))
+        dia = Dia(
+            fecha=d,
+            estado="asistencia",
+            festivo=festivos.get(d),
+            festivo_obligatorio=d in obligatorios and d in festivos,
+        )
         for ent, sal in pares.get(d, []):
             dia.entradas.append(ent)
             if sal is None:
@@ -179,12 +199,12 @@ def calcular(
                 dia.estado = "sin_turno"
             elif dia.festivo and clase == "laborable":
                 dia.estado = "festivo"
-                dia.festivo_trabajado = trabajo
+                dia.festivo_trabajado = trabajo and paga_doble(d)
             elif clase == "descanso":
                 dia.estado = "descanso"
                 dia.descanso_trabajado = trabajo
                 if dia.festivo:
-                    dia.festivo_trabajado = trabajo
+                    dia.festivo_trabajado = trabajo and paga_doble(d)
             elif inc:
                 dia.estado = inc
                 dia.esperado_min = turno.efectivos_min if turno else 0
@@ -255,3 +275,50 @@ def calcular(
     if politica.retardos_por_falta > 0:
         r.faltas_por_retardos = r.retardos // politica.retardos_por_falta
     return dias, r
+
+
+# --- Conceptos para nómina (Odoo, CONTPAQi Nóminas, Aspel NOI u otros) ---
+# Claves genéricas de ODAITIME; en la etapa de exportación cada empresa las relaciona con las
+# claves de percepción/deducción o tipos de incidencia de su sistema de nómina.
+CONCEPTOS = {
+    "HE2": ("Horas extra dobles (art. 66)", "horas"),
+    "HE3": ("Horas extra triples (art. 68)", "horas"),
+    "PDOM": ("Prima dominical (art. 71)", "dias"),
+    "DLAB": ("Descanso semanal laborado (art. 73)", "dias"),
+    "FLAB": ("Día festivo laborado (art. 75)", "dias"),
+    "FALT": ("Faltas injustificadas", "dias"),
+    "FRET": ("Faltas por acumulación de retardos", "dias"),
+    "RET": ("Retardos", "eventos"),
+    "VAC": ("Vacaciones", "dias"),
+    "INC": ("Incapacidad", "dias"),
+    "PCG": ("Permiso con goce de sueldo", "dias"),
+    "PSG": ("Permiso sin goce de sueldo", "dias"),
+    "FJUS": ("Falta justificada", "dias"),
+}
+_INCIDENCIA_CONCEPTO = {
+    "vacaciones": "VAC",
+    "incapacidad": "INC",
+    "permiso_con_goce": "PCG",
+    "permiso_sin_goce": "PSG",
+    "falta_justificada": "FJUS",
+}
+
+
+def conceptos_nomina(r: Resumen) -> list[dict]:
+    valores = {
+        "HE2": round(r.minutos_dobles / 60, 2),
+        "HE3": round(r.minutos_triples / 60, 2),
+        "PDOM": r.domingos_trabajados,
+        "DLAB": r.descansos_trabajados,
+        "FLAB": r.festivos_trabajados,
+        "FALT": r.faltas,
+        "FRET": r.faltas_por_retardos,
+        "RET": r.retardos,
+    }
+    for tipo, n in r.incidencias.items():
+        valores[_INCIDENCIA_CONCEPTO[tipo]] = n
+    return [
+        {"clave": k, "descripcion": CONCEPTOS[k][0], "unidad": CONCEPTOS[k][1], "cantidad": v}
+        for k, v in valores.items()
+        if v
+    ]

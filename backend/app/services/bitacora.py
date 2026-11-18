@@ -79,6 +79,7 @@ ETIQUETAS: dict[str, dict[str, str]] = {
         "retardo_falta_min": "Retardo que cuenta como falta (min)",
         "minimo_extra_min": "Tiempo extra mínimo (min)",
         "redondeo_extra_min": "Redondeo de tiempo extra (min)",
+        "festivo_opcional_pago": "Pago de festivo opcional trabajado",
     },
 }
 

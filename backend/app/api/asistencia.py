@@ -23,6 +23,7 @@ from app.schemas.sucursal import SucursalRef
 from app.services import asistencia as motor
 from app.services import bitacora, calendario
 from app.services import checadas as svc
+from app.services import festivos as festivos_svc
 from app.services.lft import Horario, efectivos
 
 router = APIRouter(prefix="/asistencia", tags=["asistencia (LFT)"])
@@ -35,6 +36,7 @@ CAMPOS_POLITICA = (
     "retardo_falta_min",
     "minimo_extra_min",
     "redondeo_extra_min",
+    "festivo_opcional_pago",
 )
 
 
@@ -90,6 +92,7 @@ def _calcular(
     checadas: list[Checada],
     incidencias: list[Incidencia],
     politica: motor.Politica,
+    festivos: tuple[dict, set],
 ):
     return motor.calcular(
         desde=desde,
@@ -98,7 +101,8 @@ def _calcular(
         turno_de=turno_de_factory(empleado),
         marcas=[motor.Marca(c.momento, c.tipo, c.retardo_minutos) for c in checadas],
         incidencias=[motor.Incidencia(i.tipo, i.fecha_inicio, i.fecha_fin) for i in incidencias],
-        festivos=calendario.festivos_en(desde, hasta),
+        festivos=festivos[0],
+        festivos_obligatorios=festivos[1],
         politica=politica,
         ingreso=empleado.fecha_ingreso,
         baja=empleado.fecha_baja,
@@ -218,14 +222,16 @@ async def resumen(
         inc_emp[i.empleado_id].append(i)
 
     pol = _a_motor(await _politica(db, emp))
+    fest = await festivos_svc.aplicables(db, emp, desde, hasta)
     filas = []
     for e in empleados:
-        _, r = _calcular(e, desde, hasta, por_emp[e.id], inc_emp[e.id], pol)
+        _, r = _calcular(e, desde, hasta, por_emp[e.id], inc_emp[e.id], pol, fest)
         filas.append(
             FilaResumen(
                 empleado=_ref(e),
                 sucursal=SucursalRef.model_validate(e.sucursal),
                 resumen=ResumenOut.model_validate(r),
+                conceptos=motor.conceptos_nomina(r),
             )
         )
     return filas
@@ -267,13 +273,17 @@ async def detalle(
             )
         )
     )
-    dias, r = _calcular(e, desde, hasta, checadas, incidencias, _a_motor(await _politica(db, emp)))
+    fest = await festivos_svc.aplicables(db, emp, desde, hasta)
+    dias, r = _calcular(
+        e, desde, hasta, checadas, incidencias, _a_motor(await _politica(db, emp)), fest
+    )
     return DetalleAsistencia(
         empleado=_ref(e),
         sucursal=SucursalRef.model_validate(e.sucursal),
         zona_horaria=e.sucursal.zona_horaria,
         dias=[DiaOut.model_validate(d) for d in dias],
         resumen=ResumenOut.model_validate(r),
+        conceptos=motor.conceptos_nomina(r),
     )
 
 

@@ -60,3 +60,31 @@ def aniversario(ingreso: date, anio: int) -> date:
         return ingreso.replace(year=anio)
     except ValueError:  # 29 de febrero
         return date(anio, 2, 28)
+
+
+def pascua(anio: int) -> date:
+    """Domingo de Pascua (algoritmo gregoriano anónimo)."""
+    a, b, c = anio % 19, anio // 100, anio % 100
+    d, e = b // 4, b % 4
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i, k = c // 4, c % 4
+    lv = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * lv) // 451
+    mes = (h + lv - 7 * m + 114) // 31
+    dia = (h + lv - 7 * m + 114) % 31 + 1
+    return date(anio, mes, dia)
+
+
+def opcionales(anio: int) -> dict[date, str]:
+    """Días que muchas empresas otorgan por costumbre o contrato, pero que la LFT no obliga."""
+    p = pascua(anio)
+    return {
+        p - timedelta(days=3): "Jueves Santo",
+        p - timedelta(days=2): "Viernes Santo",
+        date(anio, 11, 2): "Día de Muertos",
+        date(anio, 12, 12): "Día de la Virgen de Guadalupe",
+        date(anio, 12, 24): "Nochebuena",
+        date(anio, 12, 31): "Fin de año",
+    }
