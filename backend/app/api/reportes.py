@@ -6,6 +6,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
+from sqlalchemy.orm import undefer
 
 from app.api.asistencia import calcular_periodo
 from app.api.deps import DB, CurrentUser, empresa_scope, require_roles
@@ -20,7 +21,10 @@ _GESTION = (*_ADMIN, Rol.GERENTE_SUCURSAL)
 
 
 async def _empresa(db: DB, emp: uuid.UUID) -> Empresa:
-    empresa = await db.get(Empresa, emp)
+    # El logo es una columna diferida: se carga aquí porque los reportes la leen sin await.
+    empresa = await db.scalar(
+        select(Empresa).where(Empresa.id == emp).options(undefer(Empresa.logo))
+    )
     if empresa is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Empresa no encontrada")
     return empresa
