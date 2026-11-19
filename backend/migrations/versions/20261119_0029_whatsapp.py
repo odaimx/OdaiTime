@@ -40,6 +40,18 @@ def upgrade() -> None:
         ),
     )
 
+    # Nuevo origen de checada.
+    op.drop_constraint("ck_checadas_origen", "checadas", type_="check")
+    op.create_check_constraint(
+        "ck_checadas_origen",
+        "checadas",
+        "origen IN ('movil', 'kiosco', 'biometrico', 'manual', 'whatsapp')",
+    )
+
 
 def downgrade() -> None:
+    op.drop_constraint("ck_checadas_origen", "checadas", type_="check")
+    op.create_check_constraint(
+        "ck_checadas_origen", "checadas", "origen IN ('movil', 'kiosco', 'biometrico', 'manual')"
+    )
     op.drop_table("config_whatsapp")
