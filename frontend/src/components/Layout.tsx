@@ -7,7 +7,7 @@ import { usePortal } from "../lib/portal";
 import Icono, { type NombreIcono } from "./Iconos";
 import { REPORTE } from "../lib/imprimir";
 import PiePagina from "./PiePagina";
-import { salirSoporte, useSoporte } from "../lib/soporte";
+import { entrarSoporte, salirSoporte, useSoporte } from "../lib/soporte";
 
 const NAV: { to: string; label: string; roles: Rol[]; icon: NombreIcono }[] = [
   { to: "/checar", label: "Checar", roles: ["empleado"], icon: "fingerprint-pattern" },
@@ -32,6 +32,15 @@ export default function Layout() {
   const { usuario, refrescar } = useAuth();
   const soporte = useSoporte();
   const tema = useTema();
+
+  // El superadmin que entra por la dirección de un cliente trabaja directo sobre esa empresa.
+  useEffect(() => {
+    if (usuario?.rol !== "superadmin" || soporte) return;
+    fetch("/api/tenant")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((t) => t?.modo === "tenant" && t.empresa_id && entrarSoporte({ id: t.empresa_id, nombre: t.nombre ?? t.slug }))
+      .catch(() => {});
+  }, [usuario?.rol, soporte]);
   const navegar = useNavigate();
   const portal = usePortal(usuario?.rol === "empleado");
   // Al abrir, vuelve a leer el usuario: trae cambios de la empresa (logo, fondo) hechos en otra sesión.

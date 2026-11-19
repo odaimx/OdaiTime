@@ -25,6 +25,9 @@ class ConfigSistema(Base):
     fondo_color: Mapped[str | None] = mapped_column(String(7))
     fondo_imagen: Mapped[bytes | None] = deferred(mapped_column(LargeBinary))
     fondo_actualizado: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Ícono de la pestaña del navegador (PNG cuadrado).
+    icono: Mapped[bytes | None] = deferred(mapped_column(LargeBinary))
+    icono_actualizado: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Pantalla de acceso: imagen del panel izquierdo y sus textos.
     login_imagen: Mapped[bytes | None] = deferred(mapped_column(LargeBinary))
     login_actualizada: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

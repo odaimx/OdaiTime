@@ -47,6 +47,7 @@ class TemaOut(BaseModel):
     fondo_color: str | None = None
     fondo_version: str | None = None
     login_version: str | None = None
+    icono_version: str | None = None
     login_titulo: str | None = None
     login_subtitulo: str | None = None
     login_texto: str | None = None
@@ -89,6 +90,7 @@ def _out(c: ConfigSistema | None, frases: dict[str, int] | None = None) -> TemaO
         fondo_color=c.fondo_color,
         fondo_version=_version(c.fondo_actualizado),
         login_version=_version(c.login_actualizada),
+        icono_version=_version(c.icono_actualizado),
         login_titulo=c.login_titulo,
         login_subtitulo=c.login_subtitulo,
         login_texto=c.login_texto,
@@ -166,6 +168,7 @@ _IMAGENES = {
     "inicio": ("imagen_inicio", "imagen_actualizada"),
     "fondo": ("fondo_imagen", "fondo_actualizado"),
     "login": ("login_imagen", "login_actualizada"),
+    "icono": ("icono", "icono_actualizado"),
 }
 
 
@@ -183,7 +186,9 @@ async def ver_imagen(tipo: str, db: DB) -> Response:
     if not datos:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Sin imagen")
     return Response(
-        datos, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=31536000"}
+        datos,
+        media_type="image/png" if tipo == "icono" else "image/jpeg",
+        headers={"Cache-Control": "public, max-age=31536000"},
     )
 
 
@@ -191,7 +196,8 @@ async def ver_imagen(tipo: str, db: DB) -> Response:
 async def subir_imagen_tipo(tipo: str, db: DB, archivo: Annotated[UploadFile, File()]) -> TemaOut:
     columna, fecha = _tipo(tipo)
     c = await _config(db)
-    setattr(c, columna, await fotos.procesar_fondo(archivo))
+    procesar = fotos.procesar_icono if tipo == "icono" else fotos.procesar_fondo
+    setattr(c, columna, await procesar(archivo))
     setattr(c, fecha, datetime.now(UTC))
     await db.commit()
     return _out(c)

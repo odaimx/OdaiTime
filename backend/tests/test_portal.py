@@ -232,6 +232,15 @@ async def test_frases_apariencia_y_foto(client, superadmin):
     )
     assert r.json()["login_version"]
     assert (await client.get("/api/sistema/imagen/login")).status_code == 200
+    r = await client.put(
+        "/api/sistema/imagen/icono",
+        headers=superadmin,
+        files={"archivo": ("i.jpg", img.getvalue(), "image/jpeg")},
+    )
+    assert r.json()["icono_version"]
+    r = await client.get("/api/sistema/imagen/icono")
+    assert r.headers["content-type"] == "image/png"
+    assert Image.open(BytesIO(r.content)).size == (128, 128)
 
     # Foto propia del usuario.
     await crear_empresa(client, superadmin, "Caribe", "admin@caribe.mx")

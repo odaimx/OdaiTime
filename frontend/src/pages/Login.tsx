@@ -121,14 +121,16 @@ export default function Login() {
 
       <div className="relative flex flex-1 flex-col items-center justify-center gap-4 bg-slate-50 p-6 pb-12" style={estiloFondoLogin(tema)}>
         <form onSubmit={recuperando ? recuperar : onSubmit} className="card w-full max-w-sm space-y-5 p-8 shadow-xl shadow-navy-950/10">
+          {/* Logo de Odai, raya, empresa (nombre y logo) y el título. */}
           <div className="flex flex-col items-center text-center">
-            <img src="/logo.png" alt="ODAI" className="mb-6 h-9 w-auto" />
-            <h1 className="text-xl font-semibold text-tinta-900">{recuperando ? "Recuperar contraseña" : "Iniciar sesión"}</h1>
+            <img src="/logo.png" alt="ODAI" className="h-9 w-auto" />
+            <hr className="my-4 w-full border-slate-200" />
+            {tenant?.modo === "tenant" && <p className="text-base font-semibold text-tinta-900">{tenant.nombre}</p>}
+            {tenant?.modo === "base" && <p className="text-sm font-medium text-slate-600">Panel de administración Odai</p>}
             {tenant?.empresa_id && tenant.logo_version && (
-              <img src={urlLogo(tenant.empresa_id, tenant.logo_version)} alt={tenant.nombre ?? ""} className="my-3 max-h-16 max-w-[12rem] object-contain" />
+              <img src={urlLogo(tenant.empresa_id, tenant.logo_version)} alt={tenant.nombre ?? ""} className="mt-3 max-h-16 max-w-[12rem] object-contain" />
             )}
-            {tenant?.modo === "tenant" && <p className="mt-1 text-sm font-medium text-brand-600">{tenant.nombre}</p>}
-            {tenant?.modo === "base" && <p className="mt-1 text-sm text-slate-500">Panel de administración Odai</p>}
+            <h1 className="mt-4 text-xl font-semibold text-tinta-900">{recuperando ? "Recuperar contraseña" : "Iniciar sesión"}</h1>
           </div>
 
           {noExiste && (
