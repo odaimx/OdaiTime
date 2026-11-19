@@ -151,7 +151,7 @@ def validar_gps(
     sucursal: Sucursal | Obra, lat: float | None, lon: float | None, precision: int | None
 ) -> int:
     """Distancia al lugar (sucursal u obra); error si está fuera de su radio."""
-    lugar = "la obra" if isinstance(sucursal, Obra) else "la sucursal"
+    lugar = "la zona" if isinstance(sucursal, Obra) else "la sucursal"
     if sucursal.latitud is None or sucursal.longitud is None:
         raise error(
             "sucursal_sin_ubicacion",

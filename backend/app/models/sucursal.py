@@ -4,9 +4,10 @@ from sqlalchemy import ForeignKey, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
+from app.models.domicilio import DomicilioMixin
 
 
-class Sucursal(UUIDPkMixin, TimestampMixin, Base):
+class Sucursal(DomicilioMixin, UUIDPkMixin, TimestampMixin, Base):
     __tablename__ = "sucursales"
     __table_args__ = (UniqueConstraint("empresa_id", "clave", name="uq_sucursal_empresa_clave"),)
 

@@ -6,7 +6,7 @@ import Registro, { useFormulario } from "../components/Registro";
 import ReporteEmpleados from "../components/ReporteEmpleados";
 import VacacionesIncidencias from "../components/VacacionesIncidencias";
 import Icono from "../components/Iconos";
-import { columnaCategorias, Chips, filtrosCategorias, GestorCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
+import { columnaCategorias, Chips, filtrosCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
 import { useNavigate } from "react-router";
 import Vista, { abrirEn, useAbrirDesdeUrl, useVista, type Columna, type ConfigVista } from "../components/Vista";
 import { AvisoLicencia, Badge, ErrorBox, Fila, ImagenEditable, Modal, PageHeader, Plegable, UsoLicencia, useEmpresaScope } from "../components/ui";
@@ -82,7 +82,6 @@ export default function Empleados() {
 
   const [nuevo, setNuevo] = useState(false);
   const [sel, setSel] = useState<EmpleadoDetalle | null>(null);
-  const [gestorCats, setGestorCats] = useState(false);
   const [reporte, setReporte] = useState(false);
   const [pestana, setPestana] = useState<"generales" | "fiscales">("generales");
   const [enlacePortal, setEnlacePortal] = useState<string | null>(null);
@@ -650,14 +649,9 @@ ${
       <PageHeader
         icono="contact-round"
         title="Empleados"
-        submenu={[
-          { etiqueta: "Empleados", activo: true },
-          { etiqueta: "Categorías", onClick: () => setGestorCats(true) },
-        ]}
         action={selector}
       />
       {reporte && <ReporteEmpleados empleados={empleados} categorias={cats.lista} catsDe={cats.de} onCerrar={() => setReporte(false)} />}
-      {gestorCats && <GestorCategorias modelo="empleado" query={query} puedeEditar={esAdmin} onCerrar={() => setGestorCats(false)} onCambio={cats.recargar} />}
 
       <Vista vista={vistaEmp} />
 

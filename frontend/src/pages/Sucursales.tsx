@@ -2,15 +2,15 @@ import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } fr
 import Bitacora from "../components/Bitacora";
 import Registro, { useFormulario } from "../components/Registro";
 import Icono from "../components/Iconos";
-import { columnaCategorias, filtrosCategorias, GestorCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
+import { columnaCategorias, filtrosCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
 import Vista, { useAbrirDesdeUrl, useVista, type ConfigVista } from "../components/Vista";
 import { imprimirSecciones } from "../lib/imprimir";
-import { Ayuda, Badge, ErrorBox, PageHeader, Plegable, UbicarBotones, useEmpresaScope } from "../components/ui";
+import { Badge, Campos, CamposDomicilio, CamposUbicacion, DOMICILIO_VACIO, domicilioApi, domicilioDe, ErrorBox, Fila, PageHeader, Plegable, useEmpresaScope, type Domicilio } from "../components/ui";
 import { api, get, patch, post, ZONAS_MX, type Categoria, type Sucursal } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
-type Form = { clave: string; nombre: string; zona_horaria: string; direccion: string; latitud: string; longitud: string; radio_metros: string };
-const VACIO: Form = { clave: "", nombre: "", zona_horaria: "America/Mexico_City", direccion: "", latitud: "", longitud: "", radio_metros: "150" };
+type Form = { clave: string; nombre: string; zona_horaria: string; domicilio: Domicilio; latitud: string; longitud: string; radio_metros: string };
+const VACIO: Form = { clave: "", nombre: "", zona_horaria: "America/Mexico_City", domicilio: DOMICILIO_VACIO, latitud: "", longitud: "", radio_metros: "150" };
 
 const zonaLabel = (z: string) => ZONAS_MX.find((x) => x.value === z)?.label ?? z;
 
@@ -18,7 +18,7 @@ const aForm = (s: Sucursal): Form => ({
   clave: s.clave,
   nombre: s.nombre,
   zona_horaria: s.zona_horaria,
-  direccion: s.direccion ?? "",
+  domicilio: domicilioDe(s),
   latitud: s.latitud?.toString() ?? "",
   longitud: s.longitud?.toString() ?? "",
   radio_metros: String(s.radio_metros),
@@ -50,7 +50,7 @@ export default function Sucursales() {
       clave: form.clave.trim().toUpperCase(),
       nombre: form.nombre,
       zona_horaria: form.zona_horaria,
-      direccion: form.direccion || null,
+      ...domicilioApi(form.domicilio),
       latitud: form.latitud ? Number(form.latitud) : null,
       longitud: form.longitud ? Number(form.longitud) : null,
       radio_metros: Number(form.radio_metros) || 150,
@@ -75,7 +75,6 @@ export default function Sucursales() {
   }
 
   const cats = useCategorias("sucursal", query, listo);
-  const [gestorCats, setGestorCats] = useState(false);
   const config: ConfigVista<Sucursal> = {
     id: "sucursales",
     tituloReporte: "Sucursales",
@@ -153,16 +152,11 @@ export default function Sucursales() {
   return (
     <>
       <PageHeader
-        submenu={[
-          { etiqueta: "Sucursales", activo: true },
-          { etiqueta: "Categorías", onClick: () => setGestorCats(true) },
-        ]}
         icono="store"
         title="Sucursales"
         subtitle="Cada sucursal tiene su zona horaria y su geocerca para validar checadas"
         action={selector}
       />
-      {gestorCats && <GestorCategorias modelo="sucursal" query={query} puedeEditar={puedeEditar} onCerrar={() => setGestorCats(false)} onCambio={cats.recargar} />}
 
       <Vista vista={vista} />
 
@@ -199,54 +193,39 @@ export default function Sucursales() {
           ancho="md"
         >
           <form onSubmit={(e: FormEvent) => (e.preventDefault(), guardar())} className="space-y-4">
-            <fieldset disabled={!puedeEditar} className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div>
-                <label className="label">Clave</label>
-                <input className="input uppercase" required maxLength={20} pattern="[A-Za-z0-9_\-]+" title="Letras, números, guion o guion bajo" value={form.clave} onChange={set("clave")} />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="label">Nombre</label>
-                <input className="input" required value={form.nombre} onChange={set("nombre")} />
-              </div>
-            </div>
-            <div>
-              <label className="label">Zona horaria</label>
-              <select className="input" value={form.zona_horaria} onChange={set("zona_horaria")}>
-                {ZONAS_MX.map((z) => (
-                  <option key={z.value} value={z.value}>{z.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="label">Dirección</label>
-              <input className="input" value={form.direccion} onChange={set("direccion")} />
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div>
-                <label className="label">
-                  Latitud
-                  <Ayuda texto="Usa los íconos de abajo: «Estoy aquí» toma tu ubicación actual (estando en la sucursal) y el pin la calcula con la dirección. También puedes copiarlas de Google Maps (clic derecho sobre el lugar)." />
-                </label>
-                <input className="input" type="number" step="any" min={-90} max={90} placeholder="21.1619" value={form.latitud} onChange={set("latitud")} />
-                <UbicarBotones direccion={form.direccion} deshabilitado={!puedeEditar} onUbicar={(latitud, longitud) => setForm({ ...form, latitud, longitud })} />
-              </div>
-              <div>
-                <label className="label">Longitud</label>
-                <input className="input" type="number" step="any" min={-180} max={180} placeholder="-86.8515" value={form.longitud} onChange={set("longitud")} />
-              </div>
-              <div>
-                <label className="label">
-                  Radio (m)
-                  <Ayuda texto="Distancia máxima desde las coordenadas para aceptar una checada con GPS." />
-                </label>
-                <input className="input" type="number" min={10} max={5000} value={form.radio_metros} onChange={set("radio_metros")} />
-              </div>
-            </div>
+            <fieldset disabled={!puedeEditar}>
+              <Campos>
+                <Fila etiqueta="Clave" htmlFor="suc-clave">
+                  <input id="suc-clave" className="input uppercase" required maxLength={20} pattern="[A-Za-z0-9_\-]+" title="Letras, números, guion o guion bajo" value={form.clave} onChange={set("clave")} />
+                </Fila>
+                <Fila etiqueta="Nombre" htmlFor="suc-nombre">
+                  <input id="suc-nombre" className="input" required value={form.nombre} onChange={set("nombre")} />
+                </Fila>
+                <Fila etiqueta="Zona horaria" htmlFor="suc-zona">
+                  <select id="suc-zona" className="input" value={form.zona_horaria} onChange={set("zona_horaria")}>
+                    {ZONAS_MX.map((z) => (
+                      <option key={z.value} value={z.value}>
+                        {z.label}
+                      </option>
+                    ))}
+                  </select>
+                </Fila>
+                <div className="hidden md:block" />
+                <CamposDomicilio prefijo="suc" valor={form.domicilio} onCambio={(domicilio) => setForm({ ...form, domicilio })} />
+                <CamposUbicacion
+                  lugar="la sucursal"
+                  latitud={form.latitud}
+                  longitud={form.longitud}
+                  radio={form.radio_metros}
+                  domicilio={form.domicilio}
+                  deshabilitado={!puedeEditar}
+                  onCambio={(c) => setForm({ ...form, ...c })}
+                />
+              </Campos>
             </fieldset>
 
             {editando !== "nueva" && (
-              <div>
+              <div className="mt-3">
                 <SelectorCategorias
                   todas={cats.lista}
                   valor={cats.asignadas[editando.id] ?? []}

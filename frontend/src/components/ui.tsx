@@ -59,7 +59,7 @@ export function PageHeader({
         </div>
       </div>
       {submenu && submenu.length > 0 && (
-        <nav className="relative z-20 -mx-4 mb-5 flex flex-wrap gap-1 border-b border-slate-200 bg-white px-3 sm:-mx-6 sm:px-5 lg:-mx-8 lg:px-7" aria-label="Submenú">
+        <nav className="relative z-20 -mx-4 mb-5 flex flex-wrap gap-1 border-b border-slate-300 bg-submenu px-3 sm:-mx-6 sm:px-5 lg:-mx-8 lg:px-7" aria-label="Submenú">
           {submenu.map((m) => (
             <div key={m.etiqueta} className="relative">
               <button
@@ -422,11 +422,11 @@ export function Modal({
   title,
   onClose,
   children,
-  ancho = "md",
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  /** Obsoleto: todas las ventanas tienen el mismo ancho y posición que los registros. */
   ancho?: "md" | "lg" | "xl";
 }) {
   useEffect(() => {
@@ -438,14 +438,16 @@ export function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-navy-900/40 p-3 pt-6 sm:p-4 sm:pt-12" onMouseDown={onClose}>
       {/* La ventana nunca pasa del alto de la pantalla: su contenido se desplaza por dentro. */}
-      <div className={`card flex max-h-[calc(100dvh-3rem)] w-full flex-col overflow-hidden sm:max-h-[calc(100dvh-7rem)] ${ancho === "xl" ? "max-w-5xl" : ancho === "lg" ? "max-w-2xl" : "max-w-lg"}`} onMouseDown={(e) => e.stopPropagation()}>
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-slate-100/70 px-5 py-3 sm:px-6">
-          <h2 className="text-lg font-semibold text-tinta-900">{title}</h2>
-          <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-white hover:text-tinta-900" aria-label="Cerrar">
+      <div className={`ventana-form card flex max-h-[calc(100dvh-3rem)] w-full flex-col overflow-hidden sm:max-h-[calc(100dvh-7rem)] max-w-5xl`} onMouseDown={(e) => e.stopPropagation()}>
+        <div className="flex shrink-0 items-center justify-end border-b border-slate-200 bg-slate-100/70 px-4 py-2.5 sm:px-5">
+          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-tinta-900" aria-label="Cerrar">
             <Icono nombre="x" className="h-5 w-5" />
           </button>
         </div>
-        <div className="min-h-0 overflow-y-auto p-5 pb-10 sm:p-6 sm:pb-12">{children}</div>
+        <div className="min-h-0 overflow-y-auto p-5 pb-12 sm:p-8 sm:pb-14">
+          <h2 className="mb-5 text-xl font-semibold text-tinta-900 sm:text-2xl">{title}</h2>
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -585,9 +587,9 @@ export function Ayuda({ texto }: { texto: ReactNode }) {
 }
 
 /** Fila de formulario como Odoo: etiqueta a la izquierda y campo a la derecha (alinea las columnas). */
-export function Fila({ etiqueta, ayuda, htmlFor, children }: { etiqueta: ReactNode; ayuda?: ReactNode; htmlFor?: string; children: ReactNode }) {
+export function Fila({ etiqueta, ayuda, htmlFor, completo, children }: { etiqueta: ReactNode; ayuda?: ReactNode; htmlFor?: string; completo?: boolean; children: ReactNode }) {
   return (
-    <div className="grid min-h-10 grid-cols-1 items-center gap-x-3 gap-y-1 sm:grid-cols-[9.5rem_minmax(0,1fr)]">
+    <div className={`grid min-h-10 grid-cols-1 items-center gap-x-3 gap-y-1 sm:grid-cols-[9.5rem_minmax(0,1fr)] ${completo ? "md:col-span-2" : ""}`}>
       <label htmlFor={htmlFor} className="text-sm font-medium text-tinta-900">
         {etiqueta}
         {ayuda && <Ayuda texto={ayuda} />}
@@ -654,13 +656,154 @@ export function ImagenEditable({
   );
 }
 
+/** Rejilla de formulario a dos columnas (igual en todas las ventanas). */
+export function Campos({ children }: { children: ReactNode }) {
+  return <div className="grid grid-cols-1 gap-x-10 gap-y-3 md:grid-cols-2">{children}</div>;
+}
+
+export interface Domicilio {
+  calle: string;
+  colonia: string;
+  codigo_postal: string;
+  ciudad: string;
+  entidad: string;
+}
+export const DOMICILIO_VACIO: Domicilio = { calle: "", colonia: "", codigo_postal: "", ciudad: "", entidad: "" };
+export const domicilioDe = (o: Partial<Record<keyof Domicilio, string | null>> | null | undefined): Domicilio => ({
+  calle: o?.calle ?? "",
+  colonia: o?.colonia ?? "",
+  codigo_postal: o?.codigo_postal ?? "",
+  ciudad: o?.ciudad ?? "",
+  entidad: o?.entidad ?? "",
+});
+/** Para la API: vacíos como null. */
+export const domicilioApi = (d: Domicilio) => Object.fromEntries(Object.entries(d).map(([k, v]) => [k, v.trim() || null]));
+
+export const ENTIDADES = [
+  "Aguascalientes", "Baja California", "Baja California Sur", "Campeche", "Chiapas", "Chihuahua", "Ciudad de México", "Coahuila",
+  "Colima", "Durango", "Estado de México", "Guanajuato", "Guerrero", "Hidalgo", "Jalisco", "Michoacán", "Morelos", "Nayarit",
+  "Nuevo León", "Oaxaca", "Puebla", "Querétaro", "Quintana Roo", "San Luis Potosí", "Sinaloa", "Sonora", "Tabasco", "Tamaulipas",
+  "Tlaxcala", "Veracruz", "Yucatán", "Zacatecas",
+];
+
+/** Calle y número, colonia, C.P., ciudad y estado (dentro de <Campos>). */
+export function CamposDomicilio({ valor, onCambio, prefijo = "dom" }: { valor: Domicilio; onCambio: (d: Domicilio) => void; prefijo?: string }) {
+  const set = (k: keyof Domicilio) => (e: { target: { value: string } }) => onCambio({ ...valor, [k]: e.target.value });
+  return (
+    <>
+      <Fila etiqueta="Calle y número" htmlFor={`${prefijo}-calle`} completo>
+        <input id={`${prefijo}-calle`} className="input" maxLength={200} placeholder="Calle 71 No. 800" value={valor.calle} onChange={set("calle")} />
+      </Fila>
+      <Fila etiqueta="Colonia" htmlFor={`${prefijo}-colonia`}>
+        <input id={`${prefijo}-colonia`} className="input" maxLength={120} value={valor.colonia} onChange={set("colonia")} />
+      </Fila>
+      <Fila etiqueta="C.P." htmlFor={`${prefijo}-cp`}>
+        <input id={`${prefijo}-cp`} className="input" inputMode="numeric" maxLength={5} pattern="\d{5}" title="5 dígitos" value={valor.codigo_postal} onChange={(e) => onCambio({ ...valor, codigo_postal: e.target.value.replace(/\D/g, "") })} />
+      </Fila>
+      <Fila etiqueta="Ciudad o municipio" htmlFor={`${prefijo}-ciudad`}>
+        <input id={`${prefijo}-ciudad`} className="input" maxLength={120} value={valor.ciudad} onChange={set("ciudad")} />
+      </Fila>
+      <Fila etiqueta="Estado" htmlFor={`${prefijo}-entidad`}>
+        <select id={`${prefijo}-entidad`} className="input" value={valor.entidad} onChange={set("entidad")}>
+          <option value="">—</option>
+          {ENTIDADES.map((e) => (
+            <option key={e}>{e}</option>
+          ))}
+          {valor.entidad && !ENTIDADES.includes(valor.entidad) && <option>{valor.entidad}</option>}
+        </select>
+      </Fila>
+    </>
+  );
+}
+
+/** Latitud (con «Estoy aquí» y «Calcular con el domicilio»), longitud y radio, dentro de <Campos>. */
+export function CamposUbicacion({
+  latitud,
+  longitud,
+  radio,
+  domicilio,
+  lugar,
+  deshabilitado,
+  onCambio,
+}: {
+  latitud: string;
+  longitud: string;
+  radio: string;
+  domicilio: Domicilio;
+  lugar: string;
+  deshabilitado?: boolean;
+  onCambio: (c: { latitud?: string; longitud?: string; radio_metros?: string }) => void;
+}) {
+  const [mensaje, setMensaje] = useState<string | null>(null);
+  return (
+    <>
+      <Fila
+        etiqueta="Latitud"
+        ayuda={`«Estoy aquí» toma tu ubicación actual (estando en ${lugar}); el pin la calcula con el domicilio. También puedes copiarlas de Google Maps (clic derecho sobre el lugar).`}
+      >
+        <div className="flex items-center gap-1.5">
+          <input className="input" type="number" step="any" min={-90} max={90} placeholder="21.1619" value={latitud} onChange={(e) => onCambio({ latitud: e.target.value })} />
+          <UbicarBotones domicilio={domicilio} deshabilitado={deshabilitado} onMensaje={setMensaje} onUbicar={(la, lo) => onCambio({ latitud: la, longitud: lo })} />
+        </div>
+      </Fila>
+      <Fila etiqueta="Longitud">
+        <div className="flex items-center gap-2">
+          <input className="input" type="number" step="any" min={-180} max={180} placeholder="-86.8515" value={longitud} onChange={(e) => onCambio({ longitud: e.target.value })} />
+          {latitud && longitud && (
+            <a className="shrink-0 text-xs text-brand-600 hover:underline" href={`https://www.google.com/maps?q=${latitud},${longitud}`} target="_blank" rel="noreferrer">
+              Ver mapa
+            </a>
+          )}
+        </div>
+      </Fila>
+      <Fila etiqueta="Radio (m)" ayuda="Distancia máxima desde las coordenadas para aceptar una checada con GPS.">
+        <input className="input" type="number" min={10} max={5000} value={radio} onChange={(e) => onCambio({ radio_metros: e.target.value })} />
+      </Fila>
+      {mensaje && <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600 md:col-span-2">{mensaje}</p>}
+    </>
+  );
+}
+
+type Encontrado = { lat: string; lon: string; display_name: string };
+const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Busca el domicilio en OpenStreetMap; si no encuentra la calle, prueba con colonia, C.P. y ciudad. */
+async function geocodificar(d: Domicilio): Promise<{ r: Encontrado; nivel: string | null } | null> {
+  const base = "https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=mx&accept-language=es";
+  const q = (...p: string[]) => `${base}&q=${encodeURIComponent([...p.filter(Boolean), "México"].join(", "))}`;
+  const intentos: [string, string | null][] = [];
+  if (d.calle) {
+    const est = new URLSearchParams({ street: d.calle, city: d.ciudad, state: d.entidad, postalcode: d.codigo_postal, country: "México" });
+    intentos.push([`${base}&${[...est].filter(([, v]) => v).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&")}`, null]);
+    intentos.push([q(d.calle, d.colonia, d.ciudad, d.entidad), null]);
+  }
+  if (d.colonia) intentos.push([q(d.colonia, d.codigo_postal, d.ciudad, d.entidad), "la colonia"]);
+  if (d.codigo_postal) intentos.push([`${base}&postalcode=${d.codigo_postal}&country=M%C3%A9xico`, "el código postal"]);
+  if (d.ciudad) intentos.push([q(d.ciudad, d.entidad), "la ciudad"]);
+  for (let i = 0; i < intentos.length; i++) {
+    if (i) await espera(1100); // OpenStreetMap pide máximo una consulta por segundo
+    const lista = (await (await fetch(intentos[i][0])).json()) as Encontrado[];
+    if (lista.length) return { r: lista[0], nivel: intentos[i][1] };
+  }
+  return null;
+}
+
 /**
  * Botones junto a la latitud: «Estoy aquí» (GPS del navegador) y «Buscar la dirección»
  * (OpenStreetMap). Llenan latitud y longitud; se pueden ajustar a mano.
  */
-export function UbicarBotones({ direccion, onUbicar, deshabilitado }: { direccion?: string; onUbicar: (lat: string, lon: string) => void; deshabilitado?: boolean }) {
+export function UbicarBotones({
+  domicilio,
+  onUbicar,
+  onMensaje: setMensaje,
+  deshabilitado,
+}: {
+  domicilio: Domicilio;
+  onUbicar: (lat: string, lon: string) => void;
+  onMensaje: (m: string | null) => void;
+  deshabilitado?: boolean;
+}) {
   const [ocupado, setOcupado] = useState<"gps" | "dir" | null>(null);
-  const [mensaje, setMensaje] = useState<string | null>(null);
 
   function aqui() {
     setMensaje(null);
@@ -682,35 +825,34 @@ export function UbicarBotones({ direccion, onUbicar, deshabilitado }: { direccio
 
   async function buscar() {
     setMensaje(null);
-    const q = direccion?.trim();
-    if (!q) return setMensaje("Escribe primero la dirección.");
+    if (!domicilio.calle && !domicilio.colonia && !domicilio.codigo_postal && !domicilio.ciudad) return setMensaje("Captura primero el domicilio.");
     setOcupado("dir");
     try {
-      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=mx&accept-language=es&q=${encodeURIComponent(q)}`);
-      const lista = (await r.json()) as { lat: string; lon: string; display_name: string }[];
-      if (!lista.length) setMensaje("No se encontró la dirección; agrega colonia, ciudad y estado.");
+      const res = await geocodificar(domicilio);
+      if (!res) setMensaje("No se encontró el domicilio. Revisa la colonia, el C.P. y la ciudad, o usa «Estoy aquí» estando en el lugar.");
       else {
-        onUbicar(Number(lista[0].lat).toFixed(6), Number(lista[0].lon).toFixed(6));
-        setMensaje(`Encontrada: ${lista[0].display_name}. Revisa que sea correcta.`);
+        onUbicar(Number(res.r.lat).toFixed(6), Number(res.r.lon).toFixed(6));
+        setMensaje(
+          res.nivel
+            ? `No se encontró la calle exacta; se tomó el centro de ${res.nivel} (${res.r.display_name}). Ajusta las coordenadas o usa «Estoy aquí» estando en el lugar.`
+            : `Encontrada: ${res.r.display_name}. Revisa que sea correcta.`,
+        );
       }
     } catch {
-      setMensaje("No se pudo buscar la dirección. Intenta más tarde.");
+      setMensaje("No se pudo buscar el domicilio. Intenta más tarde.");
     } finally {
       setOcupado(null);
     }
   }
 
   return (
-    <div className="mt-1 space-y-1">
-      <div className="flex gap-1.5">
+    <div className="flex shrink-0 gap-1.5">
         <button type="button" className="rounded-md p-1.5 text-slate-500 ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-brand-600 disabled:opacity-50" title="Estoy aquí: tomar mi ubicación actual" aria-label="Tomar mi ubicación actual" disabled={deshabilitado || !!ocupado} onClick={aqui}>
           <Icono nombre="locate-fixed" className={`h-4 w-4 ${ocupado === "gps" ? "animate-pulse" : ""}`} />
         </button>
-        <button type="button" className="rounded-md p-1.5 text-slate-500 ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-brand-600 disabled:opacity-50" title="Calcular a partir de la dirección" aria-label="Calcular a partir de la dirección" disabled={deshabilitado || !!ocupado} onClick={buscar}>
+        <button type="button" className="rounded-md p-1.5 text-slate-500 ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-brand-600 disabled:opacity-50" title="Calcular con el domicilio" aria-label="Calcular con el domicilio" disabled={deshabilitado || !!ocupado} onClick={buscar}>
           <Icono nombre="map-pin" className={`h-4 w-4 ${ocupado === "dir" ? "animate-pulse" : ""}`} />
         </button>
-      </div>
-      {mensaje && <p className="text-xs text-slate-500">{mensaje}</p>}
     </div>
   );
 }

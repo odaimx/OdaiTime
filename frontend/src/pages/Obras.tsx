@@ -4,7 +4,7 @@ import Registro, { useFormulario } from "../components/Registro";
 import Icono from "../components/Iconos";
 import Vista, { useAbrirDesdeUrl, useVista, type ConfigVista } from "../components/Vista";
 import { imprimirSecciones } from "../lib/imprimir";
-import { Ayuda, Badge, ErrorBox, PageHeader, Plegable, UbicarBotones, useEmpresaScope } from "../components/ui";
+import { Ayuda, Badge, Campos, CamposDomicilio, CamposUbicacion, DOMICILIO_VACIO, domicilioApi, domicilioDe, ErrorBox, Fila, Modal, PageHeader, Plegable, useEmpresaScope, type Domicilio } from "../components/ui";
 import { api, descargar, fechaCorta, get, patch, post, type AsignacionObra, type Empleado, type Obra, type Sucursal } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -12,7 +12,7 @@ type Form = {
   clave: string;
   nombre: string;
   sucursal_id: string;
-  direccion: string;
+  domicilio: Domicilio;
   latitud: string;
   longitud: string;
   radio_metros: string;
@@ -24,13 +24,13 @@ const hoyIso = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
-const VACIO: Form = { clave: "", nombre: "", sucursal_id: "", direccion: "", latitud: "", longitud: "", radio_metros: "150", fecha_inicio: hoyIso(), fecha_fin: "" };
+const VACIO: Form = { clave: "", nombre: "", sucursal_id: "", domicilio: DOMICILIO_VACIO, latitud: "", longitud: "", radio_metros: "150", fecha_inicio: hoyIso(), fecha_fin: "" };
 
 const aForm = (o: Obra): Form => ({
   clave: o.clave,
   nombre: o.nombre,
   sucursal_id: o.sucursal_id,
-  direccion: o.direccion ?? "",
+  domicilio: domicilioDe(o),
   latitud: o.latitud?.toString() ?? "",
   longitud: o.longitud?.toString() ?? "",
   radio_metros: String(o.radio_metros),
@@ -71,7 +71,7 @@ export default function Obras() {
       clave: form.clave.trim().toUpperCase(),
       nombre: form.nombre,
       sucursal_id: form.sucursal_id,
-      direccion: form.direccion || null,
+      ...domicilioApi(form.domicilio),
       latitud: form.latitud ? Number(form.latitud) : null,
       longitud: form.longitud ? Number(form.longitud) : null,
       radio_metros: Number(form.radio_metros) || 150,
@@ -98,7 +98,7 @@ export default function Obras() {
 
   const config: ConfigVista<Obra> = {
     id: "obras",
-    tituloReporte: "Obras",
+    tituloReporte: "Otras zonas",
     clave: (o) => o.id,
     eliminar: puedeEditar ? { borrar: (o) => api(`/obras/${o.id}${query}`, { method: "DELETE" }), despues: cargar } : undefined,
     onAbrir: abrir,
@@ -106,16 +106,16 @@ export default function Obras() {
       <>
         {puedeEditar && (
           <button className="btn-primary" onClick={() => abrir("nueva")} disabled={!sucursales.length} title={sucursales.length ? undefined : "Primero da de alta una sucursal"}>
-            <Icono nombre="plus" /> Nuevo
+            <Icono nombre="map-pin-plus" /> Nuevo
           </button>
         )}
         <button className="btn-secondary" onClick={() => setReporte(true)}>
-          <Icono nombre="file-chart-column" /> Horas por obra
+          <Icono nombre="file-chart-column" /> Horas por zona
         </button>
       </>
     ),
     actividades: { modelo: "obra", query, listo },
-    vacio: "Aún no hay obras. Crea una para asignar empleados y validar su checada en el lugar de la obra.",
+    vacio: "Aún no hay zonas. Crea una (obra, punto de venta, evento…) para asignar empleados y validar su checada en ese lugar.",
     ordenInicial: { clave: "clave", dir: "asc" },
     columnas: [
       { clave: "clave", titulo: "Clave", fija: true, buscable: true, enlace: true, valor: (o) => o.clave, render: (o) => <span className="font-mono text-xs font-semibold text-brand-600">{o.clave}</span> },
@@ -181,18 +181,18 @@ export default function Obras() {
 
   return (
     <>
-      <PageHeader icono="hard-hat" title="Obras" action={selector} />
+      <PageHeader icono="map-pin" title="Otras zonas" action={selector} />
       <Vista vista={vista} />
       {reporte && <ReporteObras obras={obras} query={query} onCerrar={() => setReporte(false)} />}
 
       {editando && (
         <Registro
-          titulo={editando === "nueva" ? "Nueva obra" : `${editando.clave} · ${editando.nombre}`}
+          titulo={editando === "nueva" ? "Nueva zona" : `${editando.clave} · ${editando.nombre}`}
           onImprimir={
             editando === "nueva"
               ? undefined
               : () =>
-                  imprimirSecciones(`Obra · ${editando.clave} ${editando.nombre}`, [
+                  imprimirSecciones(`Zona · ${editando.clave} ${editando.nombre}`, [
                     {
                       campos: [
                         ["Clave", editando.clave],
@@ -219,68 +219,41 @@ export default function Obras() {
           ancho="lg"
         >
           <form onSubmit={(e: FormEvent) => (e.preventDefault(), guardar())} className="space-y-4">
-            <fieldset disabled={!puedeEditar} className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div>
-                  <label className="label">Clave</label>
-                  <input className="input uppercase" required maxLength={20} pattern="[A-Za-z0-9_\-]+" title="Letras, números, guion o guion bajo" value={form.clave} onChange={set("clave")} />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="label">Nombre</label>
-                  <input className="input" required value={form.nombre} onChange={set("nombre")} />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div>
-                  <label className="label">
-                    Sucursal
-                    <Ayuda texto="La obra usa la zona horaria, el turno y la configuración de checadas de esta sucursal." />
-                  </label>
-                  <select className="input" required value={form.sucursal_id} onChange={set("sucursal_id")}>
+            <fieldset disabled={!puedeEditar}>
+              <Campos>
+                <Fila etiqueta="Clave" htmlFor="ob-clave">
+                  <input id="ob-clave" className="input uppercase" required maxLength={20} pattern="[A-Za-z0-9_\-]+" title="Letras, números, guion o guion bajo" value={form.clave} onChange={set("clave")} />
+                </Fila>
+                <Fila etiqueta="Nombre" htmlFor="ob-nombre">
+                  <input id="ob-nombre" className="input" required value={form.nombre} onChange={set("nombre")} />
+                </Fila>
+                <Fila etiqueta="Sucursal" htmlFor="ob-suc" ayuda="La zona usa la zona horaria, el turno y la configuración de checadas de esta sucursal.">
+                  <select id="ob-suc" className="input" required value={form.sucursal_id} onChange={set("sucursal_id")}>
                     {sucursales.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.clave} · {s.nombre}
                       </option>
                     ))}
                   </select>
-                </div>
-                <div>
-                  <label className="label">Inicio</label>
-                  <input className="input" type="date" required value={form.fecha_inicio} onChange={set("fecha_inicio")} />
-                </div>
-                <div>
-                  <label className="label">
-                    Fin
-                    <Ayuda texto="Déjalo vacío si aún no tiene fecha de término. Después del fin, ya no se valida la checada en la obra." />
-                  </label>
-                  <input className="input" type="date" min={form.fecha_inicio} value={form.fecha_fin} onChange={set("fecha_fin")} />
-                </div>
-              </div>
-              <div>
-                <label className="label">Dirección</label>
-                <input className="input" maxLength={300} value={form.direccion} onChange={set("direccion")} />
-              </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div>
-                  <label className="label">
-                    Latitud
-                    <Ayuda texto="Usa los íconos de abajo: «Estoy aquí» toma tu ubicación actual (estando en la obra) y el pin la calcula con la dirección. Los empleados asignados checan con GPS contra este punto." />
-                  </label>
-                  <input className="input" type="number" step="any" min={-90} max={90} placeholder="21.1619" value={form.latitud} onChange={set("latitud")} />
-                <UbicarBotones direccion={form.direccion} deshabilitado={!puedeEditar} onUbicar={(latitud, longitud) => setForm({ ...form, latitud, longitud })} />
-                </div>
-                <div>
-                  <label className="label">Longitud</label>
-                  <input className="input" type="number" step="any" min={-180} max={180} placeholder="-86.8515" value={form.longitud} onChange={set("longitud")} />
-                </div>
-                <div>
-                  <label className="label">
-                    Radio (m)
-                    <Ayuda texto="Distancia máxima desde las coordenadas para aceptar una checada con GPS." />
-                  </label>
-                  <input className="input" type="number" min={10} max={5000} value={form.radio_metros} onChange={set("radio_metros")} />
-                </div>
-              </div>
+                </Fila>
+                <div className="hidden md:block" />
+                <Fila etiqueta="Inicio" htmlFor="ob-ini">
+                  <input id="ob-ini" className="input" type="date" required value={form.fecha_inicio} onChange={set("fecha_inicio")} />
+                </Fila>
+                <Fila etiqueta="Fin" htmlFor="ob-fin" ayuda="Déjalo vacío si aún no tiene fecha de término. Después del fin, ya no se valida la checada en esta zona.">
+                  <input id="ob-fin" className="input" type="date" min={form.fecha_inicio} value={form.fecha_fin} onChange={set("fecha_fin")} />
+                </Fila>
+                <CamposDomicilio prefijo="ob" valor={form.domicilio} onCambio={(domicilio) => setForm({ ...form, domicilio })} />
+                <CamposUbicacion
+                  lugar="la zona"
+                  latitud={form.latitud}
+                  longitud={form.longitud}
+                  radio={form.radio_metros}
+                  domicilio={form.domicilio}
+                  deshabilitado={!puedeEditar}
+                  onCambio={(c) => setForm({ ...form, ...c })}
+                />
+              </Campos>
             </fieldset>
 
             {editando !== "nueva" && <Asignaciones obra={editando} query={query} puedeEditar={puedeEditar} onCambio={cargar} />}
@@ -288,7 +261,7 @@ export default function Obras() {
             {editando !== "nueva" && puedeEditar && (
               <div className="flex justify-end">
                 <button type="button" className="text-sm text-slate-500 hover:text-tinta-900 hover:underline" onClick={() => alternar(editando)}>
-                  {editando.activa ? "Desactivar obra" : "Activar obra"}
+                  {editando.activa ? "Desactivar zona" : "Activar zona"}
                 </button>
               </div>
             )}
@@ -352,7 +325,7 @@ function Asignaciones({ obra, query, puedeEditar, onCambio }: { obra: Obra; quer
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-tinta-900">
           Empleados asignados
-          <Ayuda texto="Mientras su asignación esté vigente, el empleado checa con GPS contra la ubicación de la obra. Si lo asignas a otra obra, la asignación anterior se cierra un día antes." />
+          <Ayuda texto="Mientras su asignación esté vigente, el empleado checa con GPS contra la ubicación de la zona. Si lo asignas a otra zona, la asignación anterior se cierra un día antes." />
         </h3>
         <div className="flex items-center gap-3">
           <label className="flex items-center gap-1 text-xs text-slate-500">
@@ -463,7 +436,7 @@ function ReporteObras({ obras, query, onCerrar }: { obras: Obra[]; query: string
     p.set("hasta", hasta);
     if (obraId) p.set("obra_id", obraId);
     try {
-      await descargar(`/reportes/obras.xlsx?${p}`, `horas_por_obra_${desde}_${hasta}.xlsx`);
+      await descargar(`/reportes/obras.xlsx?${p}`, `horas_por_zona_${desde}_${hasta}.xlsx`);
       onCerrar();
     } catch (e) {
       setError((e as Error).message);
@@ -473,31 +446,27 @@ function ReporteObras({ obras, query, onCerrar }: { obras: Obra[]; query: string
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onCerrar}>
-      <div className="card w-full max-w-md space-y-4 p-5" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-lg font-semibold text-tinta-900">Horas por obra</h2>
-        <p className="text-sm text-slate-600">Horas trabajadas y extras de cada empleado en la obra a la que estaba asignado cada día.</p>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="label">Desde</label>
+    <Modal title="Horas por zona" onClose={onCerrar}>
+      <div className="space-y-4">
+        <p className="text-sm text-slate-600">Horas trabajadas y extras de cada empleado en la zona a la que estaba asignado cada día.</p>
+        <Campos>
+          <Fila etiqueta="Desde">
             <input className="input" type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />
-          </div>
-          <div>
-            <label className="label">Hasta</label>
+          </Fila>
+          <Fila etiqueta="Hasta">
             <input className="input" type="date" min={desde} value={hasta} onChange={(e) => setHasta(e.target.value)} />
-          </div>
-        </div>
-        <div>
-          <label className="label">Obra</label>
-          <select className="input" value={obraId} onChange={(e) => setObraId(e.target.value)}>
-            <option value="">Todas</option>
-            {obras.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.clave} · {o.nombre}
-              </option>
-            ))}
-          </select>
-        </div>
+          </Fila>
+          <Fila etiqueta="Zona">
+            <select className="input" value={obraId} onChange={(e) => setObraId(e.target.value)}>
+              <option value="">Todas</option>
+              {obras.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.clave} · {o.nombre}
+                </option>
+              ))}
+            </select>
+          </Fila>
+        </Campos>
         <ErrorBox message={error} />
         <div className="flex justify-end gap-2">
           <button className="btn-secondary" onClick={onCerrar}>
@@ -508,6 +477,6 @@ function ReporteObras({ obras, query, onCerrar }: { obras: Obra[]; query: string
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

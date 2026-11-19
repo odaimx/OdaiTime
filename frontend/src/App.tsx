@@ -23,6 +23,7 @@ import Vacaciones from "./pages/Vacaciones";
 import MiEmpresa from "./pages/MiEmpresa";
 import Sucursales from "./pages/Sucursales";
 import Obras from "./pages/Obras";
+import Configuracion from "./pages/Configuracion";
 import Turnos from "./pages/Turnos";
 import Usuarios from "./pages/Usuarios";
 
@@ -134,7 +135,7 @@ export default function App() {
           path="checadas/configuracion"
           element={
             <Requiere roles={GESTION}>
-              <ConfigChecadas />
+              <Navigate to="/configuracion/checadas" replace />
             </Requiere>
           }
         />
@@ -151,6 +152,14 @@ export default function App() {
           element={
             <Requiere roles={["superadmin", "admin_empresa", "gerente_sucursal"]}>
               <Sucursales />
+            </Requiere>
+          }
+        />
+        <Route
+          path="configuracion/:seccion/:sub?"
+          element={
+            <Requiere roles={["superadmin", "admin_empresa", "gerente_sucursal"]}>
+              <Configuracion />
             </Requiere>
           }
         />

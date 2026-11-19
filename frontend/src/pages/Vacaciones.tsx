@@ -381,8 +381,8 @@ function Calendario({ query }: { query: string }) {
           ))}
         </select>
         {obras.length > 0 && (
-          <select className="input w-auto" value={obraId} onChange={(e) => setObraId(e.target.value)} aria-label="Obra">
-            <option value="">Todas las obras</option>
+          <select className="input w-auto" value={obraId} onChange={(e) => setObraId(e.target.value)} aria-label="Zona">
+            <option value="">Todas las zonas</option>
             {obras.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.clave} · {o.nombre}

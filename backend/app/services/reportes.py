@@ -793,10 +793,10 @@ def reporte_obras(
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "Horas por obra"
+    ws.title = "Horas por zona"
     columnas = [
         "Clave",
-        "Obra",
+        "Zona",
         "Número",
         "Empleado",
         "Días",
@@ -804,7 +804,7 @@ def reporte_obras(
         "Horas extra dobles",
         "Horas extra triples",
     ]
-    fila = _encabezado(ws, empresa, "Horas por obra", desde, hasta, len(columnas))
+    fila = _encabezado(ws, empresa, "Horas por zona", desde, hasta, len(columnas))
     _tabla(ws, fila, columnas, con_totales)
     for r in range(fila + 1, fila + 1 + len(con_totales)):
         if str(ws.cell(row=r, column=2).value or "").startswith("Total "):

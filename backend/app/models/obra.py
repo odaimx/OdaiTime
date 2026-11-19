@@ -7,11 +7,12 @@ from sqlalchemy import Date, ForeignKey, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
+from app.models.domicilio import DomicilioMixin
 from app.models.empleado import Empleado
 from app.models.sucursal import Sucursal
 
 
-class Obra(UUIDPkMixin, TimestampMixin, Base):
+class Obra(DomicilioMixin, UUIDPkMixin, TimestampMixin, Base):
     """Sitio temporal donde checan los empleados asignados (validación por ubicación)."""
 
     __tablename__ = "obras"

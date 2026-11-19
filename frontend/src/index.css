@@ -17,11 +17,19 @@
   --color-oro-300: #ecd9b2;
   --color-oro-400: #e2c68f; /* títulos sobre el encabezado */
   --color-oro-500: #d2b16f;
+  --color-lista: #dbe3ee; /* banda de títulos de las listas (configurable) */
+  --color-submenu: #e9eef5; /* pestañas debajo del título de la pantalla (configurable) */
 
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 @layer components {
+  /* Listas: todo el contenido de las filas con el mismo tamaño de letra. */
+  .tabla-lista tbody td,
+  .tabla-lista tbody td :where(p, span, button, a, div) {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 bg-navy-900 text-white hover:bg-navy-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy-900;
   }
@@ -153,5 +161,36 @@
   }
   body.imprimiendo-registro .no-imprimir {
     display: none !important;
+  }
+}
+
+/*
+ * Ventanas de registro y de formulario: todas con el mismo diseño. Fuera de @layer para que
+ * mande sobre las utilidades de cada pantalla:
+ * - cada campo "etiqueta arriba" se acomoda como "etiqueta a la izquierda" (igual que <Fila>);
+ * - las rejillas de campos quedan a dos columnas.
+ */
+@media (min-width: 640px) {
+  .ventana-form div:has(> label.label):not(:has(> label.label ~ label.label)) {
+    display: grid;
+    grid-template-columns: 9.5rem minmax(0, 1fr);
+    align-items: center;
+    column-gap: 0.75rem;
+    row-gap: 0.25rem;
+  }
+  .ventana-form div:has(> label.label) > label.label {
+    margin-bottom: 0;
+  }
+  .ventana-form div:has(> label.label) > :not(label.label) {
+    grid-column: 2;
+  }
+}
+@media (min-width: 768px) {
+  .ventana-form .grid:has(> div > label.label) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 2.5rem;
+  }
+  .ventana-form .grid:has(> div > label.label) > [class*="col-span-"] {
+    grid-column: 1 / -1;
   }
 }

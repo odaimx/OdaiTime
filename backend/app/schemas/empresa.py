@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 from pydantic import AfterValidator, BaseModel, ConfigDict, EmailStr, Field, computed_field
 
 from app.core.tenant import SLUG_RE, reservados, url_empresa
-from app.schemas.common import RFC, Nombre, Password
+from app.schemas.common import RFC, Domicilio, Nombre, Password
 
 
 def _slug(v: str | None) -> str | None:
@@ -26,7 +26,7 @@ Estado = Literal["corriendo", "suspendida", "eliminada"]
 Periodicidad = Literal["mensual", "bimestral", "trimestral", "semestral", "anual"]
 
 
-class EmpresaBase(BaseModel):
+class EmpresaBase(Domicilio):
     nombre: Nombre
     razon_social: str | None = None
     rfc: RFC | None = None
@@ -48,7 +48,7 @@ class EmpresaCreate(EmpresaBase):
     max_usuarios: int = Field(default=5, ge=0, le=1000)
 
 
-class EmpresaUpdate(BaseModel):
+class EmpresaUpdate(Domicilio):
     nombre: Nombre | None = None
     slug: Slug | None = None
     razon_social: str | None = None

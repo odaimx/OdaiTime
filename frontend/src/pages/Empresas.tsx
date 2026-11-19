@@ -1,19 +1,18 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router";
 import AdministradorEmpresa from "../components/AdministradorEmpresa";
-import ConfigSistema from "../components/ConfigSistema";
 import LogoEmpresa from "../components/LogoEmpresa";
 import Registro, { useFormulario } from "../components/Registro";
 import Icono from "../components/Iconos";
-import { columnaCategorias, filtrosCategorias, GestorCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
+import { columnaCategorias, filtrosCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
 import Vista, { useAbrirDesdeUrl, useVista, type ConfigVista } from "../components/Vista";
 import { imprimirSecciones } from "../lib/imprimir";
 import { entrarSoporte } from "../lib/soporte";
-import { Ayuda, ErrorBox, PageHeader } from "../components/ui";
+import { Ayuda, CamposDomicilio, DOMICILIO_VACIO, domicilioApi, domicilioDe, ErrorBox, PageHeader, type Domicilio } from "../components/ui";
 import { api, get, patch, post, urlLogo, type Categoria, type Empresa, type TenantInfo } from "../lib/api";
 
-type Form = { nombre: string; slug: string; razon_social: string; rfc: string; direccion: string; max_empleados: string; licencia_vence: string; demo: boolean; max_usuarios: string; estado: string; motivo_suspension: string; periodicidad: string; admin_nombre: string; admin_email: string; admin_password: string };
-const VACIO: Form = { nombre: "", slug: "", razon_social: "", rfc: "", direccion: "", max_empleados: "15", licencia_vence: "", demo: false, max_usuarios: "5", estado: "corriendo", motivo_suspension: "", periodicidad: "", admin_nombre: "", admin_email: "", admin_password: "" };
+type Form = { nombre: string; slug: string; razon_social: string; rfc: string; domicilio: Domicilio; max_empleados: string; licencia_vence: string; demo: boolean; max_usuarios: string; estado: string; motivo_suspension: string; periodicidad: string; admin_nombre: string; admin_email: string; admin_password: string };
+const VACIO: Form = { nombre: "", slug: "", razon_social: "", rfc: "", domicilio: DOMICILIO_VACIO, max_empleados: "15", licencia_vence: "", demo: false, max_usuarios: "5", estado: "corriendo", motivo_suspension: "", periodicidad: "", admin_nombre: "", admin_email: "", admin_password: "" };
 
 const ESTADOS: Record<string, string> = { corriendo: "Corriendo", suspendida: "Suspendida", eliminada: "Eliminada" };
 const PERIODICIDADES: Record<string, string> = { mensual: "Mensual", bimestral: "Bimestral", trimestral: "Trimestral", semestral: "Semestral", anual: "Anual" };
@@ -48,7 +47,7 @@ export default function Empresas() {
     cargarForm(
       e === "nueva"
         ? VACIO
-        : { ...VACIO, nombre: e.nombre, slug: e.slug, razon_social: e.razon_social ?? "", rfc: e.rfc ?? "", direccion: e.direccion ?? "", max_empleados: String(e.max_empleados), licencia_vence: e.licencia_vence ?? "", demo: !!e.demo, max_usuarios: String(e.max_usuarios ?? 5), estado: e.estado ?? "corriendo", motivo_suspension: e.motivo_suspension ?? "", periodicidad: e.periodicidad ?? "" },
+        : { ...VACIO, nombre: e.nombre, slug: e.slug, razon_social: e.razon_social ?? "", rfc: e.rfc ?? "", domicilio: domicilioDe(e), max_empleados: String(e.max_empleados), licencia_vence: e.licencia_vence ?? "", demo: !!e.demo, max_usuarios: String(e.max_usuarios ?? 5), estado: e.estado ?? "corriendo", motivo_suspension: e.motivo_suspension ?? "", periodicidad: e.periodicidad ?? "" },
     );
     setEditando(e);
   }
@@ -59,7 +58,7 @@ export default function Empresas() {
       nombre: form.nombre,
       ...(form.slug.trim() ? { slug: form.slug.trim().toLowerCase() } : {}),
       razon_social: form.razon_social || null,
-      direccion: form.direccion || null,
+      ...domicilioApi(form.domicilio),
       rfc: form.rfc || null,
       max_empleados: Number(form.max_empleados) || 15,
       licencia_vence: form.licencia_vence || null,
@@ -95,11 +94,9 @@ export default function Empresas() {
       <span className={`${tam} flex shrink-0 items-center justify-center rounded-lg bg-navy-900 text-xs font-semibold text-white`}>{e.nombre.slice(0, 2).toUpperCase()}</span>
     );
   const cats = useCategorias("empresa", "", true);
-  const [gestorCats, setGestorCats] = useState(false);
   const config: ConfigVista<Empresa> = {
     id: "empresas",
     tituloReporte: "Empresas",
-    ajustes: { titulo: "Sistema (todas las empresas)", ancho: "xl", contenido: <ConfigSistema /> },
     clave: (e) => e.id,
     eliminar: { borrar: (e) => api(`/empresas/${e.id}`, { method: "DELETE" }), despues: cargar },
     onAbrir: abrir,
@@ -194,15 +191,10 @@ export default function Empresas() {
   return (
     <>
       <PageHeader
-        submenu={[
-          { etiqueta: "Empresas", activo: true },
-          { etiqueta: "Categorías", onClick: () => setGestorCats(true) },
-        ]}
         icono="building"
         title="Empresas"
         subtitle="Clientes de ODAITIME"
       />
-      {gestorCats && <GestorCategorias modelo="empresa" query={""} puedeEditar={true} onCerrar={() => setGestorCats(false)} onCambio={cats.recargar} />}
 
       <Vista vista={vista} />
 
@@ -310,10 +302,7 @@ export default function Empresas() {
               </div>
               {editando !== "nueva" && <p className="mt-1 text-xs text-amber-700">Si lo cambias, la dirección anterior deja de funcionar.</p>}
             </div>
-            <div>
-              <label className="label">Dirección</label>
-              <textarea className="input min-h-[2.6rem]" maxLength={300} value={form.direccion} onChange={(e) => setForm({ ...form, direccion: e.target.value })} />
-            </div>
+            <CamposDomicilio prefijo="emp" valor={form.domicilio} onCambio={(domicilio) => setForm({ ...form, domicilio })} />
 
             <fieldset className="grid grid-cols-1 gap-4 rounded-lg bg-slate-50 p-4 sm:grid-cols-2">
               <legend className="px-1 text-xs font-medium uppercase tracking-wide text-slate-500">Licencia</legend>

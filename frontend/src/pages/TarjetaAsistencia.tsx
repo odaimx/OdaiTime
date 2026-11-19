@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Avatar from "../components/Avatar";
 import Registro from "../components/Registro";
-import ReglasTarjeta from "../components/ReglasTarjeta";
 import { useAuth } from "../lib/auth";
 import { useNavigate } from "react-router";
 import Icono from "../components/Iconos";
@@ -101,7 +100,6 @@ export default function TarjetaAsistencia() {
   const config: ConfigVista<FilaResumen> = {
     id: "tarjeta_asistencia",
     tituloReporte: `Tarjeta de asistencia · ${rango.desde} al ${rango.hasta}`,
-    ajustes: { titulo: "Reglas de la tarjeta de asistencia", contenido: <ReglasTarjeta query={query} esAdmin={esAdmin} /> },
     fuentes: "arts. 59, 66, 68, 71, 73, 74, 75 y 76",
     clave: (f) => f.empleado.id,
     onAbrir: (f) => abrir(f.empleado.id),

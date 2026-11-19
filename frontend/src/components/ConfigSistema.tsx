@@ -6,14 +6,23 @@ import PlantillasCorreo from "./PlantillasCorreo";
 import Icono from "./Iconos";
 import { Ayuda, BarraGuardar, ErrorBox, Fila, ImagenEditable } from "./ui";
 
-type Pestana = "tema" | "acceso" | "frases" | "correo" | "plantillas" | "enlaces";
+export type Pestana = "tema" | "acceso" | "frases" | "correo" | "plantillas" | "enlaces";
+export const SECCIONES_SISTEMA: [Pestana, string][] = [
+  ["tema", "Colores del tema"],
+  ["acceso", "Pantalla de acceso"],
+  ["frases", "Frases"],
+  ["correo", "Correo saliente"],
+  ["plantillas", "Plantillas de correo"],
+  ["enlaces", "Enlaces de Odai"],
+];
 
 /** Configuración general de ODAITIME para todas las empresas (solo superadmin). */
-export default function ConfigSistema() {
-  const [pestana, setPestana] = useState<Pestana>("tema");
+export default function ConfigSistema({ seccion }: { seccion?: Pestana } = {}) {
+  const [propia, setPestana] = useState<Pestana>("tema");
+  const pestana = seccion ?? propia;
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap gap-1 border-b border-slate-200" role="tablist">
+      <div className={`flex flex-wrap gap-1 border-b border-slate-200 ${seccion ? "hidden" : ""}`} role="tablist">
         {(
           [
             ["tema", "Colores del tema"],
@@ -53,6 +62,8 @@ const ETIQUETAS: Record<keyof Colores, [string, string]> = {
   titulos: ["Color de títulos", "Títulos del encabezado y letras del menú"],
   texto: ["Texto principal", "Textos, etiquetas y datos de las pantallas"],
   texto_suave: ["Texto secundario", "Ayudas, fechas y textos tenues"],
+  lista: ["Títulos de las listas", "Banda con los nombres de las columnas en todas las listas"],
+  submenu: ["Pestañas de las pantallas", "Banda de opciones debajo del título (p. ej. Empleados · Categorías)"],
 };
 
 function Tema() {

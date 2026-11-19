@@ -152,7 +152,22 @@ export function SelectorCategorias({
 }
 
 /** Ventana para dar de alta, renombrar, recolorear y borrar categorías. */
-export function GestorCategorias({ modelo, query, puedeEditar, onCerrar, onCambio }: { modelo: ModeloCategoria; query: string; puedeEditar: boolean; onCerrar: () => void; onCambio: () => void }) {
+export function GestorCategorias({
+  modelo,
+  query,
+  puedeEditar,
+  onCerrar,
+  onCambio,
+  incrustado = false,
+}: {
+  modelo: ModeloCategoria;
+  query: string;
+  puedeEditar: boolean;
+  onCerrar?: () => void;
+  onCambio?: () => void;
+  /** Dentro de una página (menú Configuración) en lugar de una ventana. */
+  incrustado?: boolean;
+}) {
   const sep = query ? "&" : "?";
   const [lista, setLista] = useState<Categoria[]>([]);
   const [nueva, setNueva] = useState({ nombre: "", color: "#8a64de" });
@@ -168,14 +183,13 @@ export function GestorCategorias({ modelo, query, puedeEditar, onCerrar, onCambi
     try {
       await f();
       cargar();
-      onCambio();
+      onCambio?.();
     } catch (e) {
       setError((e as Error).message);
     }
   }
 
-  return (
-    <Modal title={TITULOS[modelo]} onClose={onCerrar} ancho="lg">
+  const contenido = (
       <div className="space-y-4">
         {puedeEditar && (
           <form
@@ -226,9 +240,16 @@ export function GestorCategorias({ modelo, query, puedeEditar, onCerrar, onCambi
           ))}
         </ul>
       </div>
+  );
+  if (incrustado) return <div className="card p-5">{contenido}</div>;
+  return (
+    <Modal title={TITULOS[modelo]} onClose={onCerrar ?? (() => {})}>
+      {contenido}
     </Modal>
   );
 }
+
+export const TITULOS_CATEGORIAS = TITULOS;
 
 /** Selector de color libre: solo se ve el color elegido, en un círculo. */
 function Paleta({ valor, onCambio }: { valor: string; onCambio: (c: string) => void }) {

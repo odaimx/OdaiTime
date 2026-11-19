@@ -13,6 +13,8 @@ export interface Colores {
   titulos?: string | null; // beige
   texto?: string | null; // texto principal
   texto_suave?: string | null; // texto secundario (ayudas, etiquetas tenues)
+  lista?: string | null; // banda de títulos de las listas
+  submenu?: string | null; // pestañas debajo del título de cada pantalla
 }
 
 export const COLORES_ODAI: Required<{ [K in keyof Colores]: string }> = {
@@ -22,6 +24,8 @@ export const COLORES_ODAI: Required<{ [K in keyof Colores]: string }> = {
   titulos: "#e2c68f",
   texto: "#1a2c4f",
   texto_suave: "#64748b",
+  lista: "#dbe3ee",
+  submenu: "#e9eef5",
 };
 
 const mezcla = (c: string, pct: number, con: "white" | "black") => `color-mix(in srgb, ${c} ${pct}%, ${con})`;
@@ -51,6 +55,8 @@ export function aplicarTema(colores: Colores) {
   set("--color-slate-500", ts ?? null);
   set("--color-slate-600", ts ? mezcla(ts, 85, "black") : null);
   set("--color-slate-400", ts ? mezcla(ts, 75, "white") : null);
+  set("--color-lista", colores.lista ?? null);
+  set("--color-submenu", colores.submenu ?? null);
 }
 
 export type Enlaces = { url_tienda: string | null; url_soporte: string | null };
