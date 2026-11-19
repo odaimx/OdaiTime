@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import Camara from "../components/Camara";
-import { ErrorBox, PageHeader } from "../components/ui";
+import { ErrorBox, FotoUsuario, PageHeader } from "../components/ui";
 import { ApiError, comprimir, get, hora, postForm, type Checada, type EstadoHoy } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -199,7 +199,8 @@ export default function Checar() {
     <>
     <PageHeader icono="fingerprint-pattern" title="Checar" />
     <div className="mx-auto max-w-md space-y-4">
-      <div className="rounded-3xl bg-navy-900 p-6 text-white">
+      <div className="flex flex-col items-center rounded-3xl bg-navy-900 p-6 text-center text-white">
+        <FotoUsuario className="mb-4 h-36 w-36" />
         <p className="text-sm text-slate-300">Hola, {usuario?.nombre.split(" ")[0]}</p>
         <p className="mt-1 text-5xl font-bold tracking-tight tabular-nums">
           {ahora.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", timeZone: tz })}

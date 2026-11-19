@@ -180,9 +180,16 @@ async def me(user: CurrentUser) -> Usuario:
 
 
 @router.get("/me/foto")
-async def mi_foto(user: CurrentUser, db: DB) -> Response:
-    """Foto (128 px) del usuario; si no subió una, la de su ficha de empleado. 404 si no hay."""
-    datos = await db.scalar(select(Usuario.foto).where(Usuario.id == user.id))
+async def mi_foto(user: CurrentUser, db: DB, grande: bool = False) -> Response:
+    """Foto (128 px) del usuario; si no subió una, la de su ficha de empleado. 404 si no hay.
+
+    Con ``grande`` (portal de checado) se prefiere la foto de 512 px de la ficha de empleado.
+    """
+    datos = None
+    if grande:
+        datos = await db.scalar(select(Empleado.foto).where(Empleado.usuario_id == user.id))
+    if not datos:
+        datos = await db.scalar(select(Usuario.foto).where(Usuario.id == user.id))
     if not datos:
         datos = await db.scalar(select(Empleado.foto_128).where(Empleado.usuario_id == user.id))
     if not datos:
