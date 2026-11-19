@@ -793,7 +793,19 @@ function Paginador<T>({ vista }: { vista: EstadoVista<T> }) {
             setEditando(true);
           }}
           title="Registros por página · doble clic para escribir un rango (p. ej. 1-100)"
-        >      {!vista.grupos && (
+        >
+          {vista.grupos ? (
+            <span>
+              <span className="font-medium text-tinta-900">{total}</span> registros
+            </span>
+          ) : (
+            <span>
+              {desde}-{hasta} / <span className="font-medium text-tinta-900">{total}</span>
+            </span>
+          )}
+        </button>
+      )}
+      {!vista.grupos && (
         <>
           <button className="btn-icono" disabled={pagina === 0} onClick={() => vista.setPagina(pagina - 1)} aria-label="Página anterior">
             <Icono nombre="chevron-left" className="h-4 w-4" />
