@@ -83,6 +83,8 @@ export default function Login() {
   const colores = tema?.login_colores ?? {};
   // Lo que Odai deje vacío en la configuración se queda en blanco.
   const textoLogin = tema?.login_texto ?? "";
+  // Con texto, el título y el subtítulo no ensanchan el bloque: cortan al ancho del texto.
+  const ajustar = textoLogin ? "w-0 min-w-full" : "";
 
   return (
     <div className="flex min-h-screen">
@@ -95,14 +97,14 @@ export default function Login() {
         <span />
         {/* Textos en la parte baja del panel; el color de cada renglón lo elige Odai. */}
         {/* Los tres renglones comparten el mismo ancho: el título y el subtítulo cortan donde corta el texto. */}
-        <div className="relative mt-auto max-w-2xl">
+        <div className="relative mt-auto grid max-w-2xl self-start">
           {tema?.login_titulo && (
-            <h2 className="text-4xl font-semibold leading-tight text-white" style={{ color: colores.titulo ?? undefined }}>
+            <h2 className={`text-4xl font-semibold leading-tight text-white ${ajustar}`} style={{ color: colores.titulo ?? undefined }}>
               {tema.login_titulo}
             </h2>
           )}
           {tema?.login_subtitulo && (
-            <p className="text-4xl font-semibold leading-tight text-brand-500" style={{ color: colores.subtitulo ?? undefined }}>
+            <p className={`text-4xl font-semibold leading-tight text-brand-500 ${ajustar}`} style={{ color: colores.subtitulo ?? undefined }}>
               {tema.login_subtitulo}
             </p>
           )}
