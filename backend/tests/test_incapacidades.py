@@ -24,10 +24,6 @@ async def test_ramo_tipo_subsecuente_y_alertas(client, superadmin):
     hoy = date.today()
     ini = hoy - timedelta(days=5)
 
-    # El ramo es obligatorio.
-    r = await _incapacidad(client, a, emp, ini, hoy + timedelta(days=1))
-    assert r.status_code == 422
-
     r = await _incapacidad(
         client, a, emp, ini, hoy + timedelta(days=1), ramo="riesgo_trabajo", folio="AB123"
     )

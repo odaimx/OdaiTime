@@ -109,10 +109,7 @@ class IncidenciaIn(BaseModel):
         if (self.fecha_fin - self.fecha_inicio).days > 365:
             raise ValueError("Una incidencia no puede durar más de un año")
         if self.tipo == "incapacidad":
-            if self.ramo is None:
-                raise ValueError(
-                    "Indica el ramo: enfermedad general, riesgo de trabajo o maternidad"
-                )
+            self.ramo = self.ramo or "enfermedad_general"
             self.tipo_incapacidad = self.tipo_incapacidad or "inicial"
         else:
             self.ramo = self.tipo_incapacidad = None
