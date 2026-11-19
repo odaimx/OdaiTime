@@ -4,7 +4,6 @@ import { useSoporte } from "../lib/soporte";
 import { temaActual } from "../lib/tema";
 import { useAuth } from "../lib/auth";
 import { FuentesOficiales } from "./LFT";
-import LogoEmpresa from "./LogoEmpresa";
 import Icono, { type NombreIcono } from "./Iconos";
 
 export interface Ajustes {
@@ -123,7 +122,6 @@ function LicenciaBanda() {
 
 export function MenuUsuario() {
   const { usuario, logout, refrescar } = useAuth();
-  const [logo, setLogo] = useState(false);
   const [abierto, setAbierto] = useState(false);
   const [ficha, setFicha] = useState(false);
   const [clave, setClave] = useState(false);
@@ -203,11 +201,7 @@ export function MenuUsuario() {
             <button className="menu-item" onClick={() => elegir(() => setClave(true))}>
               <Icono nombre="key-round" className="h-4 w-4" /> Cambiar contraseña
             </button>
-            {usuario.rol === "admin_empresa" && usuario.empresa && (
-              <button className="menu-item" onClick={() => elegir(() => setLogo(true))}>
-                <Icono nombre="image" className="h-4 w-4" /> Logo de la empresa
-              </button>
-            )}
+
             <a className="menu-item" href={soporte} target="_blank" rel="noopener noreferrer" onClick={() => setAbierto(false)}>
               <Icono nombre="send" className="h-4 w-4" /> Solicitar soporte
             </a>
@@ -219,11 +213,7 @@ export function MenuUsuario() {
         </div>
       )}
       {clave && <CambiarPassword onClose={() => setClave(false)} />}
-      {logo && usuario.empresa && (
-        <Modal title="Logo de la empresa" onClose={() => setLogo(false)}>
-          <LogoEmpresa empresaId={usuario.empresa.id} version={usuario.empresa.logo_version} onCambio={() => refrescar()} />
-        </Modal>
-      )}
+
       {ficha && (
         <Modal title="Mi ficha" onClose={() => setFicha(false)}>
           <div className="mb-5 flex items-center gap-4">

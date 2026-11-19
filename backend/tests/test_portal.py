@@ -189,26 +189,32 @@ async def test_frases_apariencia_y_foto(client, superadmin):
     w.writerows(
         [
             ["Tipo", "Texto", "Autor"],
-            ["Refrán", "Al que madruga, Dios lo ayuda.", "Refrán popular"],
+            ["Proverbio", "Al que madruga, Dios lo ayuda.", "Proverbio popular"],
             ["Cita bíblica", "Todo lo puedo en Cristo que me fortalece.", "Filipenses 4:13"],
+            ["Frase", "La disciplina es el puente entre metas y logros.", "Jim Rohn"],
             ["", "sin tipo", ""],
         ]
     )
     archivo = {"archivo": ("frases.csv", salida.getvalue().encode(), "text/csv")}
     r = await client.post("/api/sistema/frases/importar", headers=superadmin, files=archivo)
-    assert r.json() == {"importadas": 2, "omitidas": 1}
+    assert r.json() == {"importadas": 3, "omitidas": 1}
     tema = (await client.get("/api/sistema/tema")).json()
-    assert tema["frases"] == {"refran": 1, "cita": 1}
+    assert tema["frases"] == {"proverbio": 1, "cita": 1, "frase": 1}
     cita = (await client.get("/api/sistema/frases/aleatoria?tipo=cita")).json()
     assert cita["autor"] == "Filipenses 4:13"
     otra = (await client.get(f"/api/sistema/frases/aleatoria?excluir={cita['id']}")).json()
-    assert otra["tipo"] == "refran"
+    assert otra["tipo"] in ("proverbio", "frase")
 
     r = await client.put(
         "/api/sistema/apariencia",
         headers=superadmin,
-        json={"fondo_color": "#EEF2FF", "login_titulo": "Control de asistencia"},
+        json={
+            "fondo_color": "#EEF2FF",
+            "login_titulo": "Control de asistencia",
+            "login_color_subtitulo": "#8A64DE",
+        },
     )
+    assert r.json()["login_colores"]["subtitulo"] == "#8a64de"
     assert (
         r.json()["fondo_color"] == "#eef2ff" and r.json()["login_titulo"] == "Control de asistencia"
     )
@@ -233,3 +239,18 @@ async def test_frases_apariencia_y_foto(client, superadmin):
     assert (await client.get("/api/auth/me/foto", headers=a)).status_code == 200
     me = (await client.get("/api/auth/me", headers=a)).json()
     assert me["foto_actualizada"] and "licencia_vence" in me["empresa"]
+
+
+async def test_admin_cambia_datos_de_su_empresa(client, superadmin):
+    await crear_empresa(client, superadmin, "Caribe", "admin@caribe.mx")
+    a = auth(await login(client, "admin@caribe.mx"))
+    r = await client.patch(
+        "/api/tenant/empresa",
+        headers=a,
+        json={"nombre": "Hotel Caribe", "razon_social": "Hotel Caribe SA de CV", "rfc": None},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["nombre"] == "Hotel Caribe"
+    assert (await client.get("/api/auth/me", headers=a)).json()["empresa"][
+        "nombre"
+    ] == "Hotel Caribe"

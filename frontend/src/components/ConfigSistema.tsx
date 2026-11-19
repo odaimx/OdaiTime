@@ -151,12 +151,29 @@ function ImagenSistema({ tipo, aspecto, vacia }: { tipo: TipoImagen; aspecto: st
   );
 }
 
-type Apariencia = { fondo_color: string | null; login_titulo: string | null; login_subtitulo: string | null; login_texto: string | null };
+type Apariencia = {
+  fondo_color: string | null;
+  login_titulo: string | null;
+  login_subtitulo: string | null;
+  login_texto: string | null;
+  login_color_titulo: string | null;
+  login_color_subtitulo: string | null;
+  login_color_texto: string | null;
+};
 
 /** Guarda la apariencia completa (color de fondo y textos del acceso) cambiando solo lo indicado. */
 async function guardarApariencia(cambios: Partial<Apariencia>) {
   const t = await temaActual();
-  const actual: Apariencia = { fondo_color: t.fondo_color ?? null, login_titulo: t.login_titulo ?? null, login_subtitulo: t.login_subtitulo ?? null, login_texto: t.login_texto ?? null };
+  const c = t.login_colores ?? {};
+  const actual: Apariencia = {
+    fondo_color: t.fondo_color ?? null,
+    login_titulo: t.login_titulo ?? null,
+    login_subtitulo: t.login_subtitulo ?? null,
+    login_texto: t.login_texto ?? null,
+    login_color_titulo: c.titulo ?? null,
+    login_color_subtitulo: c.subtitulo ?? null,
+    login_color_texto: c.texto ?? null,
+  };
   await api("/sistema/apariencia", { method: "PUT", body: JSON.stringify({ ...actual, ...cambios }) });
   await cargarTema();
 }
@@ -188,7 +205,7 @@ function FondoEInicio() {
       </section>
       <section className="space-y-2">
         <h3 className="text-sm font-semibold text-tinta-900">Fondo de la aplicación</h3>
-        <p className="text-xs text-slate-500">Se ve detrás de las pantallas y del pie de página de todas las empresas. La imagen tiene prioridad sobre el color.</p>
+        <p className="text-xs text-slate-500">Color detrás de las pantallas y del pie de página de todas las empresas.</p>
         <div className="flex flex-wrap items-center gap-3">
           <input type="color" className="h-9 w-12 cursor-pointer rounded border border-slate-300 bg-white p-0.5" value={color || "#f8fafc"} onChange={(e) => setColor(e.target.value)} aria-label="Color de fondo" />
           <span className="font-mono text-xs text-slate-500">{color || "Predeterminado"}</span>
@@ -203,7 +220,6 @@ function FondoEInicio() {
         </div>
         {msg && <p className="text-sm text-emerald-700">{msg}</p>}
         <ErrorBox message={error} />
-        <ImagenSistema tipo="fondo" aspecto="aspect-[3/1]" vacia="Sin imagen de fondo · pasa el mouse para subirla" />
       </section>
     </div>
   );
@@ -211,17 +227,30 @@ function FondoEInicio() {
 
 function PantallaAcceso() {
   const [textos, setTextos] = useState({ login_titulo: "", login_subtitulo: "", login_texto: "" });
+  // Colores predeterminados de cada renglón: blanco, color de marca y gris claro.
+  const [colores, setColores] = useState({ login_color_titulo: "", login_color_subtitulo: "", login_color_texto: "" });
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    temaActual().then((t) => setTextos({ login_titulo: t.login_titulo ?? "", login_subtitulo: t.login_subtitulo ?? "", login_texto: t.login_texto ?? "" }));
+    temaActual().then((t) => {
+      setTextos({ login_titulo: t.login_titulo ?? "", login_subtitulo: t.login_subtitulo ?? "", login_texto: t.login_texto ?? "" });
+      const c = t.login_colores ?? {};
+      setColores({ login_color_titulo: c.titulo ?? "", login_color_subtitulo: c.subtitulo ?? "", login_color_texto: c.texto ?? "" });
+    });
   }, []);
   async function guardar(e: FormEvent) {
     e.preventDefault();
     setMsg(null);
     setError(null);
     try {
-      await guardarApariencia({ login_titulo: textos.login_titulo || null, login_subtitulo: textos.login_subtitulo || null, login_texto: textos.login_texto || null });
+      await guardarApariencia({
+        login_titulo: textos.login_titulo || null,
+        login_subtitulo: textos.login_subtitulo || null,
+        login_texto: textos.login_texto || null,
+        login_color_titulo: colores.login_color_titulo || null,
+        login_color_subtitulo: colores.login_color_subtitulo || null,
+        login_color_texto: colores.login_color_texto || null,
+      });
       setMsg("Textos guardados.");
     } catch (err) {
       setError((err as Error).message);
@@ -234,16 +263,51 @@ function PantallaAcceso() {
         <p className="text-xs text-slate-500">Si no hay imagen, el panel usa el color del menú.</p>
         <ImagenSistema tipo="login" aspecto="aspect-[16/9] max-w-xl" vacia="Sin imagen · se usa el color del menú" />
       </section>
+      <section className="space-y-2">
+        <h3 className="text-sm font-semibold text-tinta-900">Imagen de fondo de la pantalla de acceso</h3>
+        <p className="text-xs text-slate-500">Se ve detrás del recuadro de inicio de sesión. Si no hay, se usa el color de fondo de la aplicación.</p>
+        <ImagenSistema tipo="fondo" aspecto="aspect-[16/9] max-w-xl" vacia="Sin imagen de fondo · pasa el mouse para subirla" />
+      </section>
       <form className="max-w-2xl space-y-3" onSubmit={guardar}>
-        <h3 className="text-sm font-semibold text-tinta-900">Textos del panel</h3>
+        <h3 className="text-sm font-semibold text-tinta-900">Textos del panel y su color</h3>
         <Fila etiqueta="Título" htmlFor="login-titulo">
-          <input id="login-titulo" className="input" maxLength={120} placeholder="Control de asistencia" value={textos.login_titulo} onChange={(e) => setTextos({ ...textos, login_titulo: e.target.value })} />
+          <div className="flex items-center gap-2">
+            <input id="login-titulo" className="input" maxLength={120} placeholder="Control de asistencia" value={textos.login_titulo} onChange={(e) => setTextos({ ...textos, login_titulo: e.target.value })} />
+            <span className="flex items-center gap-1">
+            <input type="color" className="h-9 w-10 shrink-0 cursor-pointer rounded border border-slate-300 bg-white p-0.5" value={colores.login_color_titulo || "#ffffff"} onChange={(e) => setColores({ ...colores, login_color_titulo: e.target.value })} title="Color del renglón" aria-label="Color del renglón" />
+            {colores.login_color_titulo && (
+              <button type="button" className="text-xs text-slate-500 hover:underline" onClick={() => setColores({ ...colores, login_color_titulo: "" })}>
+                Predeterminado
+              </button>
+            )}
+          </span>
+          </div>
         </Fila>
         <Fila etiqueta="Subtítulo" htmlFor="login-sub">
-          <input id="login-sub" className="input" maxLength={120} placeholder="claro y en regla." value={textos.login_subtitulo} onChange={(e) => setTextos({ ...textos, login_subtitulo: e.target.value })} />
+          <div className="flex items-center gap-2">
+            <input id="login-sub" className="input" maxLength={120} placeholder="claro y en regla." value={textos.login_subtitulo} onChange={(e) => setTextos({ ...textos, login_subtitulo: e.target.value })} />
+            <span className="flex items-center gap-1">
+            <input type="color" className="h-9 w-10 shrink-0 cursor-pointer rounded border border-slate-300 bg-white p-0.5" value={colores.login_color_subtitulo || "#8a64de"} onChange={(e) => setColores({ ...colores, login_color_subtitulo: e.target.value })} title="Color del renglón" aria-label="Color del renglón" />
+            {colores.login_color_subtitulo && (
+              <button type="button" className="text-xs text-slate-500 hover:underline" onClick={() => setColores({ ...colores, login_color_subtitulo: "" })}>
+                Predeterminado
+              </button>
+            )}
+          </span>
+          </div>
         </Fila>
         <Fila etiqueta="Texto" htmlFor="login-texto" ayuda="Puede tener varias líneas.">
-          <textarea id="login-texto" className="input min-h-24" maxLength={600} placeholder="Checadas, retardos, horas extra y reportes…" value={textos.login_texto} onChange={(e) => setTextos({ ...textos, login_texto: e.target.value })} />
+          <div className="flex items-start gap-2">
+            <textarea id="login-texto" className="input min-h-24" maxLength={600} placeholder="Checadas, retardos, horas extra y reportes…" value={textos.login_texto} onChange={(e) => setTextos({ ...textos, login_texto: e.target.value })} />
+            <span className="flex items-center gap-1">
+            <input type="color" className="h-9 w-10 shrink-0 cursor-pointer rounded border border-slate-300 bg-white p-0.5" value={colores.login_color_texto || "#e2e8f0"} onChange={(e) => setColores({ ...colores, login_color_texto: e.target.value })} title="Color del renglón" aria-label="Color del renglón" />
+            {colores.login_color_texto && (
+              <button type="button" className="text-xs text-slate-500 hover:underline" onClick={() => setColores({ ...colores, login_color_texto: "" })}>
+                Predeterminado
+              </button>
+            )}
+          </span>
+          </div>
         </Fila>
         <ErrorBox message={error} />
         {msg && <p className="text-sm text-emerald-700">{msg}</p>}
@@ -257,9 +321,10 @@ function PantallaAcceso() {
   );
 }
 
-type Frase = { id: string; tipo: "refran" | "cita"; texto: string; autor: string | null };
+type Frase = { id: string; tipo: "frase" | "proverbio" | "cita"; texto: string; autor: string | null };
+const TIPO_FRASE: Record<Frase["tipo"], string> = { frase: "Frase", proverbio: "Proverbio", cita: "Cita bíblica" };
 
-/** Refranes y citas bíblicas de la pantalla de acceso: se importan de Excel o CSV. */
+/** Frases, proverbios y citas bíblicas de la pantalla de acceso: se importan de Excel o CSV. */
 function FrasesLogin() {
   const [frases, setFrases] = useState<Frase[] | null>(null);
   const [reemplazar, setReemplazar] = useState(false);
@@ -291,10 +356,10 @@ function FrasesLogin() {
     await descargar("/sistema/frases/plantilla", "plantilla_frases.xlsx");
   }
 
-  const refranes = frases?.filter((f) => f.tipo === "refran").length ?? 0;
+  const cuenta = (t: Frase["tipo"]) => frases?.filter((f) => f.tipo === t).length ?? 0;
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-600">Se muestran al azar debajo del botón Entrar de la pantalla de acceso. Cada quien elige ver refranes, citas bíblicas o ambas.</p>
+      <p className="text-sm text-slate-600">Se muestran al azar debajo del botón de la pantalla de acceso. Cada quien elige ver frases, proverbios, citas bíblicas o todas.</p>
       <div className="flex flex-wrap items-center gap-3">
         <label className="btn-primary cursor-pointer">
           <Icono nombre="upload" /> Importar Excel o CSV
@@ -307,10 +372,10 @@ function FrasesLogin() {
           <input type="checkbox" checked={reemplazar} onChange={(e) => setReemplazar(e.target.checked)} /> Reemplazar las actuales
         </label>
         <span className="ml-auto text-xs text-slate-500">
-          {refranes} refrán(es) · {(frases?.length ?? 0) - refranes} cita(s) bíblica(s)
+          {cuenta("frase")} frase(s) · {cuenta("proverbio")} proverbio(s) · {cuenta("cita")} cita(s) bíblica(s)
         </span>
       </div>
-      <p className="text-xs text-slate-500">Columnas: Tipo (Refrán o Cita bíblica), Texto y Autor (o la referencia, p. ej. Filipenses 4:13).</p>
+      <p className="text-xs text-slate-500">Columnas: Tipo (Frase, Proverbio o Cita bíblica), Texto y Autor (o la referencia, p. ej. Filipenses 4:13).</p>
       {msg && <p className="text-sm text-emerald-700">{msg}</p>}
       <ErrorBox message={error} />
       <div className="max-h-96 overflow-y-auto rounded-lg border border-slate-200">
@@ -333,7 +398,7 @@ function FrasesLogin() {
             )}
             {frases?.map((f) => (
               <tr key={f.id}>
-                <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-500">{f.tipo === "refran" ? "Refrán" : "Cita bíblica"}</td>
+                <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-500">{TIPO_FRASE[f.tipo] ?? f.tipo}</td>
                 <td className="px-3 py-2 text-tinta-900">{f.texto}</td>
                 <td className="whitespace-nowrap px-3 py-2 text-slate-600">{f.autor ?? "—"}</td>
                 <td className="px-2">

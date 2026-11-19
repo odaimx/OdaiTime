@@ -31,13 +31,17 @@ class ConfigSistema(Base):
     login_titulo: Mapped[str | None] = mapped_column(String(120))
     login_subtitulo: Mapped[str | None] = mapped_column(String(120))
     login_texto: Mapped[str | None] = mapped_column(String(600))
+    # Color de cada renglón del panel de acceso (título, subtítulo y texto).
+    login_color_titulo: Mapped[str | None] = mapped_column(String(7))
+    login_color_subtitulo: Mapped[str | None] = mapped_column(String(7))
+    login_color_texto: Mapped[str | None] = mapped_column(String(7))
 
 
 class Frase(UUIDPkMixin, TimestampMixin, Base):
-    """Refranes y citas bíblicas que se muestran en la pantalla de acceso."""
+    """Frases, proverbios y citas bíblicas que se muestran en la pantalla de acceso."""
 
     __tablename__ = "frases"
 
-    tipo: Mapped[str] = mapped_column(String(10), index=True)  # refran | cita
+    tipo: Mapped[str] = mapped_column(String(10), index=True)  # frase | proverbio | cita
     texto: Mapped[str] = mapped_column(String(600))
     autor: Mapped[str | None] = mapped_column(String(150))  # autor o referencia (Juan 3:16)

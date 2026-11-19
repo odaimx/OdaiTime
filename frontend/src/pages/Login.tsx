@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { ErrorBox } from "../components/ui";
 import { ApiError, AVISO_BLOQUEO, urlLogo, type TenantInfo } from "../lib/api";
-import { estiloFondoApp, useTema } from "../lib/tema";
+import { estiloFondoLogin, useTema } from "../lib/tema";
 import Icono from "../components/Iconos";
 import { useAuth } from "../lib/auth";
 
@@ -13,6 +13,7 @@ export default function Login() {
   const tema = useTema();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [verClave, setVerClave] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [tenant, setTenant] = useState<TenantInfo | null>(null);
@@ -79,6 +80,7 @@ export default function Login() {
   }
 
   const imagenLogin = tema?.login_version ? `/api/sistema/imagen/login?v=${encodeURIComponent(tema.login_version)}` : null;
+  const colores = tema?.login_colores ?? {};
   const textoLogin = tema?.login_texto ?? "Checadas, retardos, horas extra y reportes apegados a la Ley Federal del Trabajo, para todas tus sucursales.";
 
   return (
@@ -90,27 +92,33 @@ export default function Login() {
       >
         {imagenLogin && <div className="absolute inset-0 bg-gradient-to-t from-navy-950/85 via-navy-950/30 to-transparent" />}
         <span />
-        <div className="relative">
-          <h2 className="text-4xl font-semibold leading-tight text-white">{tema?.login_titulo ?? "Control de asistencia"}</h2>
-          <p className="text-4xl font-semibold leading-tight text-brand-500">{tema?.login_subtitulo ?? "claro y en regla."}</p>
-          {textoLogin && <p className="mt-4 max-w-md whitespace-pre-line text-slate-200">{textoLogin}</p>}
+        {/* Textos en la parte baja del panel; el color de cada renglón lo elige Odai. */}
+        <div className="relative mb-6 mt-auto">
+          <h2 className="text-4xl font-semibold leading-tight text-white" style={{ color: colores.titulo ?? undefined }}>
+            {tema?.login_titulo ?? "Control de asistencia"}
+          </h2>
+          <p className="text-4xl font-semibold leading-tight text-brand-500" style={{ color: colores.subtitulo ?? undefined }}>
+            {tema?.login_subtitulo ?? "claro y en regla."}
+          </p>
+          {textoLogin && (
+            <p className="mt-4 max-w-md whitespace-pre-line text-slate-200" style={{ color: colores.texto ?? undefined }}>
+              {textoLogin}
+            </p>
+          )}
         </div>
         <p className="relative text-xs text-slate-300">© {new Date().getFullYear()} Odai · Cancún, México</p>
       </div>
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-slate-50 p-6" style={estiloFondoApp(tema)}>
-        <form onSubmit={recuperando ? recuperar : onSubmit} className="card w-full max-w-sm space-y-5 p-8">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-slate-50 p-6" style={estiloFondoLogin(tema)}>
+        <form onSubmit={recuperando ? recuperar : onSubmit} className="card w-full max-w-sm space-y-5 p-8 shadow-xl shadow-navy-950/10">
           <div>
             <img src="/logo.png" alt="ODAI" className="mb-6 h-9 w-auto" />
             <h1 className="text-xl font-semibold text-tinta-900">{recuperando ? "Recuperar contraseña" : "Iniciar sesión"}</h1>
             {tenant?.empresa_id && tenant.logo_version && (
               <img src={urlLogo(tenant.empresa_id, tenant.logo_version)} alt={tenant.nombre ?? ""} className="my-3 max-h-16 max-w-[12rem] object-contain" />
             )}
-            {tenant?.modo === "tenant" ? (
-              <p className="mt-1 text-sm font-medium text-brand-600">{tenant.nombre}</p>
-            ) : (
-              <p className="mt-1 text-sm text-slate-500">{tenant?.modo === "base" ? "Panel de administración Odai" : "ODAITIME"}</p>
-            )}
+            {tenant?.modo === "tenant" && <p className="mt-1 text-sm font-medium text-brand-600">{tenant.nombre}</p>}
+            {tenant?.modo === "base" && <p className="mt-1 text-sm text-slate-500">Panel de administración Odai</p>}
           </div>
 
           {noExiste && (
@@ -141,7 +149,18 @@ export default function Login() {
                   ¿Olvidaste tu contraseña?
                 </button>
               </div>
-              <input id="password" type="password" className="input" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+              <div className="relative">
+                <input id="password" type={verClave ? "text" : "password"} className="input pr-10" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-slate-400 hover:text-tinta-900"
+                  onClick={() => setVerClave((v) => !v)}
+                  title={verClave ? "Ocultar contraseña" : "Ver contraseña"}
+                  aria-label={verClave ? "Ocultar contraseña" : "Ver contraseña"}
+                >
+                  <Icono nombre={verClave ? "eye-off" : "eye"} className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           )}
 
@@ -159,10 +178,15 @@ export default function Login() {
             </>
           ) : (
             <button type="submit" className="btn-primary w-full" disabled={enviando}>
-              {enviando ? "Entrando…" : "Entrar"}
+              {enviando ? "Ingresando…" : "Ingresar al sistema"}
             </button>
           )}
-          {!recuperando && tema && Object.values(tema.frases ?? {}).some((n) => n > 0) && <Frases conteo={tema.frases ?? {}} />}
+          {!recuperando && tema && Object.values(tema.frases ?? {}).some((n) => n > 0) && (
+            <>
+              <hr className="border-slate-200" />
+              <Frases conteo={tema.frases ?? {}} />
+            </>
+          )}
         </form>
       </div>
     </div>
@@ -170,33 +194,37 @@ export default function Login() {
 }
 
 
-type Frase = { id: string; tipo: "refran" | "cita"; texto: string; autor: string | null };
-type Preferencia = "ambas" | "refran" | "cita";
-const ETIQUETA: Record<Frase["tipo"], string> = { refran: "Refrán", cita: "Cita bíblica" };
+type Frase = { id: string; tipo: "frase" | "proverbio" | "cita"; texto: string; autor: string | null };
+type Preferencia = "todas" | "frase" | "proverbio" | "cita";
+const ETIQUETA: Record<Frase["tipo"], string> = { frase: "Frase", proverbio: "Proverbio", cita: "Cita bíblica" };
+const OPCIONES: [Preferencia, string][] = [
+  ["todas", "Todas"],
+  ["frase", "Frases"],
+  ["proverbio", "Proverbios"],
+  ["cita", "Citas bíblicas"],
+];
 const PREF = "odaitime.frases";
 
-/** Refranes y citas bíblicas al pie del acceso; la flecha trae otra y el selector elige cuáles. */
+/** Frases, proverbios y citas bíblicas al azar bajo el botón; la flecha trae otra. */
 function Frases({ conteo }: { conteo: Record<string, number> }) {
   const [pref, setPref] = useState<Preferencia>(() => {
     try {
-      return (localStorage.getItem(PREF) as Preferencia) || "ambas";
+      const p = localStorage.getItem(PREF) as Preferencia | null;
+      return p && OPCIONES.some(([k]) => k === p) ? p : "todas";
     } catch {
-      return "ambas";
+      return "todas";
     }
   });
   const [frase, setFrase] = useState<Frase | null>(null);
 
-  const siguiente = useCallback(
-    (tipo: Preferencia, excluir?: string) => {
-      const q = new URLSearchParams({ tipo });
-      if (excluir) q.set("excluir", excluir);
-      fetch(`/api/sistema/frases/aleatoria?${q}`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then(setFrase)
-        .catch(() => {});
-    },
-    [],
-  );
+  const siguiente = useCallback((tipo: Preferencia, excluir?: string) => {
+    const q = new URLSearchParams({ tipo });
+    if (excluir) q.set("excluir", excluir);
+    fetch(`/api/sistema/frases/aleatoria?${q}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setFrase)
+      .catch(() => {});
+  }, []);
   useEffect(() => siguiente(pref), [pref, siguiente]);
 
   function elegir(p: Preferencia) {
@@ -208,32 +236,25 @@ function Frases({ conteo }: { conteo: Record<string, number> }) {
     }
   }
 
-  const opciones: [Preferencia, string][] = [
-    ["ambas", "Ambas"],
-    ...(conteo.refran ? ([["refran", "Refranes"]] as [Preferencia, string][]) : []),
-    ...(conteo.cita ? ([["cita", "Citas bíblicas"]] as [Preferencia, string][]) : []),
-  ];
-
   return (
-    <div className="rounded-lg bg-slate-50 p-4 ring-1 ring-slate-200">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <select className="rounded-md border-0 bg-transparent py-0.5 pl-0 pr-6 text-xs font-medium text-brand-700 focus:ring-0" value={pref} onChange={(e) => elegir(e.target.value as Preferencia)} aria-label="Qué frases ver">
-          {opciones.map(([k, l]) => (
+    <div>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <select className="-ml-1 rounded-md border-0 bg-transparent py-0.5 pl-1 pr-7 text-xs font-medium text-brand-700 focus:ring-1 focus:ring-brand-300" value={pref} onChange={(e) => elegir(e.target.value as Preferencia)} aria-label="Qué frases ver">
+          {OPCIONES.filter(([k]) => k === "todas" || conteo[k]).map(([k, l]) => (
             <option key={k} value={k}>
               {l}
             </option>
           ))}
         </select>
-        <button type="button" className="rounded-md p-1 text-slate-500 hover:bg-white hover:text-brand-600" onClick={() => siguiente(pref, frase?.id)} title="Otra frase" aria-label="Otra frase">
+        <button type="button" className="rounded-md p-1 text-slate-400 hover:text-brand-600" onClick={() => siguiente(pref, frase?.id)} title="Otra" aria-label="Otra frase">
           <Icono nombre="arrow-right" className="h-4 w-4" />
         </button>
       </div>
       {frase ? (
         <figure>
           <blockquote className="text-sm italic text-tinta-900">“{frase.texto}”</blockquote>
-          <figcaption className="mt-2 flex items-center justify-between gap-2 text-xs text-slate-500">
-            <span>— {frase.autor || "Anónimo"}</span>
-            <span className="rounded-full bg-white px-2 py-0.5 ring-1 ring-slate-200">{ETIQUETA[frase.tipo]}</span>
+          <figcaption className="mt-1.5 text-xs text-slate-500">
+            — {frase.autor || "Anónimo"} · <span className="text-brand-700">{ETIQUETA[frase.tipo]}</span>
           </figcaption>
         </figure>
       ) : (

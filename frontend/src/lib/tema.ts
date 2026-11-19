@@ -67,6 +67,7 @@ export type Tema = {
   login_titulo?: string | null;
   login_subtitulo?: string | null;
   login_texto?: string | null;
+  login_colores?: { titulo?: string | null; subtitulo?: string | null; texto?: string | null };
   frases?: Record<string, number>;
 };
 
@@ -104,9 +105,13 @@ export function useTema(): Tema | null {
   );
 }
 
-/** Fondo de la aplicación (lo define Odai para todas las empresas): imagen o color. */
+/** Fondo de la aplicación (lo define Odai para todas las empresas): solo color. */
 export function estiloFondoApp(t: Tema | null): Record<string, string> {
-  if (t?.fondo_version) return { backgroundImage: `url(/api/sistema/imagen/fondo?v=${encodeURIComponent(t.fondo_version)})`, backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: "fixed" };
-  if (t?.fondo_color) return { backgroundColor: t.fondo_color };
-  return {};
+  return t?.fondo_color ? { backgroundColor: t.fondo_color } : {};
+}
+
+/** Fondo de la pantalla de acceso: la imagen de fondo de Odai o, si no hay, el color de la app. */
+export function estiloFondoLogin(t: Tema | null): Record<string, string> {
+  if (t?.fondo_version) return { backgroundImage: `url(/api/sistema/imagen/fondo?v=${encodeURIComponent(t.fondo_version)})`, backgroundSize: "cover", backgroundPosition: "center" };
+  return estiloFondoApp(t);
 }

@@ -18,6 +18,7 @@ import Login from "./pages/Login";
 import Reportes from "./pages/Reportes";
 import Restablecer from "./pages/Restablecer";
 import MisRegistros from "./pages/MisRegistros";
+import MiEmpresa from "./pages/MiEmpresa";
 import Sucursales from "./pages/Sucursales";
 import Turnos from "./pages/Turnos";
 import Usuarios from "./pages/Usuarios";
@@ -147,6 +148,14 @@ export default function App() {
           element={
             <Requiere roles={["superadmin", "admin_empresa", "gerente_sucursal"]}>
               <Turnos />
+            </Requiere>
+          }
+        />
+        <Route
+          path="mi-empresa"
+          element={
+            <Requiere roles={["superadmin", "admin_empresa"]}>
+              <MiEmpresa />
             </Requiere>
           }
         />
