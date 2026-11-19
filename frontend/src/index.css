@@ -59,10 +59,10 @@
     @apply inline-flex max-w-full items-center gap-1 overflow-hidden rounded-md bg-slate-100 text-xs text-tinta-900 ring-1 ring-slate-200;
   }
   .btn-icono {
-    @apply inline-flex h-10 w-10 items-center justify-center rounded-md bg-slate-100 text-tinta-900 transition hover:bg-slate-200 disabled:opacity-40 disabled:hover:bg-slate-100;
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-100 text-tinta-900 transition hover:bg-slate-200 disabled:opacity-40 disabled:hover:bg-slate-100;
   }
   .btn-icono-activo {
-    @apply inline-flex h-10 w-10 items-center justify-center rounded-md bg-brand-50 text-tinta-900 ring-1 ring-brand-500;
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-md bg-brand-50 text-tinta-900 ring-1 ring-brand-500;
   }
   /* Grupo de botones de vista (lista, kanban, calendario, fuentes) */
   /* Íconos de la barra de vistas (lista, kanban, calendario, filtros, ⋮) más grandes. */
@@ -74,13 +74,13 @@
     height: 1.3rem !important;
   }
   .grupo-vistas {
-    @apply flex items-center gap-0.5 rounded-lg bg-slate-100 p-0.5;
+    @apply flex items-center gap-1.5 rounded-lg bg-slate-100 p-0.5;
   }
   .btn-vista {
-    @apply inline-flex h-10 w-12 items-center justify-center rounded-md text-tinta-900 transition hover:bg-slate-200;
+    @apply inline-flex h-9 w-11 items-center justify-center rounded-md text-tinta-900 transition hover:bg-slate-200;
   }
   .btn-vista-activo {
-    @apply inline-flex h-10 w-12 items-center justify-center rounded-md bg-brand-50 text-tinta-900 ring-1 ring-brand-500;
+    @apply inline-flex h-9 w-11 items-center justify-center rounded-md bg-brand-50 text-tinta-900 ring-1 ring-brand-500;
   }
   /* Encabezado azul marino de cada pantalla */
   .banda .input {

@@ -754,7 +754,7 @@ function Paginador<T>({ vista }: { vista: EstadoVista<T> }) {
   const desde = total === 0 ? 0 : pagina * porPagina + 1;
   const hasta = Math.min(total, (pagina + 1) * porPagina);
   return (
-    <div className="flex items-center gap-1 text-sm text-slate-600">
+    <div className="flex items-center gap-2 text-sm text-slate-600">
       <button
         ref={(el) => {
           menu.boton.current = el;
