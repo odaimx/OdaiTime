@@ -21,7 +21,7 @@ const CAMPOS: (keyof Config)[] = [
 
 function Opcion({ checked, onChange, titulo, children, extra }: { checked: boolean; onChange: (v: boolean) => void; titulo: string; children: ReactNode; extra?: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 py-4 first:border-t-0">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 py-4">
       <label className="flex flex-1 basis-72 cursor-pointer items-start gap-3">
         <input type="checkbox" className="mt-0.5 h-5 w-5 accent-brand-500" checked={checked} onChange={(e) => onChange(e.target.checked)} />
         <span>
@@ -154,8 +154,8 @@ export default function ConfigChecadas({
         ))}
       </div>
 
-      <div className="flex flex-wrap items-start gap-6">
-        <div className="min-w-0 flex-[999_1_560px] space-y-5">
+      <div className="mx-auto w-full max-w-6xl space-y-5">
+        <div className="min-w-0 space-y-5">
           {pestana === "config" && (
           <>
           <div className="card flex flex-wrap items-end justify-between gap-4 p-5">
@@ -191,9 +191,9 @@ export default function ConfigChecadas({
           {config && (
             <form onSubmit={guardar} className="space-y-5">
               {esAdmin && <BarraGuardar sucio={JSON.stringify(config) !== guardada} onGuardar={() => guardar()} />}
-              <fieldset disabled={bloqueado} className="card space-y-1 p-5">
+              <fieldset disabled={bloqueado} className="card grid grid-cols-1 gap-x-16 p-5 md:grid-cols-2">
                 <legend className="sr-only">Dónde se puede checar</legend>
-                <h2 className="mb-2 font-semibold text-tinta-900">Dónde se puede checar</h2>
+                <h2 className="mb-2 font-semibold text-tinta-900 md:col-span-2">Dónde se puede checar</h2>
                 <Opcion checked={config.permitir_movil} onChange={(v) => set("permitir_movil", v)} titulo="Checar desde el portal (celular)">
                   El empleado con acceso al portal registra su entrada y salida desde su teléfono. Si está apagado, el portal es solo de consulta.
                 </Opcion>
@@ -205,9 +205,9 @@ export default function ConfigChecadas({
                 </Opcion>
               </fieldset>
 
-              <fieldset disabled={bloqueado} className="card p-5">
+              <fieldset disabled={bloqueado} className="card grid grid-cols-1 gap-x-16 p-5 md:grid-cols-2">
                 <legend className="sr-only">Validaciones</legend>
-                <h2 className="mb-2 font-semibold text-tinta-900">Validaciones</h2>
+                <h2 className="mb-2 font-semibold text-tinta-900 md:col-span-2">Validaciones</h2>
                 <Opcion
                   checked={config.validar_gps}
                   onChange={(v) => set("validar_gps", v)}
@@ -329,11 +329,11 @@ export default function ConfigChecadas({
         </div>
 
         {pestana === "config" && registroBitacora && (
-          <aside className="min-w-0 flex-[1_1_300px]">
+          <div className="min-w-0">
             <Plegable titulo="Historial de cambios">
               <Bitacora key={registroBitacora} modelo="config_checadas" registroId={registroBitacora} query={query} recargar={rev} />
             </Plegable>
-          </aside>
+          </div>
         )}
       </div>
 

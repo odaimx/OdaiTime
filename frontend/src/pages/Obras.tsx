@@ -450,7 +450,6 @@ function ReporteObras({ obras, query, onCerrar }: { obras: Obra[]; query: string
   return (
     <Modal title="Horas por zona" onClose={onCerrar}>
       <div className="space-y-4">
-        <p className="text-sm text-slate-600">Horas trabajadas y extras de cada empleado en la zona a la que estaba asignado cada día.</p>
         <Campos>
           <Fila etiqueta="Desde">
             <input className="input" type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />
@@ -478,6 +477,7 @@ function ReporteObras({ obras, query, onCerrar }: { obras: Obra[]; query: string
             <Icono nombre="file-chart-column" /> {bajando ? "Generando…" : "Descargar Excel"}
           </button>
         </div>
+        <p className="border-t border-slate-200 pt-4 text-xs text-slate-500">Horas trabajadas y extras de cada empleado en la zona a la que estaba asignado cada día.</p>
       </div>
     </Modal>
   );

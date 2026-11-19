@@ -272,12 +272,10 @@ export default function TarjetaAsistencia() {
       <ErrorBox message={!detalle ? error : null} />
 
       {filas === null ? <div className="card px-4 py-16 text-center text-slate-500">Calculando…</div> : <Vista vista={vista} />}
-      <p className="mt-2 text-xs text-slate-500">
-        Horas en formato h:mm. Las horas extra se calculan sobre el horario del turno; los retardos y su conversión a faltas siguen la política de tu empresa (Config. asistencias). Toca un empleado para ver el detalle por día.
-      </p>
 
       {detalle && (
         <Registro
+          nota="Horas en formato h:mm. Las horas extra se calculan sobre el horario del turno; los retardos y su conversión a faltas siguen las reglas de asistencia de tu empresa (Asistencias → Reglas de asistencia)."
           titulo={detalle.empleado.nombre_completo}
           subtitulo={`${rango.desde} a ${rango.hasta}`}
           indice={Math.max(enOrden.findIndex((f) => f.empleado.id === detalle.empleado.id), 0)}
