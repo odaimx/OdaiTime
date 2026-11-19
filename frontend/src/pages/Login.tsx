@@ -81,6 +81,9 @@ export default function Login() {
 
   const imagenLogin = tema?.login_version ? `/api/sistema/imagen/login?v=${encodeURIComponent(tema.login_version)}` : null;
   const colores = tema?.login_colores ?? {};
+  const tamanos = tema?.login_tamanos ?? {};
+  // Tamaño de letra de cada renglón (px); sin configurar: 36 · 30 · 16.
+  const estilo = (color?: string | null, px?: number | null, defecto = 16) => ({ color: color ?? undefined, fontSize: `${px ?? defecto}px` });
   // Lo que Odai deje vacío en la configuración se queda en blanco.
   const textoLogin = tema?.login_texto ?? "";
   // Con texto, el título y el subtítulo no ensanchan el bloque: cortan al ancho del texto.
@@ -99,17 +102,17 @@ export default function Login() {
         {/* Los tres renglones comparten el mismo ancho: el título y el subtítulo cortan donde corta el texto. */}
         <div className="relative mt-auto grid max-w-2xl self-start">
           {tema?.login_titulo && (
-            <h2 className={`text-4xl font-semibold leading-tight text-white ${ajustar}`} style={{ color: colores.titulo ?? undefined }}>
+            <h2 className={`font-semibold leading-tight text-white ${ajustar}`} style={estilo(colores.titulo, tamanos.titulo, 36)}>
               {tema.login_titulo}
             </h2>
           )}
           {tema?.login_subtitulo && (
-            <p className={`text-4xl font-semibold leading-tight text-brand-500 ${ajustar}`} style={{ color: colores.subtitulo ?? undefined }}>
+            <p className={`font-semibold leading-tight text-brand-500 ${ajustar}`} style={estilo(colores.subtitulo, tamanos.subtitulo, 30)}>
               {tema.login_subtitulo}
             </p>
           )}
           {textoLogin && (
-            <p className="mt-4 whitespace-pre-line text-slate-200" style={{ color: colores.texto ?? undefined }}>
+            <p className="mt-4 whitespace-pre-line text-slate-200" style={estilo(colores.texto, tamanos.texto, 16)}>
               {textoLogin}
             </p>
           )}
@@ -204,7 +207,6 @@ export default function Login() {
 
 type Frase = { id: string; tipo: "frase" | "proverbio" | "cita"; texto: string; autor: string | null };
 type Preferencia = "todas" | "frase" | "proverbio" | "cita";
-const ETIQUETA: Record<Frase["tipo"], string> = { frase: "Frase", proverbio: "Proverbio", cita: "Cita bíblica" };
 const OPCIONES: [Preferencia, string][] = [
   ["frase", "Frases"],
   ["proverbio", "Proverbios"],
@@ -250,7 +252,7 @@ function Frases({ conteo }: { conteo: Record<string, number> }) {
         <figure>
           <blockquote className="text-sm italic text-tinta-900">“{frase.texto}”</blockquote>
           <figcaption className="mt-3 text-right text-xs text-slate-500">
-            — {frase.autor || "Anónimo"} · <span className="text-brand-700">{ETIQUETA[frase.tipo]}</span>
+            — {frase.autor || "Anónimo"}
           </figcaption>
         </figure>
       ) : (

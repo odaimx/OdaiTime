@@ -807,10 +807,10 @@ function Paginador<T>({ vista }: { vista: EstadoVista<T> }) {
       )}
       {!vista.grupos && (
         <>
-          <button className="btn-icono" disabled={pagina === 0} onClick={() => vista.setPagina(pagina - 1)} aria-label="Página anterior">
+          <button className="btn-flecha" disabled={pagina === 0} onClick={() => vista.setPagina(pagina - 1)} aria-label="Página anterior">
             <Icono nombre="chevron-left" className="h-4 w-4" />
           </button>
-          <button className="btn-icono" disabled={pagina >= paginas - 1} onClick={() => vista.setPagina(pagina + 1)} aria-label="Página siguiente">
+          <button className="btn-flecha" disabled={pagina >= paginas - 1} onClick={() => vista.setPagina(pagina + 1)} aria-label="Página siguiente">
             <Icono nombre="chevron-right" className="h-4 w-4" />
           </button>
         </>

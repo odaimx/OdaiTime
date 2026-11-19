@@ -160,6 +160,9 @@ type Apariencia = {
   login_color_titulo: string | null;
   login_color_subtitulo: string | null;
   login_color_texto: string | null;
+  login_tamano_titulo: number | null;
+  login_tamano_subtitulo: number | null;
+  login_tamano_texto: number | null;
 };
 
 /** Guarda la apariencia completa (color de fondo y textos del acceso) cambiando solo lo indicado. */
@@ -174,6 +177,9 @@ async function guardarApariencia(cambios: Partial<Apariencia>) {
     login_color_titulo: c.titulo ?? null,
     login_color_subtitulo: c.subtitulo ?? null,
     login_color_texto: c.texto ?? null,
+    login_tamano_titulo: t.login_tamanos?.titulo ?? null,
+    login_tamano_subtitulo: t.login_tamanos?.subtitulo ?? null,
+    login_tamano_texto: t.login_tamanos?.texto ?? null,
   };
   await api("/sistema/apariencia", { method: "PUT", body: JSON.stringify({ ...actual, ...cambios }) });
   await cargarTema();
@@ -184,7 +190,18 @@ type CampoColor = keyof typeof COLOR_DEFECTO;
 
 /** Pantalla de acceso, imagen de inicio y color de fondo de la aplicación (todas las empresas). */
 function PantallaAcceso() {
-  const vacio = { login_titulo: "", login_subtitulo: "", login_texto: "", login_color_titulo: "", login_color_subtitulo: "", login_color_texto: "", fondo_color: "" };
+  const vacio = {
+    login_titulo: "",
+    login_subtitulo: "",
+    login_texto: "",
+    login_color_titulo: "",
+    login_color_subtitulo: "",
+    login_color_texto: "",
+    login_tamano_titulo: "",
+    login_tamano_subtitulo: "",
+    login_tamano_texto: "",
+    fondo_color: "",
+  };
   const [form, setForm] = useState(vacio);
   const [guardado, setGuardado] = useState(JSON.stringify(vacio));
   const [guardando, setGuardando] = useState(false);
@@ -199,6 +216,9 @@ function PantallaAcceso() {
         login_color_titulo: c.titulo ?? "",
         login_color_subtitulo: c.subtitulo ?? "",
         login_color_texto: c.texto ?? "",
+        login_tamano_titulo: t.login_tamanos?.titulo ? String(t.login_tamanos.titulo) : "",
+        login_tamano_subtitulo: t.login_tamanos?.subtitulo ? String(t.login_tamanos.subtitulo) : "",
+        login_tamano_texto: t.login_tamanos?.texto ? String(t.login_tamanos.texto) : "",
         fondo_color: t.fondo_color ?? "",
       };
       setForm(f);
@@ -211,7 +231,9 @@ function PantallaAcceso() {
     setError(null);
     setGuardando(true);
     try {
-      await guardarApariencia(Object.fromEntries(Object.entries(form).map(([k, v]) => [k, v.trim() || null])) as Partial<Apariencia>);
+      await guardarApariencia(
+        Object.fromEntries(Object.entries(form).map(([k, v]) => [k, k.startsWith("login_tamano") ? (v ? Number(v) : null) : v.trim() || null])) as Partial<Apariencia>,
+      );
       setGuardado(JSON.stringify(form));
     } catch (err) {
       setError((err as Error).message);
@@ -219,6 +241,23 @@ function PantallaAcceso() {
       setGuardando(false);
     }
   }
+
+  const TAMANO_DEFECTO = { login_tamano_titulo: 36, login_tamano_subtitulo: 30, login_tamano_texto: 16 };
+  const tamano = (campo: keyof typeof TAMANO_DEFECTO) => (
+    <label className="flex shrink-0 items-center gap-1 text-xs text-slate-500" title="Tamaño de letra en píxeles">
+      <input
+        type="number"
+        min={10}
+        max={96}
+        className="input h-9 w-16 px-2 text-center"
+        placeholder={String(TAMANO_DEFECTO[campo])}
+        value={form[campo]}
+        onChange={(e) => setForm({ ...form, [campo]: e.target.value })}
+        aria-label="Tamaño de letra"
+      />
+      px
+    </label>
+  );
 
   const color = (campo: CampoColor) => (
     <span className="flex shrink-0 items-center gap-1">
@@ -243,23 +282,26 @@ function PantallaAcceso() {
       <BarraGuardar sucio={sucio} guardando={guardando} onGuardar={guardar} />
       <ErrorBox message={error} />
       <section className="max-w-2xl space-y-3">
-        <h3 className="text-sm font-semibold text-tinta-900">Textos del panel izquierdo y su color</h3>
+        <h3 className="text-sm font-semibold text-tinta-900">Textos del panel izquierdo: tamaño y color</h3>
         <p className="text-xs text-slate-500">Lo que se deje vacío no se muestra.</p>
         <Fila etiqueta="Título" htmlFor="login-titulo">
           <div className="flex items-center gap-2">
             <input id="login-titulo" className="input" maxLength={120} value={form.login_titulo} onChange={(e) => setForm({ ...form, login_titulo: e.target.value })} />
+            {tamano("login_tamano_titulo")}
             {color("login_color_titulo")}
           </div>
         </Fila>
         <Fila etiqueta="Subtítulo" htmlFor="login-sub">
           <div className="flex items-center gap-2">
             <input id="login-sub" className="input" maxLength={120} value={form.login_subtitulo} onChange={(e) => setForm({ ...form, login_subtitulo: e.target.value })} />
+            {tamano("login_tamano_subtitulo")}
             {color("login_color_subtitulo")}
           </div>
         </Fila>
         <Fila etiqueta="Texto" htmlFor="login-texto" ayuda="Puede tener varias líneas.">
           <div className="flex items-start gap-2">
             <textarea id="login-texto" className="input min-h-24" maxLength={600} value={form.login_texto} onChange={(e) => setForm({ ...form, login_texto: e.target.value })} />
+            {tamano("login_tamano_texto")}
             {color("login_color_texto")}
           </div>
         </Fila>

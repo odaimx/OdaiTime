@@ -51,6 +51,7 @@ class TemaOut(BaseModel):
     login_subtitulo: str | None = None
     login_texto: str | None = None
     login_colores: dict[str, str | None] = {}  # titulo, subtitulo, texto
+    login_tamanos: dict[str, int | None] = {}  # px de titulo, subtitulo y texto
     frases: dict[str, int] = {}  # cuántos refranes y citas hay
 
 
@@ -95,6 +96,11 @@ def _out(c: ConfigSistema | None, frases: dict[str, int] | None = None) -> TemaO
             "titulo": c.login_color_titulo,
             "subtitulo": c.login_color_subtitulo,
             "texto": c.login_color_texto,
+        },
+        login_tamanos={
+            "titulo": c.login_tamano_titulo,
+            "subtitulo": c.login_tamano_subtitulo,
+            "texto": c.login_tamano_texto,
         },
         frases=frases or {},
     )
@@ -209,6 +215,9 @@ class AparienciaIn(BaseModel):
     login_color_titulo: str | None = Field(default=None, pattern=HEX)
     login_color_subtitulo: str | None = Field(default=None, pattern=HEX)
     login_color_texto: str | None = Field(default=None, pattern=HEX)
+    login_tamano_titulo: int | None = Field(default=None, ge=10, le=96)
+    login_tamano_subtitulo: int | None = Field(default=None, ge=10, le=96)
+    login_tamano_texto: int | None = Field(default=None, ge=10, le=48)
 
 
 @router.put("/apariencia", response_model=TemaOut, dependencies=_SUPER)
@@ -222,6 +231,9 @@ async def guardar_apariencia(data: AparienciaIn, db: DB) -> TemaOut:
     for campo in ("login_color_titulo", "login_color_subtitulo", "login_color_texto"):
         valor = getattr(data, campo)
         setattr(c, campo, valor.lower() if valor else None)
+    c.login_tamano_titulo = data.login_tamano_titulo
+    c.login_tamano_subtitulo = data.login_tamano_subtitulo
+    c.login_tamano_texto = data.login_tamano_texto
     await db.commit()
     return _out(c)
 

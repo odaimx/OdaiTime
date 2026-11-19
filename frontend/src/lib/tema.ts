@@ -68,6 +68,7 @@ export type Tema = {
   login_subtitulo?: string | null;
   login_texto?: string | null;
   login_colores?: { titulo?: string | null; subtitulo?: string | null; texto?: string | null };
+  login_tamanos?: { titulo?: number | null; subtitulo?: number | null; texto?: number | null };
   frases?: Record<string, number>;
 };
 

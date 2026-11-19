@@ -159,10 +159,10 @@ export default function Calendario({ query, modelo }: { query: string; modelo?: 
       {/* Barra */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2">
         <div className="flex flex-wrap items-center gap-2">
-          <button className="btn-icono" onClick={() => mover(-1)} aria-label="Anterior">
+          <button className="btn-flecha" onClick={() => mover(-1)} aria-label="Anterior">
             <Icono nombre="arrow-left" />
           </button>
-          <button className="btn-icono" onClick={() => mover(1)} aria-label="Siguiente">
+          <button className="btn-flecha" onClick={() => mover(1)} aria-label="Siguiente">
             <Icono nombre="arrow-right" />
           </button>
           <div className={`relative ${enLista ? "hidden" : ""}`}>
