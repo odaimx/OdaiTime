@@ -23,6 +23,8 @@ class Empresa(UUIDPkMixin, TimestampMixin, Base):
     licencia_vence: Mapped[date | None] = mapped_column(Date)
     # Empresa de demostración (presentaciones): el pie muestra "Licencia demo".
     demo: Mapped[bool] = mapped_column(default=False, server_default="false")
+    # Usuarios que su administrador puede dar de alta (sin contar al administrador).
+    max_usuarios: Mapped[int] = mapped_column(default=5, server_default="5")
 
     # Logo (PNG, máx. 512 px). Diferido: solo se lee en GET /tenant/logo/{id}.
     logo: Mapped[bytes | None] = deferred(mapped_column(LargeBinary))

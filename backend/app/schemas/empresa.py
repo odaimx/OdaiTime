@@ -42,6 +42,7 @@ class EmpresaCreate(EmpresaBase):
     max_empleados: int | None = Field(default=None, ge=1, le=100000)
     licencia_vence: date | None = None
     demo: bool = False
+    max_usuarios: int = Field(default=5, ge=0, le=1000)
 
 
 class EmpresaUpdate(BaseModel):
@@ -53,6 +54,7 @@ class EmpresaUpdate(BaseModel):
     max_empleados: int | None = Field(default=None, ge=1, le=100000)
     licencia_vence: date | None = None
     demo: bool | None = None
+    max_usuarios: int | None = Field(default=None, ge=0, le=1000)
 
 
 class EmpresaOut(EmpresaBase):
@@ -64,6 +66,7 @@ class EmpresaOut(EmpresaBase):
     max_empleados: int
     licencia_vence: date | None
     demo: bool = False
+    max_usuarios: int = 5
     created_at: datetime
     logo_version: str | None = None
     fondo_color: str | None = None

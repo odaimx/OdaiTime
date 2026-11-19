@@ -45,6 +45,10 @@
   .menu-titulo {
     @apply flex items-center gap-2 px-3 pb-1 pt-2 text-sm font-semibold text-tinta-900;
   }
+  /* Enlace dentro de una celda de lista: abre la ficha (la fila completa no). */
+  .enlace-celda {
+    @apply max-w-full cursor-pointer truncate text-left hover:text-brand-600 hover:underline;
+  }
   .menu-item {
     @apply flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100;
   }

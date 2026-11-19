@@ -1,6 +1,7 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel, EmailStr
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 
@@ -8,8 +9,11 @@ from app.api.deps import DB, require_roles
 from app.core.config import get_settings
 from app.core.security import hash_password
 from app.core.tenant import slugify
-from app.models import Checada, Empleado, Empresa, Rol, Usuario
+from app.models import Checada, Empleado, Empresa, Rol, Sucursal, Usuario
+from app.schemas.common import Nombre, Password
 from app.schemas.empresa import EmpresaCreate, EmpresaOut, EmpresaUpdate
+from app.schemas.usuario import UsuarioOut
+from app.services import accesos, uso
 
 # Solo el operador del SaaS administra empresas (clientes).
 router = APIRouter(
@@ -88,8 +92,9 @@ async def actualizar(empresa_id: uuid.UUID, data: EmpresaUpdate, db: DB) -> Empr
     cambios = data.model_dump(exclude_unset=True)
     if cambios.get("max_empleados", 0) is None:
         cambios.pop("max_empleados")
-    if cambios.get("demo", False) is None:
-        cambios.pop("demo")
+    for campo in ("demo", "max_usuarios"):
+        if campo in cambios and cambios[campo] is None:
+            cambios.pop(campo)
     for campo, valor in cambios.items():
         setattr(empresa, campo, valor)
     try:
@@ -106,16 +111,108 @@ async def actualizar(empresa_id: uuid.UUID, data: EmpresaUpdate, db: DB) -> Empr
 async def eliminar(empresa_id: uuid.UUID, db: DB) -> None:
     """Borra una empresa con todos sus datos. Si tiene checadas, solo se permite si es demo."""
     empresa = await _get(db, empresa_id)
-    checadas = await db.scalar(
-        select(func.count()).select_from(Checada).where(Checada.empresa_id == empresa.id)
-    )
-    if checadas and not empresa.demo:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            f"{empresa.nombre} ya tiene checadas registradas. Desactívala en su lugar.",
+    if not empresa.demo:  # una demo se borra completa al terminar la presentación
+        uso.bloquear_si_se_usa(
+            f"la empresa {empresa.nombre}",
+            [
+                (
+                    await uso.contar(db, Empleado.empresa_id, empresa.id),
+                    "empleado",
+                    "empleados",
+                    "Empleados",
+                ),
+                (
+                    await uso.contar(db, Sucursal.empresa_id, empresa.id),
+                    "sucursal",
+                    "sucursales",
+                    "Sucursales",
+                ),
+                (
+                    await uso.contar(db, Checada.empresa_id, empresa.id),
+                    "checada",
+                    "checadas",
+                    "Asistencias",
+                ),
+            ],
+            "desactívala",
         )
     # Primero los empleados (con sus checadas y asignaciones) para no chocar con las
     # referencias a sucursales y turnos al borrar en cascada.
     await db.execute(delete(Empleado).where(Empleado.empresa_id == empresa.id))
     await db.delete(empresa)
     await db.commit()
+
+
+# --- Administrador de la empresa (uno por empresa; lo asigna Odai) ---
+
+
+class AdministradorIn(BaseModel):
+    nombre: Nombre
+    email: EmailStr
+    password: Password | None = None  # obligatoria solo si la empresa aún no tiene administrador
+
+
+async def _administrador(db: DB, empresa_id: uuid.UUID) -> Usuario | None:
+    return await db.scalar(
+        select(Usuario)
+        .where(Usuario.empresa_id == empresa_id, Usuario.rol == Rol.ADMIN_EMPRESA)
+        .order_by(Usuario.created_at)
+        .limit(1)
+    )
+
+
+@router.get("/{empresa_id}/administrador", response_model=UsuarioOut | None)
+async def ver_administrador(empresa_id: uuid.UUID, db: DB) -> Usuario | None:
+    await _get(db, empresa_id)
+    return await _administrador(db, empresa_id)
+
+
+@router.put("/{empresa_id}/administrador", response_model=UsuarioOut)
+async def guardar_administrador(empresa_id: uuid.UUID, data: AdministradorIn, db: DB) -> Usuario:
+    """Crea o actualiza al único administrador de la empresa."""
+    await _get(db, empresa_id)
+    admin = await _administrador(db, empresa_id)
+    email = data.email.lower()
+    otro = await db.scalar(select(Usuario).where(func.lower(Usuario.email) == email))
+    if otro is not None and (admin is None or otro.id != admin.id):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Ya existe un usuario con ese correo")
+    if admin is None:
+        if not data.password:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, "Escribe una contraseña para el administrador"
+            )
+        admin = Usuario(
+            empresa_id=empresa_id,
+            email=email,
+            nombre=data.nombre,
+            password_hash=hash_password(data.password),
+            rol=Rol.ADMIN_EMPRESA,
+        )
+        db.add(admin)
+    else:
+        admin.nombre = data.nombre
+        admin.email = email
+        admin.activo = True
+        if data.password:
+            admin.password_hash = hash_password(data.password)
+    await db.commit()
+    await db.refresh(admin, attribute_names=["empresa", "sucursales"])
+    return admin
+
+
+@router.post("/{empresa_id}/administrador/acceso", status_code=status.HTTP_202_ACCEPTED)
+async def enviar_acceso_administrador(
+    empresa_id: uuid.UUID, request: Request, db: DB
+) -> dict[str, str]:
+    """Manda al administrador el enlace para crear o cambiar su contraseña."""
+    admin = await _administrador(db, empresa_id)
+    if admin is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "La empresa aún no tiene administrador")
+    enviado, enlace = await accesos.enviar_enlace(db, request, admin, "recuperar")
+    await db.commit()
+    if enviado:
+        return {"mensaje": f"Se envió el enlace a {admin.email}.", "enlace": ""}
+    return {
+        "mensaje": "No hay correo saliente configurado; comparte este enlace.",
+        "enlace": enlace,
+    }

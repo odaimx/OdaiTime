@@ -1,19 +1,23 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { useNavigate } from "react-router";
+import AdministradorEmpresa from "../components/AdministradorEmpresa";
 import ConfigSistema from "../components/ConfigSistema";
 import FondoEmpresa from "../components/FondoEmpresa";
 import LogoEmpresa from "../components/LogoEmpresa";
 import Registro, { useFormulario } from "../components/Registro";
 import Icono from "../components/Iconos";
 import { columnaCategorias, filtrosCategorias, GestorCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
-import Vista, { useVista, type ConfigVista } from "../components/Vista";
+import Vista, { useAbrirDesdeUrl, useVista, type ConfigVista } from "../components/Vista";
 import { imprimirSecciones } from "../lib/imprimir";
+import { entrarSoporte } from "../lib/soporte";
 import { Ayuda, Badge, ErrorBox, PageHeader } from "../components/ui";
 import { api, get, patch, post, urlLogo, type Categoria, type Empresa, type TenantInfo } from "../lib/api";
 
-type Form = { nombre: string; slug: string; razon_social: string; rfc: string; max_empleados: string; licencia_vence: string; demo: boolean; admin_nombre: string; admin_email: string; admin_password: string };
-const VACIO: Form = { nombre: "", slug: "", razon_social: "", rfc: "", max_empleados: "15", licencia_vence: "", demo: false, admin_nombre: "", admin_email: "", admin_password: "" };
+type Form = { nombre: string; slug: string; razon_social: string; rfc: string; max_empleados: string; licencia_vence: string; demo: boolean; max_usuarios: string; admin_nombre: string; admin_email: string; admin_password: string };
+const VACIO: Form = { nombre: "", slug: "", razon_social: "", rfc: "", max_empleados: "15", licencia_vence: "", demo: false, max_usuarios: "5", admin_nombre: "", admin_email: "", admin_password: "" };
 
 export default function Empresas() {
+  const navegar = useNavigate();
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [editando, setEditando] = useState<Empresa | "nueva" | null>(null);
   const { form, setForm, cargar: cargarForm, sucio, descartar } = useFormulario<Form>(VACIO);
@@ -32,7 +36,7 @@ export default function Empresas() {
     cargarForm(
       e === "nueva"
         ? VACIO
-        : { ...VACIO, nombre: e.nombre, slug: e.slug, razon_social: e.razon_social ?? "", rfc: e.rfc ?? "", max_empleados: String(e.max_empleados), licencia_vence: e.licencia_vence ?? "", demo: !!e.demo },
+        : { ...VACIO, nombre: e.nombre, slug: e.slug, razon_social: e.razon_social ?? "", rfc: e.rfc ?? "", max_empleados: String(e.max_empleados), licencia_vence: e.licencia_vence ?? "", demo: !!e.demo, max_usuarios: String(e.max_usuarios ?? 5) },
     );
     setEditando(e);
   }
@@ -47,6 +51,7 @@ export default function Empresas() {
       max_empleados: Number(form.max_empleados) || 15,
       licencia_vence: form.licencia_vence || null,
       demo: form.demo,
+      max_usuarios: Number(form.max_usuarios) || 0,
     };
     try {
       const r =
@@ -97,6 +102,7 @@ export default function Empresas() {
     ordenInicial: { clave: "nombre", dir: "asc" },
     columnas: [
       {
+        enlace: true,
         clave: "nombre",
         titulo: "Empresa",
         fija: true,
@@ -162,6 +168,7 @@ export default function Empresas() {
     ),
   };
   const vista = useVista(config, empresas);
+  useAbrirDesdeUrl(empresas, (x) => x.id, abrir);
   const enOrden = vista.ordenados;
   const indice = editando && editando !== "nueva" ? enOrden.findIndex((x) => x.id === editando.id) : -1;
 
@@ -185,6 +192,20 @@ export default function Empresas() {
       {editando && (
         <Registro
           titulo={editando === "nueva" ? "Nueva empresa" : editando.nombre}
+          acciones={
+            editando === "nueva"
+              ? []
+              : [
+                  {
+                    etiqueta: "Ver como soporte",
+                    icono: "eye",
+                    onClick: () => {
+                      entrarSoporte({ id: editando.id, nombre: editando.nombre });
+                      navegar("/");
+                    },
+                  },
+                ]
+          }
           onImprimir={
             editando === "nueva"
               ? undefined
@@ -206,6 +227,7 @@ export default function Empresas() {
                       campos: [
                         ["Empleados activos permitidos", editando.max_empleados],
                         ["Vence", editando.licencia_vence ?? "Sin vencimiento"],
+                        ["Usuarios permitidos", editando.max_usuarios ?? 5],
                         ["Empresa demo", editando.demo ? "Sí" : "No"],
                       ],
                     },
@@ -296,10 +318,26 @@ export default function Empresas() {
                 <label className="label">Vence (opcional)</label>
                 <input className="input" type="date" value={form.licencia_vence} onChange={set("licencia_vence")} />
               </div>
-              <label className="flex items-center gap-2 text-sm text-tinta-900 sm:col-span-2">
-                <input type="checkbox" checked={form.demo} onChange={(e) => setForm({ ...form, demo: e.target.checked })} />
+              <div>
+                <label className="label inline-flex items-center">
+                  Usuarios permitidos
+                  <Ayuda texto="Usuarios que el administrador puede dar de alta (gerentes, etc.). No cuentan el administrador ni los empleados con acceso al portal." />
+                </label>
+                <input className="input" type="number" min={0} max={1000} required value={form.max_usuarios} onChange={set("max_usuarios")} />
+              </div>
+              <label className="flex items-center gap-2 self-end pb-2 text-sm text-tinta-900">
+                <input
+                  type="checkbox"
+                  checked={form.demo}
+                  onChange={(e) => {
+                    const demo = e.target.checked;
+                    // Prueba de 15 días: si no tiene vencimiento, se propone uno.
+                    const vence = demo && !form.licencia_vence ? new Date(Date.now() + 15 * 864e5).toLocaleDateString("en-CA") : form.licencia_vence;
+                    setForm({ ...form, demo, licencia_vence: vence });
+                  }}
+                />
                 Empresa demo
-                <Ayuda texto="Para presentaciones (p. ej. demo.odai.lat): el pie muestra Licencia demo y se puede eliminar aunque tenga checadas." />
+                <Ayuda texto="Prueba para el cliente (p. ej. cliente.odai.lat) o demo de Odai: el pie muestra Licencia demo y vence en 15 días. Para pasarla a producción, quita la casilla y ajusta la licencia." />
               </label>
             </fieldset>
 
@@ -335,6 +373,8 @@ export default function Empresas() {
                 </div>
               </fieldset>
             )}
+
+            {editando !== "nueva" && <AdministradorEmpresa empresaId={editando.id} />}
 
             {editando !== "nueva" && (
               <div className="completo flex justify-end">

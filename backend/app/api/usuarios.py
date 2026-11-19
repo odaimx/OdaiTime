@@ -6,9 +6,9 @@ from sqlalchemy import func, select, update
 
 from app.api.deps import DB, CurrentUser, empresa_scope, require_roles
 from app.core.security import hash_password
-from app.models import Rol, Sesion, Sucursal, Usuario
+from app.models import Checada, Empresa, Incidencia, Rol, Sesion, Sucursal, Tarea, Usuario
 from app.schemas.usuario import UsuarioCreate, UsuarioOut, UsuarioUpdate
-from app.services import accesos
+from app.services import accesos, uso
 
 router = APIRouter(
     prefix="/usuarios",
@@ -32,9 +32,36 @@ async def _sucursales_de_empresa(
     return encontradas
 
 
+# Usuarios que cuentan para el límite de la empresa: los que da de alta su administrador.
+# No cuentan el administrador (lo asigna Odai) ni los empleados con acceso al portal.
+_SIN_LIMITE = (Rol.ADMIN_EMPRESA, Rol.EMPLEADO, Rol.SUPERADMIN)
+
+
+async def _verificar_limite(
+    db: DB, empresa_id: uuid.UUID, excepto: uuid.UUID | None = None
+) -> None:
+    limite = await db.scalar(select(Empresa.max_usuarios).where(Empresa.id == empresa_id))
+    q = select(func.count()).where(
+        Usuario.empresa_id == empresa_id, Usuario.activo, Usuario.rol.not_in(_SIN_LIMITE)
+    )
+    if excepto is not None:
+        q = q.where(Usuario.id != excepto)
+    if (await db.scalar(q) or 0) >= (limite or 0):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Tu empresa ya tiene sus {limite} usuarios activos permitidos. "
+            "Desactiva uno o pide a Odai ampliar el límite.",
+        )
+
+
 def _validar_rol(rol: Rol, sucursales: list[Sucursal]) -> None:
     if rol == Rol.SUPERADMIN:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "No se puede asignar el rol superadmin")
+    if rol == Rol.ADMIN_EMPRESA:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Cada empresa tiene un solo administrador; lo asigna Odai desde la empresa.",
+        )
     if rol == Rol.GERENTE_SUCURSAL and not sucursales:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY, "Un gerente debe tener al menos una sucursal"
@@ -69,6 +96,8 @@ async def crear(
 
     sucursales = await _sucursales_de_empresa(db, emp, data.sucursal_ids)
     _validar_rol(data.rol, sucursales)
+    if data.rol not in _SIN_LIMITE:
+        await _verificar_limite(db, emp)
 
     nuevo = Usuario(
         empresa_id=emp,
@@ -104,13 +133,24 @@ async def actualizar(
             "No puedes desactivarte ni cambiar tu propio rol",
         )
 
+    if usuario.rol == Rol.ADMIN_EMPRESA and "rol" in cambios and cambios["rol"] != usuario.rol:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "El administrador de la empresa no cambia de rol; Odai lo reasigna desde la empresa.",
+        )
+    era_admin = usuario.rol == Rol.ADMIN_EMPRESA
+    nuevo_rol = cambios.get("rol", usuario.rol)
+    reactiva = cambios.get("activo") is True and not usuario.activo
+    if nuevo_rol not in _SIN_LIMITE and (reactiva or (nuevo_rol != usuario.rol and usuario.activo)):
+        await _verificar_limite(db, emp, excepto=usuario.id)
     if "sucursal_ids" in cambios:
         usuario.sucursales = await _sucursales_de_empresa(db, emp, cambios.pop("sucursal_ids"))
     if "password" in cambios:
         usuario.password_hash = hash_password(cambios.pop("password"))
     for campo, valor in cambios.items():
         setattr(usuario, campo, valor)
-    _validar_rol(usuario.rol, usuario.sucursales)
+    if not era_admin:
+        _validar_rol(usuario.rol, usuario.sucursales)
 
     # Al desactivar o cambiar contraseña se cierran todas sus sesiones abiertas.
     if data.activo is False or data.password is not None:
@@ -135,6 +175,35 @@ async def eliminar(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "No puedes eliminarte a ti mismo")
     if usuario.rol == Rol.SUPERADMIN:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "No se puede eliminar al superadmin")
+    if usuario.rol == Rol.ADMIN_EMPRESA:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "El administrador de la empresa no se elimina; Odai lo cambia desde la empresa.",
+        )
+    uso.bloquear_si_se_usa(
+        f"a {usuario.nombre}",
+        [
+            (
+                await uso.contar(db, Checada.registrada_por, usuario.id),
+                "checada manual",
+                "checadas manuales",
+                "Asistencias",
+            ),
+            (
+                await uso.contar(db, Incidencia.registrada_por, usuario.id),
+                "incidencia",
+                "incidencias",
+                "Vacaciones e incidencias",
+            ),
+            (
+                await uso.contar(db, Tarea.asignado_id, usuario.id),
+                "actividad asignada",
+                "actividades asignadas",
+                "Actividades",
+            ),
+        ],
+        "desactívalo",
+    )
     await db.delete(usuario)
     await db.commit()
 

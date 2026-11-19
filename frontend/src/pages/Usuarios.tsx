@@ -2,15 +2,16 @@ import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } fr
 import Registro, { useFormulario } from "../components/Registro";
 import Icono from "../components/Iconos";
 import { columnaCategorias, filtrosCategorias, GestorCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
-import Vista, { useVista, type ConfigVista } from "../components/Vista";
+import Vista, { useAbrirDesdeUrl, useVista, type ConfigVista } from "../components/Vista";
 import { imprimirSecciones } from "../lib/imprimir";
 import { Badge, ErrorBox, PageHeader, useEmpresaScope } from "../components/ui";
 import { api, get, patch, post, ROLES, type Categoria, type Rol, type Sucursal, type Usuario } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 type Form = { nombre: string; email: string; password: string; rol: Rol; sucursal_ids: string[] };
-const VACIO: Form = { nombre: "", email: "", password: "", rol: "empleado", sucursal_ids: [] };
-const ROLES_ASIGNABLES: Rol[] = ["admin_empresa", "gerente_sucursal", "empleado"];
+const VACIO: Form = { nombre: "", email: "", password: "", rol: "gerente_sucursal", sucursal_ids: [] };
+// El administrador de la empresa es uno solo y lo asigna Odai desde la ficha de la empresa.
+const ROLES_ASIGNABLES: Rol[] = ["gerente_sucursal", "empleado"];
 
 function fecha(iso: string | null) {
   return iso ? new Date(iso).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" }) : "Nunca";
@@ -87,7 +88,7 @@ export default function Usuarios() {
     id: "usuarios",
     tituloReporte: "Usuarios",
     clave: (u) => u.id,
-    eliminar: { puede: (u) => u.id !== yo?.id && u.rol !== "superadmin", borrar: (u) => api(`/usuarios/${u.id}${query}`, { method: "DELETE" }), despues: cargar },
+    eliminar: { puede: (u) => u.id !== yo?.id && u.rol !== "superadmin" && u.rol !== "admin_empresa", borrar: (u) => api(`/usuarios/${u.id}${query}`, { method: "DELETE" }), despues: cargar },
     accionesSeleccion: [{ etiqueta: "Enviar correo para cambiar contraseña", icono: "key-round", puede: (u) => u.activo, onClick: enviarCambioPassword }],
     onAbrir: abrir,
     acciones: listo && (
@@ -99,6 +100,7 @@ export default function Usuarios() {
     ordenInicial: { clave: "nombre", dir: "asc" },
     columnas: [
       {
+        enlace: true,
         clave: "nombre",
         titulo: "Usuario",
         fija: true,
@@ -141,6 +143,7 @@ export default function Usuarios() {
     ),
   };
   const vista = useVista(config, usuarios);
+  useAbrirDesdeUrl(usuarios, (x) => x.id, abrir);
   const enOrden = vista.ordenados;
   const indice = editando && editando !== "nuevo" ? enOrden.findIndex((x) => x.id === editando.id) : -1;
 
@@ -228,8 +231,8 @@ export default function Usuarios() {
             </div>
             <div>
               <label className="label">Rol</label>
-              <select className="input" value={form.rol} onChange={set("rol")} disabled={editando !== "nuevo" && editando.id === yo?.id}>
-                {ROLES_ASIGNABLES.map((r) => (
+              <select className="input" value={form.rol} onChange={set("rol")} disabled={form.rol === "admin_empresa" || (editando !== "nuevo" && editando.id === yo?.id)}>
+                {(form.rol === "admin_empresa" ? ["admin_empresa" as Rol] : ROLES_ASIGNABLES).map((r) => (
                   <option key={r} value={r}>{ROLES[r]}</option>
                 ))}
               </select>

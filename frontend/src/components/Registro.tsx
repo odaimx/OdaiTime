@@ -183,7 +183,7 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
 
         <div ref={cuerpo} className="min-h-0 overflow-y-auto p-5 pb-12 sm:p-8 sm:pb-14">
           <div className="mb-5">
-            <h2 className="text-lg font-semibold text-tinta-900">{titulo}</h2>
+            <h2 className="text-xl font-semibold text-tinta-900 sm:text-2xl">{titulo}</h2>
             {subtitulo && <div className="mt-1 text-sm text-slate-500">{subtitulo}</div>}
           </div>
           {children}

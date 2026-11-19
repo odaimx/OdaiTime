@@ -45,6 +45,7 @@ export interface Empresa {
   max_empleados: number;
   licencia_vence: string | null;
   demo?: boolean;
+  max_usuarios?: number;
   slug: string;
   url: string | null;
   created_at: string;

@@ -24,7 +24,7 @@ _RESERVADOS_BASE = {
     "mail", "webmail", "smtp", "imap", "pop", "pop3", "mx", "autodiscover", "autoconfig",
     "ftp", "sftp", "ssh", "vpn", "ns", "ns1", "ns2", "dns", "cpanel", "whm", "plesk",
     "blog", "shop", "tienda", "store", "soporte", "support", "help", "ayuda", "docs",
-    "status", "dev", "staging", "test", "demo", "beta", "odoo", "erp", "crm", "portal",
+    "status", "dev", "staging", "test", "beta", "odoo", "erp", "crm", "portal",
     "login", "auth", "cuenta", "account", "billing", "pagos", "facturacion", "licencias",
 }
 # fmt: on

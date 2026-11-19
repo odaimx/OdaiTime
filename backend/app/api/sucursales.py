@@ -1,13 +1,13 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import DB, CurrentUser, empresa_scope, require_roles
-from app.models import Checada, Empleado, Rol, Sucursal, Usuario
+from app.models import Checada, Dispositivo, Empleado, Rol, Sucursal, Usuario
 from app.schemas.sucursal import SucursalCreate, SucursalOut, SucursalUpdate
-from app.services import bitacora
+from app.services import bitacora, uso
 
 CAMPOS = (
     "clave",
@@ -130,16 +130,29 @@ async def eliminar(
 ) -> None:
     """Borra una sucursal sin empleados ni checadas; si ya se usó, se desactiva."""
     sucursal = await _get(db, user, sucursal_id, empresa_scope(user, empresa_id))
-    empleados = await db.scalar(
-        select(func.count()).select_from(Empleado).where(Empleado.sucursal_id == sucursal.id)
+    uso.bloquear_si_se_usa(
+        f"la sucursal {sucursal.nombre}",
+        [
+            (
+                await uso.contar(db, Empleado.sucursal_id, sucursal.id),
+                "empleado",
+                "empleados",
+                "Empleados",
+            ),
+            (
+                await uso.contar(db, Checada.sucursal_id, sucursal.id),
+                "checada",
+                "checadas",
+                "Asistencias",
+            ),
+            (
+                await uso.contar(db, Dispositivo.sucursal_id, sucursal.id),
+                "dispositivo",
+                "dispositivos",
+                "Configuración de asistencias → Dispositivos",
+            ),
+        ],
+        "desactívala",
     )
-    checadas = await db.scalar(
-        select(func.count()).select_from(Checada).where(Checada.sucursal_id == sucursal.id)
-    )
-    if empleados or checadas:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            f"La sucursal {sucursal.nombre} tiene empleados o checadas. Desactívala en su lugar.",
-        )
     await db.delete(sucursal)
     await db.commit()
