@@ -8,7 +8,7 @@ import VacacionesIncidencias from "../components/VacacionesIncidencias";
 import Icono from "../components/Iconos";
 import { columnaCategorias, Chips, filtrosCategorias, GestorCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
 import { useNavigate } from "react-router";
-import Vista, { irA, useAbrirDesdeUrl, useVista, type Columna, type ConfigVista } from "../components/Vista";
+import Vista, { abrirEn, useAbrirDesdeUrl, useVista, type Columna, type ConfigVista } from "../components/Vista";
 import { AvisoLicencia, Badge, ErrorBox, Fila, ImagenEditable, Modal, PageHeader, Plegable, UsoLicencia, useEmpresaScope } from "../components/ui";
 import {
   api,
@@ -212,7 +212,7 @@ export default function Empleados() {
       buscable: true,
       agrupable: true,
       valor: (e) => e.sucursal.nombre,
-      enlace: (e) => irA(navegar, "/sucursales", e.sucursal.id),
+      enlace: (e) => abrirEn(navegar, "/sucursales", e.sucursal.id),
       render: (e) => (
         <span className="inline-flex items-center gap-1.5">
           <span className="rounded bg-brand-50 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-brand-700">{e.sucursal.clave}</span>
@@ -226,7 +226,7 @@ export default function Empleados() {
       titulo: "Turno",
       agrupable: true,
       valor: (e) => e.turno_actual?.nombre ?? null,
-      enlace: (e) => e.turno_actual && irA(navegar, "/turnos", e.turno_actual.id),
+      enlace: (e) => e.turno_actual && abrirEn(navegar, "/turnos", e.turno_actual.id),
       render: (e) => e.turno_actual?.nombre ?? <span className="text-amber-600">Sin turno</span>,
     },
     { clave: "telefono", titulo: "Teléfono", buscable: true, visible: false, valor: (e) => e.telefono },
@@ -484,7 +484,7 @@ export default function Empleados() {
                 key="sucursal"
                 etiqueta={
                   form.sucursal_id && !nuevo ? (
-                    <button type="button" className="enlace-celda" title="Abrir la ficha de la sucursal" onClick={() => irA(navegar, "/sucursales", form.sucursal_id)}>
+                    <button type="button" className="enlace-celda" title="Abrir la ficha de la sucursal" onClick={() => abrirEn(navegar, "/sucursales", form.sucursal_id)}>
                       Sucursal *
                     </button>
                   ) : (
@@ -750,7 +750,7 @@ ${
                   <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 text-sm">
                     {sel.asignaciones.map((a) => (
                       <li key={a.id} className="flex justify-between gap-3 px-3 py-2">
-                        <button type="button" className="enlace-celda font-medium text-tinta-900" onClick={() => irA(navegar, "/turnos", a.turno.id)}>
+                        <button type="button" className="enlace-celda font-medium text-tinta-900" onClick={() => abrirEn(navegar, "/turnos", a.turno.id)}>
                           {a.turno.nombre}
                         </button>
                         <span className="text-slate-500">

@@ -1136,5 +1136,5 @@ export function useAbrirDesdeUrl<T>(registros: T[] | null | undefined, clave: (r
   }, [id, registros]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-/** Ruta para abrir la ficha de otro módulo: irA(navegar, "/sucursales", id). */
-export const irA = (navegar: (ruta: string) => void, ruta: string, id: string) => navegar(`${ruta}?abrir=${encodeURIComponent(id)}`);
+/** Ruta para abrir la ficha de otro módulo: abrirEn(navegar, "/sucursales", id). */
+export const abrirEn = (navegar: (ruta: string) => void, ruta: string, id: string) => navegar(`${ruta}?abrir=${encodeURIComponent(id)}`);

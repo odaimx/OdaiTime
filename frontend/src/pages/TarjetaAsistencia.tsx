@@ -4,7 +4,7 @@ import Registro from "../components/Registro";
 import ReglasTarjeta from "../components/ReglasTarjeta";
 import { useAuth } from "../lib/auth";
 import { useNavigate } from "react-router";
-import Vista, { irA, useVista, type ConfigVista } from "../components/Vista";
+import Vista, { abrirEn, useVista, type ConfigVista } from "../components/Vista";
 import { ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
 import { periodo } from "../lib/periodo";
 import { descargar, get, hm, hora, INCIDENCIAS, post, type DetalleAsistencia, type DiaAsistencia, type FilaResumen, type Sucursal } from "../lib/api";
@@ -121,8 +121,8 @@ export default function TarjetaAsistencia() {
           </div>
         ),
       },
-      { clave: "numero", titulo: "Número", buscable: true, visible: false, enlace: (f) => irA(navegar, "/empleados", f.empleado.id), valor: (f) => f.empleado.numero },
-      { clave: "sucursal", titulo: "Sucursal", buscable: true, agrupable: true, valor: (f) => f.sucursal.nombre, enlace: (f) => irA(navegar, "/sucursales", f.sucursal.id), render: (f) => <span className="font-mono text-xs font-semibold text-brand-600">{f.sucursal.clave}</span> },
+      { clave: "numero", titulo: "Número", buscable: true, visible: false, enlace: (f) => abrirEn(navegar, "/empleados", f.empleado.id), valor: (f) => f.empleado.numero },
+      { clave: "sucursal", titulo: "Sucursal", buscable: true, agrupable: true, valor: (f) => f.sucursal.nombre, enlace: (f) => abrirEn(navegar, "/sucursales", f.sucursal.id), render: (f) => <span className="font-mono text-xs font-semibold text-brand-600">{f.sucursal.clave}</span> },
       { clave: "dias", titulo: "Días lab.", alinear: "derecha", sumar: true, valor: (f) => f.resumen.dias_laborables },
       { clave: "asistencias", titulo: "Asistencias", alinear: "derecha", sumar: true, valor: (f) => f.resumen.asistencias },
       {
