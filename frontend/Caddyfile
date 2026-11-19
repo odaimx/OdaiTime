@@ -37,7 +37,12 @@
 	}
 }
 
+# El panel también se certifica bajo demanda: como queda cubierto por *.DOMAIN, Caddy no lo
+# gestiona aparte y, sin esto, nunca pediría su certificado.
 {$ADMIN_HOST:localhost} {
+	tls {
+		on_demand
+	}
 	import app
 }
 
