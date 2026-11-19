@@ -4,6 +4,7 @@ import Registro from "../components/Registro";
 import ReglasTarjeta from "../components/ReglasTarjeta";
 import { useAuth } from "../lib/auth";
 import { useNavigate } from "react-router";
+import Icono from "../components/Iconos";
 import Vista, { abrirEn, useVista, type ConfigVista } from "../components/Vista";
 import { ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
 import { periodo } from "../lib/periodo";
@@ -109,16 +110,25 @@ export default function TarjetaAsistencia() {
         titulo: "Empleado",
         fija: true,
         buscable: true,
-        enlace: true,
+        // El nombre abre la ficha del empleado; la tarjeta de la semana se abre con su ícono.
+        enlace: (f) => abrirEn(navegar, "/empleados", f.empleado.id),
         valor: (f) => f.empleado.nombre_completo,
         render: (f) => (
           <div className="flex items-center gap-3">
             <Avatar empleadoId={f.empleado.id} nombre={f.empleado.nombre_completo} version={f.empleado.foto_actualizada} query={query} tam={32} />
-            <div className="min-w-0">
-              <p className="truncate font-medium text-tinta-900">{f.empleado.nombre_completo}</p>
-              <p className="font-mono text-xs text-slate-500">#{f.empleado.numero}</p>
-            </div>
+            <span className="truncate font-medium text-tinta-900">{f.empleado.nombre_completo}</span>
           </div>
+        ),
+      },
+      {
+        clave: "tarjeta",
+        titulo: "Tarjeta",
+        fija: true,
+        valor: () => null,
+        render: (f) => (
+          <button type="button" className="rounded-md p-1 text-brand-600 hover:bg-brand-50" title="Ver la tarjeta de asistencia del periodo" aria-label="Ver tarjeta de asistencia" onClick={() => abrir(f.empleado.id)}>
+            <Icono nombre="clipboard-list" className="h-5 w-5" />
+          </button>
         ),
       },
       { clave: "numero", titulo: "Número", buscable: true, visible: false, enlace: (f) => abrirEn(navegar, "/empleados", f.empleado.id), valor: (f) => f.empleado.numero },

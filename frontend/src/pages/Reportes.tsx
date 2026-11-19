@@ -189,6 +189,7 @@ function ExportarSistema({
   const [filas, setFilas] = useState<FilaResumen[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [bajando, setBajando] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
   const esContpaqi = sistema.clave === "contpaqi";
   const esOdoo = sistema.clave === "odoo";
   const [checadas, setChecadas] = useState(false);
@@ -253,7 +254,16 @@ function ExportarSistema({
     }
     const ext = esContpaqi || esOdoo ? formato : sistema.formato;
     try {
-      await descargar(`/reportes/nomina${query}${sep}${p}`, `nomina_${sistema.clave}_${rango.desde.replace(/-/g, "")}_${rango.hasta.replace(/-/g, "")}.${ext}`);
+      const h = await descargar(`/reportes/nomina${query}${sep}${p}`, `nomina_${sistema.clave}_${rango.desde.replace(/-/g, "")}_${rango.hasta.replace(/-/g, "")}.${ext}`);
+      const movimientos = Number(h.get("X-Odai-Movimientos") ?? "-1");
+      const empleados = Number(h.get("X-Odai-Empleados") ?? "-1");
+      setAviso(
+        movimientos === 0
+          ? empleados === 0
+            ? "El archivo salió vacío: no hay empleados activos en ese periodo o sucursal."
+            : "El archivo salió sin movimientos: en el periodo no hay faltas, horas extra, retardos ni incidencias. Revisa que los empleados tengan turno asignado (en la Tarjeta de asistencia aparecen como “Sin turno”) y que haya checadas."
+          : null,
+      );
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -382,6 +392,7 @@ function ExportarSistema({
           </p>
         )}
         <ErrorBox message={error} />
+        {aviso && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-200">{aviso}</p>}
 
         <section>
           <h3 className="mb-2 text-sm font-semibold text-tinta-900">Vista previa de la prenómina</h3>

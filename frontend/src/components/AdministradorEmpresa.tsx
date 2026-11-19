@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, get, post, type Usuario } from "../lib/api";
 import Icono from "./Iconos";
-import { ErrorBox, Fila } from "./ui";
+import { BarraGuardar, ErrorBox, Fila } from "./ui";
 
 /**
  * Único administrador de una empresa cliente. Lo asigna Odai; él da de alta a los demás
@@ -64,6 +64,13 @@ export default function AdministradorEmpresa({ empresaId }: { empresaId: string 
     <fieldset className="space-y-2 rounded-lg bg-brand-50/60 p-4">
       <legend className="px-1 text-sm font-medium text-brand-700">Administrador de la empresa</legend>
       <p className="pb-1 text-xs text-slate-500">Uno por empresa. Él da de alta a los usuarios de su empresa.</p>
+      <BarraGuardar sucio={sucio && !!nombre && !!email && (!!admin || password.length >= 8)} guardando={ocupado} onGuardar={guardar}>
+        {admin && (
+          <button type="button" className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:underline" disabled={ocupado} onClick={enviarAcceso}>
+            <Icono nombre="mail" className="h-3.5 w-3.5" /> Enviar acceso por correo
+          </button>
+        )}
+      </BarraGuardar>
       <Fila etiqueta="Nombre" htmlFor="adm-nombre">
         <input id="adm-nombre" className="input" value={nombre} onChange={(e) => setNombre(e.target.value)} />
       </Fila>
@@ -80,16 +87,6 @@ export default function AdministradorEmpresa({ empresaId }: { empresaId: string 
           {aviso.enlace && <input readOnly className="input mt-1 w-full bg-white text-xs" value={aviso.enlace} onFocus={(e) => e.target.select()} />}
         </div>
       )}
-      <div className="flex flex-wrap justify-end gap-2 pt-1">
-        {admin && (
-          <button type="button" className="btn-secondary" disabled={ocupado} onClick={enviarAcceso}>
-            <Icono nombre="mail" /> Enviar acceso por correo
-          </button>
-        )}
-        <button type="button" className="btn-primary" disabled={ocupado || !sucio || !nombre || !email || (!admin && password.length < 8)} onClick={guardar}>
-          <Icono nombre="check" /> {admin ? "Guardar administrador" : "Asignar administrador"}
-        </button>
-      </div>
     </fieldset>
   );
 }

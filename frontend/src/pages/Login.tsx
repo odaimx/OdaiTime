@@ -81,7 +81,8 @@ export default function Login() {
 
   const imagenLogin = tema?.login_version ? `/api/sistema/imagen/login?v=${encodeURIComponent(tema.login_version)}` : null;
   const colores = tema?.login_colores ?? {};
-  const textoLogin = tema?.login_texto ?? "Checadas, retardos, horas extra y reportes apegados a la Ley Federal del Trabajo, para todas tus sucursales.";
+  // Lo que Odai deje vacío en la configuración se queda en blanco.
+  const textoLogin = tema?.login_texto ?? "";
 
   return (
     <div className="flex min-h-screen">
@@ -93,25 +94,28 @@ export default function Login() {
         {imagenLogin && <div className="absolute inset-0 bg-gradient-to-t from-navy-950/85 via-navy-950/30 to-transparent" />}
         <span />
         {/* Textos en la parte baja del panel; el color de cada renglón lo elige Odai. */}
-        <div className="relative mb-6 mt-auto">
-          <h2 className="text-4xl font-semibold leading-tight text-white" style={{ color: colores.titulo ?? undefined }}>
-            {tema?.login_titulo ?? "Control de asistencia"}
-          </h2>
-          <p className="text-4xl font-semibold leading-tight text-brand-500" style={{ color: colores.subtitulo ?? undefined }}>
-            {tema?.login_subtitulo ?? "claro y en regla."}
-          </p>
+        <div className="relative mt-auto">
+          {tema?.login_titulo && (
+            <h2 className="text-4xl font-semibold leading-tight text-white" style={{ color: colores.titulo ?? undefined }}>
+              {tema.login_titulo}
+            </h2>
+          )}
+          {tema?.login_subtitulo && (
+            <p className="text-4xl font-semibold leading-tight text-brand-500" style={{ color: colores.subtitulo ?? undefined }}>
+              {tema.login_subtitulo}
+            </p>
+          )}
           {textoLogin && (
             <p className="mt-4 max-w-2xl whitespace-pre-line text-slate-200" style={{ color: colores.texto ?? undefined }}>
               {textoLogin}
             </p>
           )}
         </div>
-        <p className="relative self-end text-right text-xs text-slate-300">© {new Date().getFullYear()} Odai · Cancún, México</p>
       </div>
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-slate-50 p-6" style={estiloFondoLogin(tema)}>
+      <div className="relative flex flex-1 flex-col items-center justify-center gap-4 bg-slate-50 p-6 pb-12" style={estiloFondoLogin(tema)}>
         <form onSubmit={recuperando ? recuperar : onSubmit} className="card w-full max-w-sm space-y-5 p-8 shadow-xl shadow-navy-950/10">
-          <div>
+          <div className="flex flex-col items-center text-center">
             <img src="/logo.png" alt="ODAI" className="mb-6 h-9 w-auto" />
             <h1 className="text-xl font-semibold text-tinta-900">{recuperando ? "Recuperar contraseña" : "Iniciar sesión"}</h1>
             {tenant?.empresa_id && tenant.logo_version && (
@@ -188,6 +192,7 @@ export default function Login() {
             </>
           )}
         </form>
+        <p className="absolute bottom-4 right-6 text-xs text-slate-500">© {new Date().getFullYear()} Odai · Cancún, México</p>
       </div>
     </div>
   );

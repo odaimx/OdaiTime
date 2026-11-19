@@ -204,16 +204,13 @@ const I = {
 export function useVista<T>(config: ConfigVista<T>, datos: T[]) {
   const pk = `odaitime.vista.${config.id}`;
   const fk = `odaitime.favoritos.${config.id}`;
-  const [prefs, setPrefs] = useState<Prefs>(() =>
-    leer<Prefs>(pk, {
-      modo: config.kanban && (window.innerWidth < 640 || config.modoInicial === "kanban") ? "kanban" : "lista",
-      ocultas: [],
-      visibles: [],
-      ordenCols: [],
-      orden: config.ordenInicial ?? null,
-      porPagina: 80,
-    }),
-  );
+  const [prefs, setPrefs] = useState<Prefs>(() => {
+    const modo: Prefs["modo"] = config.kanban && (window.innerWidth < 640 || config.modoInicial === "kanban") ? "kanban" : "lista";
+    const guardadas = leer<Prefs>(pk, { modo, ocultas: [], visibles: [], ordenCols: [], orden: config.ordenInicial ?? null, porPagina: 80 });
+    // Cada vez que se entra desde el menú se abre en su vista normal (lista o kanban), no en la
+    // última usada (p. ej. el calendario); columnas, orden y registros por página sí se recuerdan.
+    return { ...guardadas, modo };
+  });
   const [filtros, setFiltros] = useState<string[]>(config.filtrosIniciales ?? []);
   const [agrupar, setAgrupar] = useState<string[]>(config.agruparInicial ?? []);
   const [busquedas, setBusquedas] = useState<Busqueda[]>([]);
@@ -753,27 +750,50 @@ function Paginador<T>({ vista }: { vista: EstadoVista<T> }) {
   const menu = useFlotante(176, "derecha");
   const desde = total === 0 ? 0 : pagina * porPagina + 1;
   const hasta = Math.min(total, (pagina + 1) * porPagina);
+  const [editando, setEditando] = useState(false);
+
+  /** "1-100" muestra 100 registros por página desde el 1; "101-200", la siguiente página. */
+  function aplicarRango(texto: string) {
+    setEditando(false);
+    const m = texto.trim().match(/^(\d+)\s*-\s*(\d+)$/);
+    if (!m) return;
+    const a = Math.max(1, Number(m[1]));
+    const b = Math.max(a, Number(m[2]));
+    const tam = Math.min(1000, b - a + 1);
+    const pag = Math.floor((a - 1) / tam);
+    vista.cambiarPrefs({ porPagina: tam });
+    // El cambio de tamaño regresa a la primera página; después se va a la pedida.
+    setTimeout(() => vista.setPagina(pag), 0);
+  }
+
   return (
     <div className="flex items-center gap-2 text-sm text-slate-600">
-      <button
-        ref={(el) => {
-          menu.boton.current = el;
-        }}
-        className="rounded-md px-2 py-1 font-semibold tabular-nums text-tinta-900 hover:bg-slate-100"
-        onClick={menu.alternar}
-        title="Registros por página"
-      >
-        {vista.grupos ? (
-          <span>
-            <span className="font-medium text-tinta-900">{total}</span> registros
-          </span>
-        ) : (
-          <span>
-            {desde}-{hasta} / <span className="font-medium text-tinta-900">{total}</span>
-          </span>
-        )}
-      </button>
-      {!vista.grupos && (
+      {editando ? (
+        <input
+          autoFocus
+          className="input h-8 w-28 px-2 text-center font-semibold tabular-nums"
+          defaultValue={`${desde}-${hasta}`}
+          aria-label="Rango de registros, p. ej. 1-100"
+          onBlur={(e) => aplicarRango(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") aplicarRango((e.target as HTMLInputElement).value);
+            if (e.key === "Escape") setEditando(false);
+          }}
+        />
+      ) : (
+        <button
+          ref={(el) => {
+            menu.boton.current = el;
+          }}
+          className="rounded-md px-2 py-1 font-semibold tabular-nums text-tinta-900 hover:bg-slate-100"
+          onClick={menu.alternar}
+          onDoubleClick={() => {
+            if (vista.grupos) return;
+            menu.cerrar();
+            setEditando(true);
+          }}
+          title="Registros por página · doble clic para escribir un rango (p. ej. 1-100)"
+        >      {!vista.grupos && (
         <>
           <button className="btn-icono" disabled={pagina === 0} onClick={() => vista.setPagina(pagina - 1)} aria-label="Página anterior">
             <Icono nombre="chevron-left" className="h-4 w-4" />

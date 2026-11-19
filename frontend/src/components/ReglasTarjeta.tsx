@@ -1,24 +1,30 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, get, type PoliticaAsistencia } from "../lib/api";
 import { ArticuloLFT } from "./LFT";
-import { Ayuda } from "./ui";
+import { Ayuda, BarraGuardar } from "./ui";
 
 /** Reglas de la tarjeta de asistencia (retardos, tiempo extra, festivos opcionales).
  * Se abre desde el engrane de Configuración en la Tarjeta de asistencia. */
 export default function ReglasTarjeta({ query, esAdmin }: { query: string; esAdmin: boolean }) {
   const [politica, setPolitica] = useState<PoliticaAsistencia | null>(null);
+  const [guardada, setGuardada] = useState("");
   const [msgPol, setMsgPol] = useState<{ ok: boolean; texto: string } | null>(null);
 
   useEffect(() => {
-    get<PoliticaAsistencia>(`/asistencia/politica${query}`).then(setPolitica);
+    get<PoliticaAsistencia>(`/asistencia/politica${query}`).then((p) => {
+      setPolitica(p);
+      setGuardada(JSON.stringify(p));
+    });
   }, [query]);
 
-  async function guardarPolitica(e: FormEvent) {
-    e.preventDefault();
+  async function guardarPolitica(e?: FormEvent) {
+    e?.preventDefault();
     if (!politica) return;
     setMsgPol(null);
     try {
-      setPolitica(await api<PoliticaAsistencia>(`/asistencia/politica${query}`, { method: "PUT", body: JSON.stringify(politica) }));
+      const p = await api<PoliticaAsistencia>(`/asistencia/politica${query}`, { method: "PUT", body: JSON.stringify(politica) });
+      setPolitica(p);
+      setGuardada(JSON.stringify(p));
       setMsgPol({ ok: true, texto: "Reglas guardadas." });
     } catch (err) {
       setMsgPol({ ok: false, texto: (err as Error).message });
@@ -28,6 +34,7 @@ export default function ReglasTarjeta({ query, esAdmin }: { query: string; esAdm
   if (!politica) return <p className="text-sm text-slate-500">Cargando…</p>;
   return (
             <form onSubmit={guardarPolitica} className="space-y-4">
+              {esAdmin && <BarraGuardar sucio={JSON.stringify(politica) !== guardada} onGuardar={() => guardarPolitica()} />}
               <fieldset disabled={!esAdmin} className="space-y-4">
                 <legend className="sr-only">Reglas de la tarjeta de asistencia</legend>
                 <div>
@@ -70,11 +77,6 @@ export default function ReglasTarjeta({ query, esAdmin }: { query: string; esAdm
                   Los límites de horas extra los fija la ley: dobles hasta 4 h diarias, 4 días y el tope semanal del año (<ArticuloLFT art="66" />); triples hasta 4 h más por semana (<ArticuloLFT art="68" />).
                 </p>
                 {msgPol && <p className={`rounded-lg px-3 py-2 text-sm ${msgPol.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{msgPol.texto}</p>}
-                {esAdmin && (
-                  <div className="flex justify-end">
-                    <button className="btn-primary">Guardar reglas</button>
-                  </div>
-                )}
               </fieldset>
             </form>
   );

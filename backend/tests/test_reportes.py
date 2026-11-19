@@ -61,6 +61,7 @@ async def test_claves_y_exportacion_a_nomina(client, superadmin):
     extra = {"sistema": "contpaqi", "tipo_periodo": "Semanal", "numero_periodo": 7}
     r = await client.get("/api/reportes/nomina", headers=a, params={**PARAMS, **extra})
     assert r.status_code == 200, r.text
+    assert int(r.headers["x-odai-movimientos"]) > 0
     wb = load_workbook(BytesIO(r.content))
     assert wb.sheetnames[:3] == ["ODAI_Incidencias", "LEEME", "MAPEO_INCIDENCIAS"]
     ws = wb["ODAI_Incidencias"]

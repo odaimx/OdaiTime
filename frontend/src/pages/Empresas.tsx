@@ -12,8 +12,8 @@ import { entrarSoporte } from "../lib/soporte";
 import { Ayuda, ErrorBox, PageHeader } from "../components/ui";
 import { api, get, patch, post, urlLogo, type Categoria, type Empresa, type TenantInfo } from "../lib/api";
 
-type Form = { nombre: string; slug: string; razon_social: string; rfc: string; max_empleados: string; licencia_vence: string; demo: boolean; max_usuarios: string; estado: string; motivo_suspension: string; periodicidad: string; admin_nombre: string; admin_email: string; admin_password: string };
-const VACIO: Form = { nombre: "", slug: "", razon_social: "", rfc: "", max_empleados: "15", licencia_vence: "", demo: false, max_usuarios: "5", estado: "corriendo", motivo_suspension: "", periodicidad: "", admin_nombre: "", admin_email: "", admin_password: "" };
+type Form = { nombre: string; slug: string; razon_social: string; rfc: string; direccion: string; max_empleados: string; licencia_vence: string; demo: boolean; max_usuarios: string; estado: string; motivo_suspension: string; periodicidad: string; admin_nombre: string; admin_email: string; admin_password: string };
+const VACIO: Form = { nombre: "", slug: "", razon_social: "", rfc: "", direccion: "", max_empleados: "15", licencia_vence: "", demo: false, max_usuarios: "5", estado: "corriendo", motivo_suspension: "", periodicidad: "", admin_nombre: "", admin_email: "", admin_password: "" };
 
 const ESTADOS: Record<string, string> = { corriendo: "Corriendo", suspendida: "Suspendida", eliminada: "Eliminada" };
 const PERIODICIDADES: Record<string, string> = { mensual: "Mensual", bimestral: "Bimestral", trimestral: "Trimestral", semestral: "Semestral", anual: "Anual" };
@@ -48,7 +48,7 @@ export default function Empresas() {
     cargarForm(
       e === "nueva"
         ? VACIO
-        : { ...VACIO, nombre: e.nombre, slug: e.slug, razon_social: e.razon_social ?? "", rfc: e.rfc ?? "", max_empleados: String(e.max_empleados), licencia_vence: e.licencia_vence ?? "", demo: !!e.demo, max_usuarios: String(e.max_usuarios ?? 5), estado: e.estado ?? "corriendo", motivo_suspension: e.motivo_suspension ?? "", periodicidad: e.periodicidad ?? "" },
+        : { ...VACIO, nombre: e.nombre, slug: e.slug, razon_social: e.razon_social ?? "", rfc: e.rfc ?? "", direccion: e.direccion ?? "", max_empleados: String(e.max_empleados), licencia_vence: e.licencia_vence ?? "", demo: !!e.demo, max_usuarios: String(e.max_usuarios ?? 5), estado: e.estado ?? "corriendo", motivo_suspension: e.motivo_suspension ?? "", periodicidad: e.periodicidad ?? "" },
     );
     setEditando(e);
   }
@@ -59,6 +59,7 @@ export default function Empresas() {
       nombre: form.nombre,
       ...(form.slug.trim() ? { slug: form.slug.trim().toLowerCase() } : {}),
       razon_social: form.razon_social || null,
+      direccion: form.direccion || null,
       rfc: form.rfc || null,
       max_empleados: Number(form.max_empleados) || 15,
       licencia_vence: form.licencia_vence || null,
@@ -260,13 +261,23 @@ export default function Empresas() {
           onCerrar={() => setEditando(null)}
         >
           <form onSubmit={(ev: FormEvent) => (ev.preventDefault(), guardar())} className="form-2col">
-            <div>
-              <label className="label">Nombre comercial</label>
-              <input className="input" required value={form.nombre} onChange={set("nombre")} />
+            {/* Columna izquierda: datos; derecha: logo (sin renglones vacíos junto al logo). */}
+            <div className="space-y-4">
+              <div>
+                <label className="label">Nombre comercial</label>
+                <input className="input" required value={form.nombre} onChange={set("nombre")} />
+              </div>
+              <div>
+                <label className="label">Razón social</label>
+                <input className="input" value={form.razon_social} onChange={set("razon_social")} />
+              </div>
+              <div>
+                <label className="label">RFC</label>
+                <input className="input uppercase" maxLength={13} value={form.rfc} onChange={set("rfc")} />
+              </div>
             </div>
             {editando !== "nueva" && (
               <div>
-                <label className="label">Logo</label>
                 <LogoEmpresa
                   empresaId={editando.id}
                   version={editando.logo_version}
@@ -299,15 +310,9 @@ export default function Empresas() {
               </div>
               {editando !== "nueva" && <p className="mt-1 text-xs text-amber-700">Si lo cambias, la dirección anterior deja de funcionar.</p>}
             </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <label className="label">Razón social</label>
-                <input className="input" value={form.razon_social} onChange={set("razon_social")} />
-              </div>
-              <div>
-                <label className="label">RFC</label>
-                <input className="input uppercase" maxLength={13} value={form.rfc} onChange={set("rfc")} />
-              </div>
+            <div>
+              <label className="label">Dirección</label>
+              <textarea className="input min-h-[2.6rem]" maxLength={300} value={form.direccion} onChange={(e) => setForm({ ...form, direccion: e.target.value })} />
             </div>
 
             <fieldset className="grid grid-cols-1 gap-4 rounded-lg bg-slate-50 p-4 sm:grid-cols-2">
