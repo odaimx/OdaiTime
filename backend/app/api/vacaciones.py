@@ -529,7 +529,8 @@ async def calendario_equipo(
                 Ausencia(
                     empleado_id=i.empleado_id,
                     tipo=i.tipo,
-                    etiqueta=motor.TIPOS_INCIDENCIA.get(i.tipo, i.tipo),
+                    etiqueta=motor.TIPOS_INCIDENCIA.get(i.tipo, i.tipo)
+                    + (f" · {i.ramo.replace('_', ' ')}" if i.ramo else ""),
                     fecha_inicio=i.fecha_inicio,
                     fecha_fin=i.fecha_fin,
                 )

@@ -2,27 +2,46 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Icono from "../components/Iconos";
 import Vista, { useAbrirDesdeUrl, useVista, type ConfigVista } from "../components/Vista";
 import { ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
-import { fechaCorta, fechaHora, get, post, type CalendarioEquipo, type Obra, type SolicitudVacaciones, type Sucursal } from "../lib/api";
+import {
+  abrirArchivo,
+  fechaCorta,
+  fechaHora,
+  get,
+  post,
+  RAMOS,
+  subirPut,
+  TIPOS_INCAPACIDAD,
+  type AlertaIncapacidad,
+  type CalendarioEquipo,
+  type IncidenciaReg,
+  type Obra,
+  type SolicitudVacaciones,
+  type Sucursal,
+} from "../lib/api";
 import { ESTADO_VAC, rango } from "./MisVacaciones";
 
-type Pestana = "solicitudes" | "calendario";
+type Pestana = "solicitudes" | "incapacidades" | "calendario";
 
 /** Vacaciones del equipo: solicitudes por aprobar y calendario de quién falta. */
 export default function Vacaciones() {
   const { query, listo, selector } = useEmpresaScope();
-  const [pestana, setPestana] = useState<Pestana>(() => (new URLSearchParams(location.search).get("vista") === "calendario" ? "calendario" : "solicitudes"));
+  const [pestana, setPestana] = useState<Pestana>(() => {
+    const v = new URLSearchParams(location.search).get("vista");
+    return v === "calendario" || v === "incapacidades" ? v : "solicitudes";
+  });
   return (
     <>
       <PageHeader
         icono="tree-palm"
-        title="Vacaciones"
+        title="Ausencias"
         action={selector}
         submenu={[
-          { etiqueta: "Solicitudes", activo: pestana === "solicitudes", onClick: () => setPestana("solicitudes") },
+          { etiqueta: "Solicitudes de vacaciones", activo: pestana === "solicitudes", onClick: () => setPestana("solicitudes") },
+          { etiqueta: "Incapacidades", activo: pestana === "incapacidades", onClick: () => setPestana("incapacidades") },
           { etiqueta: "Calendario del equipo", activo: pestana === "calendario", onClick: () => setPestana("calendario") },
         ]}
       />
-      {listo && (pestana === "solicitudes" ? <Solicitudes query={query} /> : <Calendario query={query} />)}
+      {listo && (pestana === "solicitudes" ? <Solicitudes query={query} /> : pestana === "incapacidades" ? <Incapacidades query={query} /> : <Calendario query={query} />)}
     </>
   );
 }
@@ -177,6 +196,99 @@ function Responder({ s, query, onCerrar, onCambio }: { s: SolicitudVacaciones; q
         </div>
       )}
     </Modal>
+  );
+}
+
+// --- Incapacidades ---
+
+const ALERTA_COLOR: Record<AlertaIncapacidad["tipo"], string> = {
+  por_vencer: "bg-orange-50 text-orange-800",
+  sin_alta: "bg-red-50 text-red-700",
+  sin_certificado: "bg-amber-50 text-amber-800",
+};
+
+function Incapacidades({ query }: { query: string }) {
+  const [lista, setLista] = useState<IncidenciaReg[]>([]);
+  const [alertas, setAlertas] = useState<AlertaIncapacidad[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const sep = query ? "&" : "?";
+  const cargar = useCallback(() => {
+    const desde = new Date(Date.now() - 365 * 86_400_000).toISOString().slice(0, 10);
+    get<IncidenciaReg[]>(`/asistencia/incidencias${query}${sep}desde=${desde}`).then((l) => setLista(l.filter((i) => i.tipo === "incapacidad")));
+    get<AlertaIncapacidad[]>(`/asistencia/incapacidades/alertas${query}`).then(setAlertas);
+  }, [query, sep]);
+  useEffect(cargar, [cargar]);
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  async function adjuntar(i: IncidenciaReg, f: File) {
+    setError(null);
+    try {
+      await subirPut(`/asistencia/incidencias/${i.id}/certificado${query}`, "archivo", f);
+      cargar();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  const config: ConfigVista<IncidenciaReg> = {
+    id: "incapacidades",
+    tituloReporte: "Incapacidades",
+    clave: (i) => i.id,
+    vacio: "Sin incapacidades en el último año. Se registran en la ficha del empleado (Vacaciones e incidencias).",
+    ordenInicial: { clave: "inicio", dir: "desc" },
+    columnas: [
+      { clave: "empleado", titulo: "Empleado", fija: true, buscable: true, valor: (i) => i.empleado.nombre_completo },
+      { clave: "ramo", titulo: "Ramo", agrupable: true, valor: (i) => RAMOS[i.ramo ?? ""] ?? "—" },
+      { clave: "tipo", titulo: "Tipo", agrupable: true, valor: (i) => TIPOS_INCAPACIDAD[i.tipo_incapacidad ?? ""] ?? "—" },
+      { clave: "inicio", titulo: "Fechas", valor: (i) => i.fecha_inicio, render: (i) => rango(i.fecha_inicio, i.fecha_fin) },
+      { clave: "folio", titulo: "Folio", buscable: true, valor: (i) => i.folio },
+      {
+        clave: "certificado",
+        titulo: "Certificado",
+        agrupable: true,
+        valor: (i) => (i.tiene_certificado ? "Adjunto" : "Falta"),
+        render: (i) => (
+          <span className="flex gap-2 text-xs" onClick={(e) => e.stopPropagation()}>
+            {i.tiene_certificado ? (
+              <button className="text-brand-600 hover:underline" onClick={() => abrirArchivo(`/asistencia/incidencias/${i.id}/certificado${query}`)}>
+                Ver
+              </button>
+            ) : (
+              <span className="text-amber-700">Falta</span>
+            )}
+            <label className="cursor-pointer text-brand-600 hover:underline">
+              {i.tiene_certificado ? "Cambiar" : "Adjuntar"}
+              <input type="file" accept="application/pdf,image/*" className="hidden" onChange={(e) => e.target.files?.[0] && adjuntar(i, e.target.files[0])} />
+            </label>
+          </span>
+        ),
+      },
+    ],
+    filtros: [
+      { clave: "vigentes", titulo: "Vigentes", grupo: "estado", prueba: (i) => i.fecha_inicio <= hoy && hoy <= i.fecha_fin },
+      { clave: "sin_certificado", titulo: "Sin certificado", grupo: "datos", prueba: (i) => !i.tiene_certificado },
+    ],
+    tarjetas: [
+      { filtro: "vigentes", color: "azul" },
+      { filtro: "sin_certificado", color: "naranja" },
+    ],
+  };
+  const vista = useVista(config, lista);
+
+  return (
+    <div className="space-y-4">
+      {alertas.length > 0 && (
+        <div className="space-y-2">
+          {alertas.map((a) => (
+            <p key={`${a.tipo}-${a.incidencia.id}`} className={`rounded-lg px-3 py-2 text-sm ${ALERTA_COLOR[a.tipo]}`}>
+              ⚠️ {a.mensaje}
+            </p>
+          ))}
+        </div>
+      )}
+      <ErrorBox message={error} />
+      <Vista vista={vista} />
+    </div>
   );
 }
 

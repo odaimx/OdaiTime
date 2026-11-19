@@ -589,6 +589,39 @@ export interface DetalleAsistencia {
   resumen: ResumenAsistencia;
 }
 
+export const RAMOS: Record<string, string> = {
+  enfermedad_general: "Enfermedad general",
+  riesgo_trabajo: "Riesgo de trabajo",
+  maternidad: "Maternidad",
+};
+export const TIPOS_INCAPACIDAD: Record<string, string> = { inicial: "Inicial", subsecuente: "Subsecuente", alta: "Alta" };
+
+export interface AlertaIncapacidad {
+  incidencia: IncidenciaReg;
+  tipo: "por_vencer" | "sin_certificado" | "sin_alta";
+  mensaje: string;
+}
+
+/** Abre un archivo protegido (PDF o imagen) en otra pestaña. */
+export async function abrirArchivo(path: string) {
+  const ventana = window.open("", "_blank");
+  try {
+    const url = await imagenProtegida(path);
+    if (ventana) ventana.location.href = url;
+    else window.open(url, "_blank");
+  } catch {
+    ventana?.close();
+    alert("No se pudo abrir el archivo.");
+  }
+}
+
+/** Sube un archivo con PUT (multipart). */
+export async function subirPut<T>(path: string, campo: string, archivo: File): Promise<T> {
+  const body = new FormData();
+  body.append(campo, archivo);
+  return api<T>(path, { method: "PUT", body });
+}
+
 export interface IncidenciaReg {
   id: string;
   empleado: FilaResumen["empleado"];
@@ -597,6 +630,9 @@ export interface IncidenciaReg {
   fecha_fin: string;
   notas: string | null;
   folio: string | null;
+  ramo?: string | null;
+  tipo_incapacidad?: string | null;
+  tiene_certificado?: boolean;
   created_at: string;
 }
 
