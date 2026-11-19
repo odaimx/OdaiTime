@@ -20,6 +20,7 @@ import Restablecer from "./pages/Restablecer";
 import MisRegistros from "./pages/MisRegistros";
 import MiEmpresa from "./pages/MiEmpresa";
 import Sucursales from "./pages/Sucursales";
+import Obras from "./pages/Obras";
 import Turnos from "./pages/Turnos";
 import Usuarios from "./pages/Usuarios";
 
@@ -132,6 +133,14 @@ export default function App() {
           element={
             <Requiere roles={["superadmin", "admin_empresa", "gerente_sucursal"]}>
               <Sucursales />
+            </Requiere>
+          }
+        />
+        <Route
+          path="obras"
+          element={
+            <Requiere roles={["superadmin", "admin_empresa", "gerente_sucursal"]}>
+              <Obras />
             </Requiere>
           }
         />

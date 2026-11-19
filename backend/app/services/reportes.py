@@ -731,3 +731,76 @@ def odoo(
                 celda.number_format = "@"
     ws.auto_filter.ref = f"A1:S{max(len(filas) + 1, 2)}"
     return _libro(wb), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx"
+
+
+# --- Horas por obra ---
+
+
+def reporte_obras(
+    empresa: Empresa,
+    desde: date,
+    hasta: date,
+    periodo: Periodo,
+    asignaciones: dict,
+    obra_id=None,
+) -> bytes:
+    """Horas trabajadas y extras por obra y empleado (para costear cada obra).
+
+    Cada día cuenta para la obra a la que el empleado estaba asignado ese día.
+    """
+    from app.services.obras import obra_en
+
+    acumulado: dict[tuple, list] = {}
+    for e, dias, _ in periodo:
+        for d in dias:
+            if d.trabajado_min <= 0:
+                continue
+            obra = obra_en(asignaciones.get(e.id, []), d.fecha)
+            if obra is None or (obra_id and obra.id != obra_id):
+                continue
+            fila = acumulado.setdefault(
+                (obra.clave, obra.nombre, e.numero),
+                [obra.clave, obra.nombre, e.numero, e.nombre_completo, 0, 0, 0, 0],
+            )
+            fila[4] += 1
+            fila[5] += d.trabajado_min
+            fila[6] += d.dobles_min
+            fila[7] += d.triples_min
+    filas = [
+        [f[0], f[1], f[2], f[3], f[4], horas(f[5]), horas(f[6]), horas(f[7])]
+        for f in sorted(acumulado.values(), key=lambda x: (x[0], x[3]))
+    ]
+    # Totales por obra al final de cada una.
+    con_totales: list[list] = []
+    actual = None
+    tot = [0, 0.0, 0.0, 0.0]
+    for f in filas + [None]:
+        if actual is not None and (f is None or f[0] != actual[0]):
+            con_totales.append([actual[0], f"Total {actual[1]}", "", "", tot[0], *tot[1:]])
+            tot = [0, 0.0, 0.0, 0.0]
+        if f is None:
+            break
+        actual = f
+        con_totales.append(f)
+        tot = [tot[0] + f[4], tot[1] + f[5], tot[2] + f[6], tot[3] + f[7]]
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Horas por obra"
+    columnas = [
+        "Clave",
+        "Obra",
+        "Número",
+        "Empleado",
+        "Días",
+        "Horas trabajadas",
+        "Horas extra dobles",
+        "Horas extra triples",
+    ]
+    fila = _encabezado(ws, empresa, "Horas por obra", desde, hasta, len(columnas))
+    _tabla(ws, fila, columnas, con_totales)
+    for r in range(fila + 1, fila + 1 + len(con_totales)):
+        if str(ws.cell(row=r, column=2).value or "").startswith("Total "):
+            for c in range(1, len(columnas) + 1):
+                ws.cell(row=r, column=c).font = Font(bold=True)
+    return _libro(wb)

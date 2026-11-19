@@ -6,6 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
 from app.models.empleado import Empleado
+from app.models.obra import Obra
 from app.models.sucursal import Sucursal
 
 
@@ -63,6 +64,8 @@ class Checada(UUIDPkMixin, Base):
     )
     empleado_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("empleados.id", ondelete="CASCADE"))
     sucursal_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sucursales.id"), index=True)
+    # Obra donde checó (si estaba asignado a una ese día).
+    obra_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("obras.id"), index=True)
     tipo: Mapped[str] = mapped_column(String(10))  # entrada | salida
     # Hora en que se checó (del servidor; del dispositivo solo si llegó sin conexión).
     momento: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -88,3 +91,4 @@ class Checada(UUIDPkMixin, Base):
 
     empleado: Mapped[Empleado] = relationship(lazy="joined")
     sucursal: Mapped[Sucursal] = relationship(lazy="joined")
+    obra: Mapped[Obra | None] = relationship(lazy="joined")

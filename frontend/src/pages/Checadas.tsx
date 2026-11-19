@@ -126,6 +126,7 @@ export default function Checadas() {
       { clave: "dia", titulo: "Día", agrupable: true, visible: false, valor: (c) => c.momento.slice(0, 10) },
       { clave: "origen", titulo: "Origen", agrupable: true, valor: (c) => ORIGENES[c.origen] },
       { clave: "sucursal", titulo: "Sucursal", buscable: true, agrupable: true, valor: (c) => c.sucursal.nombre, render: (c) => <span className="font-mono text-xs font-semibold text-brand-600">{c.sucursal.clave}</span> },
+      { clave: "obra", titulo: "Obra", buscable: true, agrupable: true, valor: (c) => (c.obra ? c.obra.nombre : "Sin obra"), render: (c) => (c.obra ? <span title={c.obra.nombre} className="font-mono text-xs font-semibold text-brand-600">{c.obra.clave}</span> : <span className="text-slate-300">—</span>) },
       {
         clave: "obs",
         titulo: "Observaciones",
