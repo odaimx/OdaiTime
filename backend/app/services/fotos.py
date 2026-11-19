@@ -83,3 +83,23 @@ async def procesar_fondo(archivo: UploadFile) -> bytes:
     salida = BytesIO()
     img.save(salida, "JPEG", quality=82, optimize=True, progressive=True)
     return salida.getvalue()
+
+
+ICONO_LADO = 128
+
+
+async def procesar_icono(archivo: UploadFile) -> bytes:
+    """Ícono de la pestaña del navegador: PNG cuadrado de 128 px (se recorta al centro)."""
+    datos = await archivo.read(MAX_ENTRADA + 1)
+    if len(datos) > MAX_ENTRADA:
+        raise error("icono_grande", "La imagen supera 10 MB.")
+    try:
+        img = Image.open(BytesIO(datos))
+        img.load()
+    except (UnidentifiedImageError, OSError):
+        raise error("icono_invalido", "El archivo no es una imagen válida (usa PNG).") from None
+    img = ImageOps.exif_transpose(img).convert("RGBA")
+    img = ImageOps.fit(img, (ICONO_LADO, ICONO_LADO), Image.Resampling.LANCZOS)
+    salida = BytesIO()
+    img.save(salida, "PNG", optimize=True)
+    return salida.getvalue()

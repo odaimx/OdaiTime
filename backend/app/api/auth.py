@@ -117,13 +117,14 @@ async def login(data: LoginIn, request: Request, db: DB) -> TokenOut:
 
     if not pertenece(user, tenant):
         if tenant.modo == "base" and user.empresa:
-            # Credenciales correctas pero entró por el dominio de Odai: se le indica su dirección.
+            # Entró por el panel de Odai: no se revela la dirección ni el nombre de su empresa.
+            await _registrar_fallo(key)
             raise HTTPException(
-                status.HTTP_409_CONFLICT,
+                status.HTTP_403_FORBIDDEN,
                 {
                     "codigo": "usar_subdominio",
-                    "mensaje": f"{user.empresa.nombre} tiene su propia dirección de acceso.",
-                    "url": url_empresa(user.empresa.slug),
+                    "mensaje": "Esta dirección es solo para Odai. "
+                    "Inicia sesión desde la dirección de tu empresa.",
                 },
             )
         # En el subdominio de otra empresa se comporta como credenciales incorrectas.

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { ErrorBox } from "../components/ui";
-import { ApiError, AVISO_BLOQUEO, urlLogo, type TenantInfo } from "../lib/api";
+import { AVISO_BLOQUEO, urlLogo, type TenantInfo } from "../lib/api";
 import { estiloFondoLogin, useTema } from "../lib/tema";
 import Icono from "../components/Iconos";
 import { useAuth } from "../lib/auth";
@@ -18,7 +18,6 @@ export default function Login() {
   const [enviando, setEnviando] = useState(false);
   const [tenant, setTenant] = useState<TenantInfo | null>(null);
   const [noExiste, setNoExiste] = useState(false);
-  const [redirigir, setRedirigir] = useState<{ mensaje: string; url: string } | null>(null);
   const [recuperando, setRecuperando] = useState(false);
   const [recuperado, setRecuperado] = useState<string | null>(null);
 
@@ -65,15 +64,13 @@ export default function Login() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    setRedirigir(null);
     setEnviando(true);
     try {
       await login(email, password);
       navigate(destino, { replace: true });
     } catch (err) {
-      const d = err instanceof ApiError ? (err.detalle as { codigo?: string; mensaje: string; url?: string }) : null;
-      if (d?.codigo === "usar_subdominio" && d.url) setRedirigir({ mensaje: d.mensaje, url: d.url });
-      else setError((err as Error).message);
+      // Si entra por una dirección que no es la suya, solo se le pide usar la de su empresa.
+      setError((err as Error).message);
     } finally {
       setEnviando(false);
     }
@@ -121,14 +118,16 @@ export default function Login() {
 
       <div className="relative flex flex-1 flex-col items-center justify-center gap-4 bg-slate-50 p-6 pb-12" style={estiloFondoLogin(tema)}>
         <form onSubmit={recuperando ? recuperar : onSubmit} className="card w-full max-w-sm space-y-5 p-8 shadow-xl shadow-navy-950/10">
+          {/* Logo de Odai, raya, empresa (nombre y logo) y el título. */}
           <div className="flex flex-col items-center text-center">
-            <img src="/logo.png" alt="ODAI" className="mb-6 h-9 w-auto" />
-            <h1 className="text-xl font-semibold text-tinta-900">{recuperando ? "Recuperar contraseña" : "Iniciar sesión"}</h1>
+            <img src="/logo.png" alt="ODAI" className="h-9 w-auto" />
+            <hr className="my-4 w-full border-slate-200" />
+            {tenant?.modo === "tenant" && <p className="text-base font-semibold text-tinta-900">{tenant.nombre}</p>}
+            {tenant?.modo === "base" && <p className="text-sm font-medium text-slate-600">Panel de administración Odai</p>}
             {tenant?.empresa_id && tenant.logo_version && (
-              <img src={urlLogo(tenant.empresa_id, tenant.logo_version)} alt={tenant.nombre ?? ""} className="my-3 max-h-16 max-w-[12rem] object-contain" />
+              <img src={urlLogo(tenant.empresa_id, tenant.logo_version)} alt={tenant.nombre ?? ""} className="mt-3 max-h-16 max-w-[12rem] object-contain" />
             )}
-            {tenant?.modo === "tenant" && <p className="mt-1 text-sm font-medium text-brand-600">{tenant.nombre}</p>}
-            {tenant?.modo === "base" && <p className="mt-1 text-sm text-slate-500">Panel de administración Odai</p>}
+            <h1 className="mt-4 text-xl font-semibold text-tinta-900">{recuperando ? "Recuperar contraseña" : "Iniciar sesión"}</h1>
           </div>
 
           {noExiste && (
@@ -137,15 +136,6 @@ export default function Login() {
             </p>
           )}
 
-          {redirigir && (
-            <div className="space-y-3 rounded-lg bg-brand-50 p-4 ring-1 ring-brand-200">
-              <p className="text-sm text-tinta-900">{redirigir.mensaje} Inicia sesión desde:</p>
-              <p className="break-all font-mono text-sm font-semibold text-brand-700">{redirigir.url.replace("https://", "")}</p>
-              <a href={redirigir.url} className="btn-primary w-full">
-                Ir a mi empresa
-              </a>
-            </div>
-          )}
 
           <div>
             <label className="label" htmlFor="email">Correo</label>

@@ -115,13 +115,14 @@ function Tema() {
   );
 }
 
-type TipoImagen = "inicio" | "fondo" | "login";
-const VERSION: Record<TipoImagen, keyof TemaGuardado> = { inicio: "imagen_version", fondo: "fondo_version", login: "login_version" };
+type TipoImagen = "inicio" | "fondo" | "login" | "icono";
+const VERSION: Record<TipoImagen, keyof TemaGuardado> = { inicio: "imagen_version", fondo: "fondo_version", login: "login_version", icono: "icono_version" };
 
 /** Imagen general (inicio, fondo de la app o panel del acceso) con lápiz y bote al pasar el mouse. */
 function ImagenSistema({ tipo, aspecto, vacia }: { tipo: TipoImagen; aspecto: string; vacia: string }) {
   const [version, setVersion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const angosta = /\bw-\d/.test(aspecto); // con ancho propio (p. ej. el ícono), no ocupa todo el renglón
   useEffect(() => {
     temaActual().then((t) => setVersion((t[VERSION[tipo]] as string | null | undefined) ?? null));
   }, [tipo]);
@@ -142,8 +143,8 @@ function ImagenSistema({ tipo, aspecto, vacia }: { tipo: TipoImagen; aspecto: st
   }
   return (
     <div className="space-y-2">
-      <ImagenEditable className="flex w-full" onCambiar={subir} onQuitar={version ? () => enviar({ method: "DELETE" }) : undefined}>
-        <div className={`flex w-full items-center justify-center overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200 ${aspecto}`}>
+      <ImagenEditable className={angosta ? "" : "flex w-full"} onCambiar={subir} onQuitar={version ? () => enviar({ method: "DELETE" }) : undefined}>
+        <div className={`flex items-center justify-center overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200 ${angosta ? "" : "w-full"} ${aspecto}`}>
           {version ? <img src={`/api/sistema/imagen/${tipo}?v=${encodeURIComponent(version)}`} alt="" className="h-full w-full object-cover" /> : <span className="px-4 text-center text-sm text-slate-400">{vacia}</span>}
         </div>
       </ImagenEditable>
@@ -318,6 +319,11 @@ function PantallaAcceso() {
         <h3 className="text-sm font-semibold text-tinta-900">Imagen de fondo de la pantalla de acceso</h3>
         <p className="text-xs text-slate-500">Se ve detrás del recuadro de inicio de sesión. Si no hay, se usa el color de fondo de la aplicación.</p>
         <ImagenSistema tipo="fondo" aspecto="aspect-[16/9] max-w-xl" vacia="Sin imagen de fondo · pasa el mouse para subirla" />
+      </section>
+      <section className="space-y-2">
+        <h3 className="text-sm font-semibold text-tinta-900">Ícono de la pestaña del navegador</h3>
+        <p className="text-xs text-slate-500">Imagen cuadrada (de preferencia PNG con fondo transparente). Se recorta al centro a 128 × 128 px.</p>
+        <ImagenSistema tipo="icono" aspecto="aspect-square w-24" vacia="Sin ícono" />
       </section>
       <section className="space-y-2">
         <h3 className="text-sm font-semibold text-tinta-900">Imagen de inicio</h3>

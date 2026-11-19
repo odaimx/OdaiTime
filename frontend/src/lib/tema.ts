@@ -64,6 +64,7 @@ export type Tema = {
   fondo_color?: string | null;
   fondo_version?: string | null;
   login_version?: string | null;
+  icono_version?: string | null;
   login_titulo?: string | null;
   login_subtitulo?: string | null;
   login_texto?: string | null;
@@ -83,6 +84,7 @@ export async function cargarTema(): Promise<Tema> {
   const r = await fetch("/api/sistema/tema").catch(() => null);
   const t: Tema = r?.ok ? await r.json() : VACIO;
   aplicarTema(t.colores);
+  aplicarIcono(t.icono_version);
   pendiente = Promise.resolve(t);
   ultimo = t;
   avisos.forEach((f) => f());
@@ -115,4 +117,22 @@ export function estiloFondoApp(t: Tema | null): Record<string, string> {
 export function estiloFondoLogin(t: Tema | null): Record<string, string> {
   if (t?.fondo_version) return { backgroundImage: `url(/api/sistema/imagen/fondo?v=${encodeURIComponent(t.fondo_version)})`, backgroundSize: "cover", backgroundPosition: "center" };
   return estiloFondoApp(t);
+}
+
+
+/** Ícono de la pestaña del navegador: el que sube Odai o, si no hay, el predeterminado. */
+function aplicarIcono(version?: string | null) {
+  let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+  if (!link) {
+    link = document.createElement("link");
+    link.rel = "icon";
+    document.head.appendChild(link);
+  }
+  if (!link.dataset.original) link.dataset.original = link.href || "";
+  if (version) {
+    link.type = "image/png";
+    link.href = `/api/sistema/imagen/icono?v=${encodeURIComponent(version)}`;
+  } else if (link.dataset.original) {
+    link.href = link.dataset.original;
+  }
 }
