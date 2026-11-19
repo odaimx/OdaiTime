@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useSearchParams } from "react-router";
 import type { ResumenTarea } from "../lib/api";
 import { RelojActividad, useFlotante, useResumenActividades } from "./Actividades";
 import Calendario from "./Calendario";
@@ -39,6 +40,11 @@ export interface Columna<T> {
   /** Orden de los grupos al agrupar por esta columna (los demás van después). */
   ordenGrupos?: string[];
   className?: string;
+  /**
+   * La celda es un enlace: `true` abre la ficha del registro; una función abre otra ficha
+   * (p. ej. la sucursal del empleado). Si ninguna columna lo indica, la primera abre la ficha.
+   */
+  enlace?: true | ((r: T) => void);
 }
 
 export interface Filtro<T> {
@@ -748,7 +754,7 @@ function Paginador<T>({ vista }: { vista: EstadoVista<T> }) {
   const desde = total === 0 ? 0 : pagina * porPagina + 1;
   const hasta = Math.min(total, (pagina + 1) * porPagina);
   return (
-    <div className="flex items-center gap-1 text-sm text-slate-600">
+    <div className="flex items-center gap-2 text-sm text-slate-600">
       <button
         ref={(el) => {
           menu.boton.current = el;
@@ -871,11 +877,21 @@ function Lista<T>({ vista, resumen, recargar }: { vista: EstadoVista<T>; resumen
     else vista.cambiarPrefs({ visibles: mostrar ? [...vis, c.clave] : vis });
   }
 
+  // Solo las celdas de enlace abren fichas (la fila completa ya no).
+  const conEnlace = config.columnas.some((c) => c.enlace);
+  const enlaceDe = (c: Columna<T>): ((r: T) => void) | null => {
+    if (typeof c.enlace === "function") return c.enlace;
+    const abrir = config.onAbrir;
+    if (!abrir) return null;
+    if (c.enlace === true || (!conEnlace && c.clave === visibles[0]?.clave)) return abrir;
+    return null;
+  };
+
   const fila = (r: T) => {
     const k = config.clave(r);
     return (
-      <tr key={k} className={`group cursor-pointer transition ${seleccion.has(k) ? "bg-brand-50/60" : "hover:bg-slate-50"}`} onClick={() => config.onAbrir?.(r)}>
-        <td className="w-10 px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+      <tr key={k} className={`group transition ${seleccion.has(k) ? "bg-brand-50/60" : "hover:bg-slate-50"}`}>
+        <td className="w-10 px-3 py-2.5">
           <input
             type="checkbox"
             className="accent-brand-500"
@@ -891,11 +907,21 @@ function Lista<T>({ vista, resumen, recargar }: { vista: EstadoVista<T>; resumen
             aria-label="Seleccionar"
           />
         </td>
-        {visibles.map((c) => (
-          <td key={c.clave} className={`max-w-xs truncate px-3 py-2.5 ${c.alinear === "derecha" ? "text-right tabular-nums" : ""} ${c.className ?? "text-slate-700"}`}>
-            {c.render ? c.render(r) : textoValor(c.valor(r)) || <span className="text-slate-300">—</span>}
-          </td>
-        ))}
+        {visibles.map((c) => {
+          const contenido = c.render ? c.render(r) : textoValor(c.valor(r)) || <span className="text-slate-300">—</span>;
+          const accion = enlaceDe(c);
+          return (
+            <td key={c.clave} className={`max-w-xs truncate px-3 py-2.5 ${c.alinear === "derecha" ? "text-right tabular-nums" : ""} ${c.className ?? "text-slate-700"}`}>
+              {accion && textoValor(c.valor(r)) ? (
+                <button type="button" className="enlace-celda" onClick={() => accion(r)}>
+                  {contenido}
+                </button>
+              ) : (
+                contenido
+              )}
+            </td>
+          );
+        })}
         {act && (
           <td className="w-12 px-2 py-1.5 text-center">
             <RelojActividad modelo={act.modelo} registroId={k} resumen={resumen[k]} query={act.query} onCambio={recargar} />
@@ -1092,3 +1118,23 @@ function Kanban<T>({ vista, resumen, recargar }: { vista: EstadoVista<T>; resume
   }
   return <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{vista.enPagina.map(tarjeta)}</div>;
 }
+
+
+/**
+ * Abre la ficha indicada en la dirección (?abrir=<id>) cuando la lista ya cargó; así una lista
+ * puede enlazar a la ficha de otro módulo (p. ej. la sucursal de un empleado).
+ */
+export function useAbrirDesdeUrl<T>(registros: T[] | null | undefined, clave: (r: T) => string, abrir: (r: T) => void) {
+  const [params, setParams] = useSearchParams();
+  const id = params.get("abrir");
+  useEffect(() => {
+    if (!id || !registros?.length) return;
+    const r = registros.find((x) => clave(x) === id);
+    if (r) abrir(r);
+    params.delete("abrir");
+    setParams(params, { replace: true });
+  }, [id, registros]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+/** Ruta para abrir la ficha de otro módulo: abrirEn(navegar, "/sucursales", id). */
+export const abrirEn = (navegar: (ruta: string) => void, ruta: string, id: string) => navegar(`${ruta}?abrir=${encodeURIComponent(id)}`);

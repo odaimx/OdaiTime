@@ -7,7 +7,8 @@ import ReporteEmpleados from "../components/ReporteEmpleados";
 import VacacionesIncidencias from "../components/VacacionesIncidencias";
 import Icono from "../components/Iconos";
 import { columnaCategorias, Chips, filtrosCategorias, GestorCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
-import Vista, { useVista, type Columna, type ConfigVista } from "../components/Vista";
+import { useNavigate } from "react-router";
+import Vista, { abrirEn, useAbrirDesdeUrl, useVista, type Columna, type ConfigVista } from "../components/Vista";
 import { AvisoLicencia, Badge, ErrorBox, Fila, ImagenEditable, Modal, PageHeader, Plegable, UsoLicencia, useEmpresaScope } from "../components/ui";
 import {
   api,
@@ -55,6 +56,7 @@ export default function Empleados() {
   const { query, listo, selector } = useEmpresaScope();
   const sep = query ? "&" : "?";
 
+  const navegar = useNavigate();
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
   const [turnos, setTurnos] = useState<Turno[]>([]);
@@ -181,12 +183,15 @@ export default function Empleados() {
     });
   }
 
+  useAbrirDesdeUrl(empleados, (e) => e.id, (e) => abrirDetalle(e.id));
+
   const columnas: Columna<Empleado>[] = [
     {
       clave: "nombre",
       titulo: "Empleado",
       fija: true,
       buscable: true,
+      enlace: true,
       valor: (e) => e.nombre_completo,
       render: (e) => (
         <div className="flex items-center gap-3">
@@ -198,7 +203,7 @@ export default function Empleados() {
         </div>
       ),
     },
-    { clave: "numero", titulo: "Número", buscable: true, valor: (e) => e.numero, className: "font-mono text-xs text-slate-500" },
+    { clave: "numero", titulo: "Número", buscable: true, enlace: true, valor: (e) => e.numero, className: "font-mono text-xs text-slate-500" },
     { clave: "puesto", titulo: "Puesto", buscable: true, agrupable: true, valor: (e) => e.puesto },
     { clave: "departamento", titulo: "Departamento", buscable: true, agrupable: true, valor: (e) => e.departamento },
     {
@@ -207,6 +212,7 @@ export default function Empleados() {
       buscable: true,
       agrupable: true,
       valor: (e) => e.sucursal.nombre,
+      enlace: (e) => abrirEn(navegar, "/sucursales", e.sucursal.id),
       render: (e) => (
         <span className="inline-flex items-center gap-1.5">
           <span className="rounded bg-brand-50 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-brand-700">{e.sucursal.clave}</span>
@@ -220,6 +226,7 @@ export default function Empleados() {
       titulo: "Turno",
       agrupable: true,
       valor: (e) => e.turno_actual?.nombre ?? null,
+      enlace: (e) => e.turno_actual && abrirEn(navegar, "/turnos", e.turno_actual.id),
       render: (e) => e.turno_actual?.nombre ?? <span className="text-amber-600">Sin turno</span>,
     },
     { clave: "telefono", titulo: "Teléfono", buscable: true, visible: false, valor: (e) => e.telefono },
@@ -473,7 +480,19 @@ export default function Empleados() {
               fila("apellido_paterno", "Apellido paterno *", { required: true }),
               fila("apellido_materno", "Apellido materno"),
               fila("fecha_ingreso", "Fecha de ingreso *", { type: "date", required: true }),
-              <Fila key="sucursal" etiqueta="Sucursal *" htmlFor="emp-sucursal">
+              <Fila
+                key="sucursal"
+                etiqueta={
+                  form.sucursal_id && !nuevo ? (
+                    <button type="button" className="enlace-celda" title="Abrir la ficha de la sucursal" onClick={() => abrirEn(navegar, "/sucursales", form.sucursal_id)}>
+                      Sucursal *
+                    </button>
+                  ) : (
+                    "Sucursal *"
+                  )
+                }
+                htmlFor="emp-sucursal"
+              >
                 <select id="emp-sucursal" className="input" required value={form.sucursal_id} onChange={set("sucursal_id")}>
                   <option value="">Selecciona…</option>
                   {sucursalesActivas.map((s) => (
@@ -731,7 +750,9 @@ ${
                   <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 text-sm">
                     {sel.asignaciones.map((a) => (
                       <li key={a.id} className="flex justify-between gap-3 px-3 py-2">
-                        <span className="font-medium text-tinta-900">{a.turno.nombre}</span>
+                        <button type="button" className="enlace-celda font-medium text-tinta-900" onClick={() => abrirEn(navegar, "/turnos", a.turno.id)}>
+                          {a.turno.nombre}
+                        </button>
                         <span className="text-slate-500">
                           {fechaCorta(a.fecha_inicio)} → {a.fecha_fin ? fechaCorta(a.fecha_fin) : "vigente"}
                         </span>

@@ -45,6 +45,11 @@ export interface Empresa {
   max_empleados: number;
   licencia_vence: string | null;
   demo?: boolean;
+  max_usuarios?: number;
+  estado?: "corriendo" | "suspendida" | "eliminada";
+  motivo_suspension?: string | null;
+  periodicidad?: string | null;
+  referencia_odoo?: string | null;
   slug: string;
   url: string | null;
   created_at: string;
@@ -76,6 +81,8 @@ export interface TenantInfo {
   logo_version?: string | null;
   fondo_color?: string | null;
   fondo_version?: string | null;
+  /** Empresa suspendida o con licencia vencida: motivo que se muestra en el login. */
+  aviso?: string | null;
 }
 
 export interface Licencia {
@@ -144,6 +151,25 @@ export function setOnSessionExpired(fn: () => void) {
   onSessionExpired = fn;
 }
 
+/** Empresa suspendida, eliminada o con licencia vencida: se sale y el login explica el motivo. */
+const BLOQUEOS = ["empresa_suspendida", "empresa_eliminada", "licencia_vencida"];
+export const AVISO_BLOQUEO = "odaitime.bloqueo";
+
+function revisarBloqueo(status: number, body: unknown): boolean {
+  const d = (body as { detail?: { codigo?: string; mensaje?: string } } | null)?.detail;
+  if (status !== 403 || !d || typeof d !== "object" || !BLOQUEOS.includes(d.codigo ?? "")) return false;
+  try {
+    sessionStorage.setItem(AVISO_BLOQUEO, d.mensaje ?? "El acceso de tu empresa está suspendido.");
+  } catch {
+    /* sin almacenamiento */
+  }
+  if (session.get()) {
+    session.clear();
+    onSessionExpired();
+  }
+  return true;
+}
+
 // Una sola renovación en vuelo aunque varias peticiones fallen a la vez.
 let refreshing: Promise<boolean> | null = null;
 
@@ -155,7 +181,10 @@ async function refresh(): Promise<boolean> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refresh_token: current.refresh_token }),
   });
-  if (!r.ok) return false;
+  if (!r.ok) {
+    revisarBloqueo(r.status, await r.json().catch(() => null));
+    return false;
+  }
   session.set(await r.json());
   return true;
 }
@@ -201,6 +230,7 @@ export async function api<T>(path: string, init: RequestInit = {}, retry = true)
 
   if (r.status === 204) return undefined as T;
   const body = await r.json().catch(() => null);
+  if (!r.ok && path !== "/auth/login") revisarBloqueo(r.status, body);
   if (!r.ok) throw new ApiError(r.status, errorMessage(body, r.status), (body as { detail?: unknown })?.detail);
   return body as T;
 }

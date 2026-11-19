@@ -13,6 +13,7 @@ from app.api import (
     empresas,
     festivos,
     health,
+    integracion,
     kiosco,
     licencia,
     reportes,
@@ -63,5 +64,6 @@ for r in (
     categorias.router,
     correo.router,
     sistema.router,
+    integracion.router,
 ):
     app.include_router(r, prefix="/api")

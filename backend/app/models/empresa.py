@@ -23,6 +23,15 @@ class Empresa(UUIDPkMixin, TimestampMixin, Base):
     licencia_vence: Mapped[date | None] = mapped_column(Date)
     # Empresa de demostración (presentaciones): el pie muestra "Licencia demo".
     demo: Mapped[bool] = mapped_column(default=False, server_default="false")
+    # Usuarios que su administrador puede dar de alta (sin contar al administrador).
+    max_usuarios: Mapped[int] = mapped_column(default=5, server_default="5")
+    # Estado de la cuenta (lo manda el módulo de licencias de Odoo o lo cambia Odai):
+    # corriendo | suspendida | eliminada. `activa` se mantiene igual a estado == "corriendo".
+    estado: Mapped[str] = mapped_column(String(12), default="corriendo", server_default="corriendo")
+    motivo_suspension: Mapped[str | None] = mapped_column(String(300))
+    periodicidad: Mapped[str | None] = mapped_column(String(12))  # mensual | bimestral | ...
+    referencia_odoo: Mapped[str | None] = mapped_column(String(100))  # suscripción o factura
+    estado_cambiado_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # Logo (PNG, máx. 512 px). Diferido: solo se lee en GET /tenant/logo/{id}.
     logo: Mapped[bytes | None] = deferred(mapped_column(LargeBinary))

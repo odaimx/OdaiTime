@@ -3,7 +3,8 @@ import Avatar from "../components/Avatar";
 import Registro from "../components/Registro";
 import ReglasTarjeta from "../components/ReglasTarjeta";
 import { useAuth } from "../lib/auth";
-import Vista, { useVista, type ConfigVista } from "../components/Vista";
+import { useNavigate } from "react-router";
+import Vista, { abrirEn, useVista, type ConfigVista } from "../components/Vista";
 import { ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
 import { periodo } from "../lib/periodo";
 import { descargar, get, hm, hora, INCIDENCIAS, post, type DetalleAsistencia, type DiaAsistencia, type FilaResumen, type Sucursal } from "../lib/api";
@@ -19,6 +20,7 @@ const ESTADOS: Record<string, { label: string; clase: string }> = {
 };
 
 export default function TarjetaAsistencia() {
+  const navegar = useNavigate();
   const { query, listo, selector } = useEmpresaScope();
   const { usuario } = useAuth();
   const esAdmin = usuario?.rol === "superadmin" || usuario?.rol === "admin_empresa";
@@ -107,6 +109,7 @@ export default function TarjetaAsistencia() {
         titulo: "Empleado",
         fija: true,
         buscable: true,
+        enlace: true,
         valor: (f) => f.empleado.nombre_completo,
         render: (f) => (
           <div className="flex items-center gap-3">
@@ -118,8 +121,8 @@ export default function TarjetaAsistencia() {
           </div>
         ),
       },
-      { clave: "numero", titulo: "Número", buscable: true, visible: false, valor: (f) => f.empleado.numero },
-      { clave: "sucursal", titulo: "Sucursal", buscable: true, agrupable: true, valor: (f) => f.sucursal.nombre, render: (f) => <span className="font-mono text-xs font-semibold text-brand-600">{f.sucursal.clave}</span> },
+      { clave: "numero", titulo: "Número", buscable: true, visible: false, enlace: (f) => abrirEn(navegar, "/empleados", f.empleado.id), valor: (f) => f.empleado.numero },
+      { clave: "sucursal", titulo: "Sucursal", buscable: true, agrupable: true, valor: (f) => f.sucursal.nombre, enlace: (f) => abrirEn(navegar, "/sucursales", f.sucursal.id), render: (f) => <span className="font-mono text-xs font-semibold text-brand-600">{f.sucursal.clave}</span> },
       { clave: "dias", titulo: "Días lab.", alinear: "derecha", sumar: true, valor: (f) => f.resumen.dias_laborables },
       { clave: "asistencias", titulo: "Asistencias", alinear: "derecha", sumar: true, valor: (f) => f.resumen.asistencias },
       {

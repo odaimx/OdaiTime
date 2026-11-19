@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { api, get, imagenProtegida, ROLES, session, type Empresa, type Licencia, type LimiteLicencia, type Tokens } from "../lib/api";
+import { useSoporte } from "../lib/soporte";
 import { temaActual } from "../lib/tema";
 import { useAuth } from "../lib/auth";
 import { FuentesOficiales } from "./LFT";
@@ -45,8 +46,8 @@ export function PageHeader({
       <div className={`banda -mx-4 -mt-4 bg-navy-950 px-4 py-2.5 sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:-mt-8 lg:px-8 lg:py-2.5 ${submenu?.length ? "" : "mb-5"}`}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            {icono && <Icono nombre={icono} className="h-7 w-7 shrink-0 text-oro-400 sm:h-9 sm:w-9" />}
-            <h1 className="truncate text-[1.6rem] font-semibold leading-tight tracking-tight text-oro-400 sm:text-[1.95rem]">{title}</h1>
+            {icono && <Icono nombre={icono} className="h-6 w-6 shrink-0 text-oro-400 sm:h-8 sm:w-8" />}
+            <h1 className="truncate text-[1.45rem] font-semibold leading-tight tracking-tight text-oro-400 sm:text-[1.75rem]">{title}</h1>
             {fuentes !== undefined && <FuentesOficiales articulos={fuentes || undefined} oscuro />}
           </div>
           <div className="flex items-center gap-3">
@@ -345,19 +346,22 @@ export function Badge({ ok, children }: { ok: boolean; children: ReactNode }) {
  */
 export function useEmpresaScope() {
   const { usuario } = useAuth();
+  const soporte = useSoporte();
   const esSuper = usuario?.rol === "superadmin";
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
-  const [empresaId, setEmpresaId] = useState<string | null>(usuario?.empresa?.id ?? null);
+  const [elegida, setEmpresaId] = useState<string | null>(usuario?.empresa?.id ?? null);
+  // En modo soporte la empresa queda fija: la que se eligió en su ficha.
+  const empresaId = esSuper && soporte ? soporte.id : elegida;
 
   useEffect(() => {
-    if (!esSuper) return;
+    if (!esSuper || soporte) return;
     get<Empresa[]>("/empresas").then((list) => {
       setEmpresas(list);
       setEmpresaId((actual) => actual ?? list[0]?.id ?? null);
     });
-  }, [esSuper]);
+  }, [esSuper, soporte]);
 
-  const selector = esSuper ? (
+  const selector = esSuper && !soporte ? (
     <select className="input w-full sm:w-64" value={empresaId ?? ""} onChange={(e) => setEmpresaId(e.target.value)}>
       {empresas.length === 0 && <option value="">Sin empresas</option>}
       {empresas.map((e) => (
@@ -497,12 +501,12 @@ export function ImagenEditable({
   className?: string;
   acepta?: string;
 }) {
-  const boton = "flex h-6 w-6 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-brand-600";
+  const boton = "flex h-7 w-7 items-center justify-center rounded-md bg-white/95 text-slate-600 shadow ring-1 ring-slate-200 hover:text-brand-600";
   return (
-    <div className={`inline-flex flex-col items-center ${className}`}>
+    <div className={`group relative inline-flex flex-col items-center ${className}`}>
       {children}
-      {/* Acciones debajo de la imagen, en una fila compacta. */}
-      <div className="mt-1 flex justify-center gap-0.5">
+      {/* Acciones en el borde inferior de la imagen: aparecen al pasar el mouse (no ocupan renglones). */}
+      <div className="absolute inset-x-0 bottom-1.5 flex justify-center gap-1 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
         <label className={`${boton} cursor-pointer`} title="Cambiar">
           <Icono nombre="pencil" className="h-3.5 w-3.5" />
           <input type="file" accept={acepta} className="sr-only" onChange={(e) => e.target.files?.[0] && onCambiar(e.target.files[0])} />

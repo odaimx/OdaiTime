@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { estiloFondo, get, hoyISO, urlLogo, type Rol, type Tarea } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { usePortal } from "../lib/portal";
 import Icono, { type NombreIcono } from "./Iconos";
 import { REPORTE } from "../lib/imprimir";
 import PiePagina from "./PiePagina";
+import { salirSoporte, useSoporte } from "../lib/soporte";
 
 const NAV: { to: string; label: string; roles: Rol[]; icon: NombreIcono }[] = [
   { to: "/checar", label: "Checar", roles: ["empleado"], icon: "fingerprint-pattern" },
@@ -27,6 +28,8 @@ const FIJO_KEY = "odaitime.menuFijo";
 
 export default function Layout() {
   const { usuario, refrescar } = useAuth();
+  const soporte = useSoporte();
+  const navegar = useNavigate();
   const portal = usePortal(usuario?.rol === "empleado");
   // Al abrir, vuelve a leer el usuario: trae cambios de la empresa (logo, fondo) hechos en otra sesión.
   useEffect(() => {
@@ -35,7 +38,7 @@ export default function Layout() {
   const [abierto, setAbierto] = useState(false); // móvil: panel abierto
   // Empresa que firma los reportes PDF.
   REPORTE.empresa = {
-    nombre: usuario?.empresa?.nombre ?? "ODAITIME",
+    nombre: usuario?.empresa?.nombre ?? soporte?.nombre ?? "ODAITIME",
     logo: usuario?.empresa?.logo_version ? `${window.location.origin}${urlLogo(usuario.empresa.id, usuario.empresa.logo_version)}` : "",
   };
   const [pendientes, setPendientes] = useState(0); // mis actividades vencidas o de hoy
@@ -129,7 +132,7 @@ export default function Layout() {
         </div>
 
         <nav className={`flex-1 space-y-1 overflow-y-auto overflow-x-hidden ${expandido ? "px-3" : "px-3 lg:px-2"}`}>
-          {NAV.filter((n) => n.roles.includes(usuario.rol) && (n.to !== "/checar" || portal?.checar) && (n.to !== "/mis-registros" || portal?.historial)).map((n) => (
+          {NAV.filter((n) => n.roles.includes(usuario.rol) && (usuario.rol !== "superadmin" || !!soporte || n.to === "/" || n.to === "/empresas") && (n.to !== "/checar" || portal?.checar) && (n.to !== "/mis-registros" || portal?.historial)).map((n) => (
             <NavLink
               key={n.to}
               to={n.to}
@@ -161,6 +164,22 @@ export default function Layout() {
       </aside>
 
       {/* El contenido deja espacio para la barra de íconos (o para el menú fijo). */}
+      {usuario.rol === "superadmin" && soporte && (
+        // Recordatorio permanente: se están viendo los datos de un cliente.
+        <div className="fixed left-1/2 top-0 z-[60] flex -translate-x-1/2 items-center gap-3 rounded-b-lg bg-amber-400 px-4 py-1 text-xs font-medium text-navy-950 shadow">
+          <Icono nombre="eye" className="h-3.5 w-3.5" />
+          Modo soporte · {soporte.nombre}
+          <button
+            className="rounded bg-navy-950/10 px-2 py-0.5 hover:bg-navy-950/20"
+            onClick={() => {
+              salirSoporte();
+              navegar("/empresas");
+            }}
+          >
+            Salir
+          </button>
+        </div>
+      )}
       <main style={estiloFondo(usuario.empresa)} className={`min-w-0 transition-[padding] duration-200 ${fijo ? "lg:pl-64" : "lg:pl-16"}`}>
         <div className="flex min-h-dvh flex-col p-4 sm:p-6 lg:p-8">
           {/* Columna flexible: una página puede estirar una sección (p. ej. la imagen de inicio). */}

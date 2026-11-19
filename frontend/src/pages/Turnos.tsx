@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Bitacora from "../components/Bitacora";
 import { ArticuloLFT, TextoLFT } from "../components/LFT";
 import Icono from "../components/Iconos";
-import Vista, { useVista, type ConfigVista } from "../components/Vista";
+import Vista, { useAbrirDesdeUrl, useVista, type ConfigVista } from "../components/Vista";
 import { imprimirSecciones } from "../lib/imprimir";
 import Registro, { useFormulario } from "../components/Registro";
 import { Badge, ErrorBox, PageHeader, useEmpresaScope, Plegable } from "../components/ui";
@@ -144,7 +144,7 @@ export default function Turnos() {
     vacio: "Aún no hay turnos.",
     ordenInicial: { clave: "nombre", dir: "asc" },
     columnas: [
-      { clave: "nombre", titulo: "Turno", fija: true, buscable: true, valor: (t) => t.nombre, className: "font-medium text-tinta-900" },
+      { clave: "nombre", titulo: "Turno", fija: true, buscable: true, enlace: true, valor: (t) => t.nombre, className: "font-medium text-tinta-900" },
       { clave: "jornada", titulo: "Jornada", agrupable: true, valor: (t) => JORNADAS[t.tipo_jornada].label },
       { clave: "horas", titulo: "Horas por semana", alinear: "derecha", valor: (t) => t.minutos_semana, render: (t) => horas(t.minutos_semana) },
       { clave: "max", titulo: "Máximo legal", alinear: "derecha", visible: false, valor: (t) => t.semana_max_minutos, render: (t) => horas(t.semana_max_minutos) },
@@ -227,6 +227,7 @@ export default function Turnos() {
     ),
   };
   const vista = useVista(config, turnos);
+  useAbrirDesdeUrl(turnos, (x) => x.id, abrir);
   const enOrden = vista.ordenados;
   const indice = editando && editando !== "nuevo" ? enOrden.findIndex((x) => x.id === editando.id) : -1;
 

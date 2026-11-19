@@ -1,19 +1,36 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { useNavigate } from "react-router";
+import AdministradorEmpresa from "../components/AdministradorEmpresa";
 import ConfigSistema from "../components/ConfigSistema";
 import FondoEmpresa from "../components/FondoEmpresa";
 import LogoEmpresa from "../components/LogoEmpresa";
 import Registro, { useFormulario } from "../components/Registro";
 import Icono from "../components/Iconos";
 import { columnaCategorias, filtrosCategorias, GestorCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
-import Vista, { useVista, type ConfigVista } from "../components/Vista";
+import Vista, { useAbrirDesdeUrl, useVista, type ConfigVista } from "../components/Vista";
 import { imprimirSecciones } from "../lib/imprimir";
-import { Ayuda, Badge, ErrorBox, PageHeader } from "../components/ui";
+import { entrarSoporte } from "../lib/soporte";
+import { Ayuda, ErrorBox, PageHeader } from "../components/ui";
 import { api, get, patch, post, urlLogo, type Categoria, type Empresa, type TenantInfo } from "../lib/api";
 
-type Form = { nombre: string; slug: string; razon_social: string; rfc: string; max_empleados: string; licencia_vence: string; demo: boolean; admin_nombre: string; admin_email: string; admin_password: string };
-const VACIO: Form = { nombre: "", slug: "", razon_social: "", rfc: "", max_empleados: "15", licencia_vence: "", demo: false, admin_nombre: "", admin_email: "", admin_password: "" };
+type Form = { nombre: string; slug: string; razon_social: string; rfc: string; max_empleados: string; licencia_vence: string; demo: boolean; max_usuarios: string; estado: string; motivo_suspension: string; periodicidad: string; admin_nombre: string; admin_email: string; admin_password: string };
+const VACIO: Form = { nombre: "", slug: "", razon_social: "", rfc: "", max_empleados: "15", licencia_vence: "", demo: false, max_usuarios: "5", estado: "corriendo", motivo_suspension: "", periodicidad: "", admin_nombre: "", admin_email: "", admin_password: "" };
+
+const ESTADOS: Record<string, string> = { corriendo: "Corriendo", suspendida: "Suspendida", eliminada: "Eliminada" };
+const PERIODICIDADES: Record<string, string> = { mensual: "Mensual", bimestral: "Bimestral", trimestral: "Trimestral", semestral: "Semestral", anual: "Anual" };
+
+function EstadoEmpresa({ e }: { e: Empresa }) {
+  const estado = e.estado ?? "corriendo";
+  const color = estado === "corriendo" ? "bg-emerald-500 text-white" : estado === "suspendida" ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-700";
+  return (
+    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${color}`} title={e.motivo_suspension ?? undefined}>
+      {ESTADOS[estado]}
+    </span>
+  );
+}
 
 export default function Empresas() {
+  const navegar = useNavigate();
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [editando, setEditando] = useState<Empresa | "nueva" | null>(null);
   const { form, setForm, cargar: cargarForm, sucio, descartar } = useFormulario<Form>(VACIO);
@@ -32,7 +49,7 @@ export default function Empresas() {
     cargarForm(
       e === "nueva"
         ? VACIO
-        : { ...VACIO, nombre: e.nombre, slug: e.slug, razon_social: e.razon_social ?? "", rfc: e.rfc ?? "", max_empleados: String(e.max_empleados), licencia_vence: e.licencia_vence ?? "", demo: !!e.demo },
+        : { ...VACIO, nombre: e.nombre, slug: e.slug, razon_social: e.razon_social ?? "", rfc: e.rfc ?? "", max_empleados: String(e.max_empleados), licencia_vence: e.licencia_vence ?? "", demo: !!e.demo, max_usuarios: String(e.max_usuarios ?? 5), estado: e.estado ?? "corriendo", motivo_suspension: e.motivo_suspension ?? "", periodicidad: e.periodicidad ?? "" },
     );
     setEditando(e);
   }
@@ -47,6 +64,9 @@ export default function Empresas() {
       max_empleados: Number(form.max_empleados) || 15,
       licencia_vence: form.licencia_vence || null,
       demo: form.demo,
+      max_usuarios: Number(form.max_usuarios) || 0,
+      periodicidad: form.periodicidad || null,
+      ...(editando === "nueva" ? {} : { estado: form.estado, motivo_suspension: form.motivo_suspension || null }),
     };
     try {
       const r =
@@ -65,11 +85,6 @@ export default function Empresas() {
     }
   }
 
-  async function alternar(e: Empresa) {
-    const r = await patch<Empresa>(`/empresas/${e.id}`, { activa: !e.activa });
-    setEditando(r);
-    cargar();
-  }
 
   const hoy = new Date().toLocaleDateString("en-CA");
   const en30 = new Date(Date.now() + 30 * 86_400_000).toLocaleDateString("en-CA");
@@ -97,6 +112,7 @@ export default function Empresas() {
     ordenInicial: { clave: "nombre", dir: "asc" },
     columnas: [
       {
+        enlace: true,
         clave: "nombre",
         titulo: "Empresa",
         fija: true,
@@ -130,7 +146,8 @@ export default function Empresas() {
       { clave: "licencia", titulo: "Licencia (empleados)", alinear: "derecha", sumar: true, valor: (e) => e.max_empleados },
       { clave: "vence", titulo: "Vence", valor: (e) => e.licencia_vence, render: (e) => (e.licencia_vence ? <span className={e.licencia_vence < hoy ? "font-medium text-red-600" : ""}>{e.licencia_vence}</span> : "—") },
       { clave: "alta", titulo: "Alta", visible: false, valor: (e) => e.created_at.slice(0, 10) },
-      { clave: "estado", titulo: "Estado", agrupable: true, valor: (e) => (e.activa ? "Activa" : "Inactiva"), render: (e) => <Badge ok={e.activa}>{e.activa ? "Activa" : "Inactiva"}</Badge> },
+      { clave: "estado", titulo: "Estado", agrupable: true, valor: (e) => ESTADOS[e.estado ?? "corriendo"], render: (e) => <EstadoEmpresa e={e} /> },
+      { clave: "periodicidad", titulo: "Periodicidad", agrupable: true, visible: false, valor: (e) => (e.periodicidad ? PERIODICIDADES[e.periodicidad] : null) },
       columnaCategorias<Empresa>((e) => e.id, cats.de),
     ],
     filtros: [
@@ -139,13 +156,15 @@ export default function Empresas() {
       { clave: "por_vencer", titulo: "Vence en 30 días", grupo: "venc", prueba: (e) => !!e.licencia_vence && e.licencia_vence >= hoy && e.licencia_vence <= en30 },
       { clave: "vencidas", titulo: "Vencidas", grupo: "venc", prueba: (e) => !!e.licencia_vence && e.licencia_vence < hoy },
       { clave: "demo", titulo: "Empresas demo", grupo: "tipo", prueba: (e) => !!e.demo },
-      { clave: "activas", titulo: "Activas", grupo: "estado", prueba: (e) => e.activa },
-      { clave: "inactivas", titulo: "Inactivas", grupo: "estado", prueba: (e) => !e.activa },
+      { clave: "corriendo", titulo: "Corriendo", grupo: "estado", prueba: (e) => (e.estado ?? "corriendo") === "corriendo" },
+      { clave: "suspendidas", titulo: "Suspendidas", grupo: "estado", prueba: (e) => e.estado === "suspendida" },
+      { clave: "eliminadas", titulo: "Eliminadas", grupo: "estado", prueba: (e) => e.estado === "eliminada" },
     ],
     tarjetas: [
       { filtro: "prueba", color: "morado" },
       { filtro: "por_vencer", color: "naranja" },
       { filtro: "vencidas", color: "rojo" },
+      { filtro: "suspendidas", color: "gris" },
     ],
     kanban: (e) => (
       <div className="flex gap-3">
@@ -156,12 +175,17 @@ export default function Empresas() {
           <p className="text-xs text-slate-600">
             {e.max_empleados} empleados{e.licencia_vence && ` · vence ${e.licencia_vence}`}
           </p>
-          {!e.activa && <span className="mt-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-500">Inactiva</span>}
+          {(e.estado ?? "corriendo") !== "corriendo" && (
+            <span className="mt-1 inline-block">
+              <EstadoEmpresa e={e} />
+            </span>
+          )}
         </div>
       </div>
     ),
   };
   const vista = useVista(config, empresas);
+  useAbrirDesdeUrl(empresas, (x) => x.id, abrir);
   const enOrden = vista.ordenados;
   const indice = editando && editando !== "nueva" ? enOrden.findIndex((x) => x.id === editando.id) : -1;
 
@@ -185,6 +209,20 @@ export default function Empresas() {
       {editando && (
         <Registro
           titulo={editando === "nueva" ? "Nueva empresa" : editando.nombre}
+          acciones={
+            editando === "nueva"
+              ? []
+              : [
+                  {
+                    etiqueta: "Ver como soporte",
+                    icono: "eye",
+                    onClick: () => {
+                      entrarSoporte({ id: editando.id, nombre: editando.nombre });
+                      navegar("/");
+                    },
+                  },
+                ]
+          }
           onImprimir={
             editando === "nueva"
               ? undefined
@@ -196,7 +234,8 @@ export default function Empresas() {
                         ["Dirección (subdominio)", editando.url ?? editando.slug],
                         ["Razón social", editando.razon_social],
                         ["RFC", editando.rfc],
-                        ["Estado", editando.activa ? "Activa" : "Inactiva"],
+                        ["Estado", ESTADOS[editando.estado ?? "corriendo"]],
+                        ...(editando.motivo_suspension ? [["Motivo de la suspensión", editando.motivo_suspension] as [string, string]] : []),
                         ["Alta", new Date(editando.created_at).toLocaleDateString("es-MX", { dateStyle: "medium" })],
                         ["Categorías", cats.de(editando.id).map((c) => c.nombre).join(", ")],
                       ],
@@ -206,6 +245,8 @@ export default function Empresas() {
                       campos: [
                         ["Empleados activos permitidos", editando.max_empleados],
                         ["Vence", editando.licencia_vence ?? "Sin vencimiento"],
+                        ["Usuarios permitidos", editando.max_usuarios ?? 5],
+                        ["Periodicidad", editando.periodicidad ? PERIODICIDADES[editando.periodicidad] : "Sin definir"],
                         ["Empresa demo", editando.demo ? "Sí" : "No"],
                       ],
                     },
@@ -296,11 +337,60 @@ export default function Empresas() {
                 <label className="label">Vence (opcional)</label>
                 <input className="input" type="date" value={form.licencia_vence} onChange={set("licencia_vence")} />
               </div>
-              <label className="flex items-center gap-2 text-sm text-tinta-900 sm:col-span-2">
-                <input type="checkbox" checked={form.demo} onChange={(e) => setForm({ ...form, demo: e.target.checked })} />
+              <div>
+                <label className="label inline-flex items-center">
+                  Usuarios permitidos
+                  <Ayuda texto="Usuarios que el administrador puede dar de alta (gerentes, etc.). No cuentan el administrador ni los empleados con acceso al portal." />
+                </label>
+                <input className="input" type="number" min={0} max={1000} required value={form.max_usuarios} onChange={set("max_usuarios")} />
+              </div>
+              <label className="flex items-center gap-2 self-end pb-2 text-sm text-tinta-900">
+                <input
+                  type="checkbox"
+                  checked={form.demo}
+                  onChange={(e) => {
+                    const demo = e.target.checked;
+                    // Prueba de 15 días: si no tiene vencimiento, se propone uno.
+                    const vence = demo && !form.licencia_vence ? new Date(Date.now() + 15 * 864e5).toLocaleDateString("en-CA") : form.licencia_vence;
+                    setForm({ ...form, demo, licencia_vence: vence });
+                  }}
+                />
                 Empresa demo
-                <Ayuda texto="Para presentaciones (p. ej. demo.odai.lat): el pie muestra Licencia demo y se puede eliminar aunque tenga checadas." />
+                <Ayuda texto="Prueba para el cliente (p. ej. cliente.odai.lat) o demo de Odai: el pie muestra Licencia demo y vence en 15 días. Para pasarla a producción, quita la casilla y ajusta la licencia." />
               </label>
+              <div>
+                <label className="label">Periodicidad del cobro</label>
+                <select className="input" value={form.periodicidad} onChange={(e) => setForm({ ...form, periodicidad: e.target.value })}>
+                  <option value="">Sin definir</option>
+                  {Object.entries(PERIODICIDADES).map(([k, l]) => (
+                    <option key={k} value={k}>
+                      {l}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {editando !== "nueva" && (
+                <div>
+                  <label className="label inline-flex items-center">
+                    Estado
+                    <Ayuda texto="Suspendida: nadie de la empresa puede entrar y se le muestra el motivo. Eliminada: los datos se conservan un tiempo y luego se purgan. Normalmente lo cambia el módulo de licencias de Odoo." />
+                  </label>
+                  <select className="input" value={form.estado} onChange={(e) => setForm({ ...form, estado: e.target.value })}>
+                    {Object.entries(ESTADOS).map(([k, l]) => (
+                      <option key={k} value={k}>
+                        {l}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {editando !== "nueva" && form.estado !== "corriendo" && (
+                <div className="sm:col-span-2">
+                  <label className="label">Motivo de la suspensión</label>
+                  <input className="input" maxLength={300} placeholder="Se le muestra a la empresa al intentar entrar" value={form.motivo_suspension} onChange={(e) => setForm({ ...form, motivo_suspension: e.target.value })} />
+                </div>
+              )}
+              {editando !== "nueva" && editando.referencia_odoo && <p className="text-xs text-slate-500 sm:col-span-2">Referencia en Odoo: {editando.referencia_odoo}</p>}
             </fieldset>
 
             {editando !== "nueva" && (
@@ -336,13 +426,8 @@ export default function Empresas() {
               </fieldset>
             )}
 
-            {editando !== "nueva" && (
-              <div className="completo flex justify-end">
-                <button type="button" className="text-sm text-slate-500 hover:text-tinta-900 hover:underline" onClick={() => alternar(editando)}>
-                  {editando.activa ? "Desactivar empresa" : "Activar empresa"}
-                </button>
-              </div>
-            )}
+            {editando !== "nueva" && <AdministradorEmpresa empresaId={editando.id} />}
+
             <ErrorBox message={error} />
             <button type="submit" className="sr-only">Guardar</button>
           </form>

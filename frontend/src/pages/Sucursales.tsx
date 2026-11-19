@@ -3,7 +3,7 @@ import Bitacora from "../components/Bitacora";
 import Registro, { useFormulario } from "../components/Registro";
 import Icono from "../components/Iconos";
 import { columnaCategorias, filtrosCategorias, GestorCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
-import Vista, { useVista, type ConfigVista } from "../components/Vista";
+import Vista, { useAbrirDesdeUrl, useVista, type ConfigVista } from "../components/Vista";
 import { imprimirSecciones } from "../lib/imprimir";
 import { Ayuda, Badge, ErrorBox, PageHeader, Plegable, useEmpresaScope } from "../components/ui";
 import { api, get, patch, post, ZONAS_MX, type Categoria, type Sucursal } from "../lib/api";
@@ -91,8 +91,9 @@ export default function Sucursales() {
     vacio: "Aún no hay sucursales.",
     ordenInicial: { clave: "clave", dir: "asc" },
     columnas: [
-      { clave: "clave", titulo: "Clave", fija: true, buscable: true, valor: (s) => s.clave, render: (s) => <span className="font-mono text-xs font-semibold text-brand-600">{s.clave}</span> },
+      { clave: "clave", titulo: "Clave", fija: true, buscable: true, enlace: true, valor: (s) => s.clave, render: (s) => <span className="font-mono text-xs font-semibold text-brand-600">{s.clave}</span> },
       {
+        enlace: true,
         clave: "nombre",
         titulo: "Nombre",
         buscable: true,
@@ -143,6 +144,7 @@ export default function Sucursales() {
     ),
   };
   const vista = useVista(config, sucursales);
+  useAbrirDesdeUrl(sucursales, (x) => x.id, abrir);
   const enOrden = vista.ordenados;
   const indice = editando && editando !== "nueva" ? enOrden.findIndex((x) => x.id === editando.id) : -1;
 

@@ -33,7 +33,7 @@ from app.schemas.empleado import (
     ImportResultado,
 )
 from app.schemas.turno import AsignarTurnoIn
-from app.services import accesos, bitacora, fotos, importar, licencia
+from app.services import accesos, bitacora, fotos, importar, licencia, uso
 
 _ADMIN = (Rol.SUPERADMIN, Rol.ADMIN_EMPRESA)
 _GESTION = (*_ADMIN, Rol.GERENTE_SUCURSAL)
@@ -634,18 +634,24 @@ async def eliminar(
 ) -> None:
     """Borra un empleado capturado por error. Si ya tiene checadas o incidencias, se da de baja."""
     empleado = await _get(db, user, empleado_id, empresa_scope(user, empresa_id))
-    checadas = await db.scalar(
-        select(func.count()).select_from(Checada).where(Checada.empleado_id == empleado.id)
+    uso.bloquear_si_se_usa(
+        f"a {empleado.nombre_completo}",
+        [
+            (
+                await uso.contar(db, Checada.empleado_id, empleado.id),
+                "checada",
+                "checadas",
+                "Asistencias",
+            ),
+            (
+                await uso.contar(db, Incidencia.empleado_id, empleado.id),
+                "incidencia",
+                "incidencias",
+                "Vacaciones e incidencias de su ficha",
+            ),
+        ],
+        "dalo de baja",
     )
-    incidencias = await db.scalar(
-        select(func.count()).select_from(Incidencia).where(Incidencia.empleado_id == empleado.id)
-    )
-    if checadas or incidencias:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            f"{empleado.nombre_completo} ya tiene checadas o incidencias; la Ley Federal del "
-            "Trabajo pide conservar ese historial. Dalo de baja en su lugar.",
-        )
     portal = await db.get(Usuario, empleado.usuario_id) if empleado.usuario_id else None
     await db.delete(empleado)
     if portal is not None and portal.rol == Rol.EMPLEADO:

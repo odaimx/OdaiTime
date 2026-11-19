@@ -1,6 +1,6 @@
 import uuid
 from datetime import date, datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, EmailStr, Field, computed_field
 
@@ -22,6 +22,8 @@ def _slug(v: str | None) -> str | None:
 
 
 Slug = Annotated[str, AfterValidator(_slug)]
+Estado = Literal["corriendo", "suspendida", "eliminada"]
+Periodicidad = Literal["mensual", "bimestral", "trimestral", "semestral", "anual"]
 
 
 class EmpresaBase(BaseModel):
@@ -42,6 +44,7 @@ class EmpresaCreate(EmpresaBase):
     max_empleados: int | None = Field(default=None, ge=1, le=100000)
     licencia_vence: date | None = None
     demo: bool = False
+    max_usuarios: int = Field(default=5, ge=0, le=1000)
 
 
 class EmpresaUpdate(BaseModel):
@@ -53,6 +56,11 @@ class EmpresaUpdate(BaseModel):
     max_empleados: int | None = Field(default=None, ge=1, le=100000)
     licencia_vence: date | None = None
     demo: bool | None = None
+    max_usuarios: int | None = Field(default=None, ge=0, le=1000)
+    estado: Estado | None = None
+    motivo_suspension: str | None = Field(default=None, max_length=300)
+    periodicidad: Periodicidad | None = None
+    referencia_odoo: str | None = Field(default=None, max_length=100)
 
 
 class EmpresaOut(EmpresaBase):
@@ -64,6 +72,12 @@ class EmpresaOut(EmpresaBase):
     max_empleados: int
     licencia_vence: date | None
     demo: bool = False
+    max_usuarios: int = 5
+    estado: str = "corriendo"
+    motivo_suspension: str | None = None
+    periodicidad: str | None = None
+    referencia_odoo: str | None = None
+    estado_cambiado_en: datetime | None = None
     created_at: datetime
     logo_version: str | None = None
     fondo_color: str | None = None
