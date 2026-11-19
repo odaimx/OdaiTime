@@ -11,6 +11,7 @@ from sqlalchemy.orm import undefer
 from app.api.asistencia import calcular_periodo
 from app.api.deps import DB, CurrentUser, empresa_scope, require_roles
 from app.models import ClaveNomina, Empresa, Rol
+from app.services import obras as obras_svc
 from app.services import reportes
 from app.services.asistencia import CONCEPTOS
 
@@ -149,6 +150,29 @@ async def detalle_xlsx(
         contenido,
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         f"detalle_diario_{desde:%Y%m%d}_{hasta:%Y%m%d}.xlsx",
+    )
+
+
+@router.get("/obras.xlsx", dependencies=[Depends(require_roles(*_GESTION))])
+async def obras_xlsx(
+    user: CurrentUser,
+    db: DB,
+    desde: date,
+    hasta: date,
+    obra_id: uuid.UUID | None = None,
+    empresa_id: uuid.UUID | None = None,
+) -> Response:
+    """Horas trabajadas y extras por obra y empleado."""
+    emp = empresa_scope(user, empresa_id)
+    periodo = await calcular_periodo(db, user, emp, desde, hasta, None)
+    asignaciones = await obras_svc.obras_por_empleado(db, emp, desde, hasta)
+    contenido = reportes.reporte_obras(
+        await _empresa(db, emp), desde, hasta, periodo, asignaciones, obra_id
+    )
+    return _archivo(
+        contenido,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        f"horas_por_obra_{desde:%Y%m%d}_{hasta:%Y%m%d}.xlsx",
     )
 
 

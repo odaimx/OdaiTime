@@ -121,7 +121,7 @@ export default function Login() {
           {/* Logo de Odai, raya, empresa (nombre y logo) y el título. */}
           <div className="flex flex-col items-center text-center">
             <img src="/logo.png" alt="ODAI" className="h-9 w-auto" />
-            <hr className="my-4 w-full border-slate-200" />
+            <hr className="my-4 w-full border-t-2 border-slate-400" />
             {tenant?.modo === "tenant" && <p className="text-base font-semibold text-tinta-900">{tenant.nombre}</p>}
             {tenant?.modo === "base" && <p className="text-sm font-medium text-slate-600">Panel de administración Odai</p>}
             {tenant?.empresa_id && tenant.logo_version && (
@@ -183,7 +183,7 @@ export default function Login() {
           )}
           {!recuperando && tema && Object.values(tema.frases ?? {}).some((n) => n > 0) && (
             <>
-              <hr className="border-slate-200" />
+              <hr className="border-t-2 border-slate-400" />
               <Frases conteo={tema.frases ?? {}} />
             </>
           )}

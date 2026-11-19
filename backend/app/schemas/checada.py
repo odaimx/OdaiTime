@@ -42,6 +42,14 @@ class EmpleadoRef(BaseModel):
     foto_actualizada: datetime | None = None
 
 
+class ObraRef(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    clave: str
+    nombre: str
+
+
 class ChecadaOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -57,6 +65,7 @@ class ChecadaOut(BaseModel):
     tiene_foto: bool
     empleado: EmpleadoRef
     sucursal: SucursalRef
+    obra: ObraRef | None = None
 
     @classmethod
     def de(cls, c) -> "ChecadaOut":
@@ -73,7 +82,14 @@ class ChecadaOut(BaseModel):
             tiene_foto=c.foto is not None,
             empleado=EmpleadoRef.model_validate(c.empleado),
             sucursal=SucursalRef.model_validate(c.sucursal),
+            obra=ObraRef.model_validate(c.obra) if c.obra is not None else None,
         )
+
+
+class ObraChecar(ObraRef):
+    latitud: float | None
+    longitud: float | None
+    radio_metros: int
 
 
 class SucursalChecar(BaseModel):
@@ -108,6 +124,7 @@ class Requisitos(BaseModel):
 class EstadoHoy(BaseModel):
     empleado: EmpleadoRef
     sucursal: SucursalChecar
+    obra: ObraChecar | None = None  # si hoy está asignado a una obra, checa ahí
     turno: TurnoHoyOut | None
     siguiente_tipo: str
     permitir_movil: bool

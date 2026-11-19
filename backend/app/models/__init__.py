@@ -7,6 +7,7 @@ from app.models.empleado import Empleado
 from app.models.empresa import Empresa
 from app.models.festivo import DiaFestivo, EmpresaFestivo, FestivoDesignado
 from app.models.nomina import ClaveNomina
+from app.models.obra import AsignacionObra, Obra
 from app.models.sistema import ConfigSistema, Frase, PlantillaCorreo
 from app.models.sucursal import Sucursal
 from app.models.tarea import Tarea
@@ -19,8 +20,10 @@ __all__ = [
     "CategoriaRegistro",
     "Checada",
     "ConfigCorreo",
+    "AsignacionObra",
     "ConfigSistema",
     "Frase",
+    "Obra",
     "PlantillaCorreo",
     "ClaveNomina",
     "ConfigChecadas",

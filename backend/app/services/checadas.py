@@ -15,7 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.models import Checada, ConfigChecadas, Empleado, Sucursal, TurnoDia
+from app.models import Checada, ConfigChecadas, Empleado, Obra, Sucursal, TurnoDia
 from app.services.lft import Horario
 from app.services.lft import bloques as lft_bloques
 
@@ -93,12 +93,15 @@ def distancia_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 
 def validar_gps(
-    sucursal: Sucursal, lat: float | None, lon: float | None, precision: int | None
+    sucursal: Sucursal | Obra, lat: float | None, lon: float | None, precision: int | None
 ) -> int:
+    """Distancia al lugar (sucursal u obra); error si está fuera de su radio."""
+    lugar = "la obra" if isinstance(sucursal, Obra) else "la sucursal"
     if sucursal.latitud is None or sucursal.longitud is None:
         raise error(
             "sucursal_sin_ubicacion",
-            "La sucursal no tiene ubicación configurada. Pide a tu administrador que la registre.",
+            f"{lugar.capitalize()} no tiene ubicación configurada. "
+            "Pide a tu administrador que la registre.",
         )
     if lat is None or lon is None:
         raise error("gps_requerido", "Activa la ubicación de tu teléfono para checar.")
@@ -111,7 +114,8 @@ def validar_gps(
     if d > sucursal.radio_metros:
         raise error(
             "fuera_de_rango",
-            f"Estás a {d} m de la sucursal; debes estar a menos de {sucursal.radio_metros} m.",
+            f"Estás a {d} m de {lugar} {sucursal.nombre}; "
+            f"debes estar a menos de {sucursal.radio_metros} m.",
             distancia_m=d,
         )
     return d

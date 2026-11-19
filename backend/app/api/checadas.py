@@ -19,6 +19,7 @@ from app.schemas.checada import (
     EmpleadoRef,
     EstadoHoy,
     ManualIn,
+    ObraChecar,
     Requisitos,
     SucursalChecar,
     TurnoHoyOut,
@@ -26,6 +27,7 @@ from app.schemas.checada import (
 from app.services import bitacora
 from app.services import checadas as svc
 from app.services import festivos as festivos_svc
+from app.services import obras as obras_svc
 
 router = APIRouter(prefix="/checadas", tags=["checadas"])
 
@@ -89,7 +91,9 @@ async def hoy(user: CurrentUser, db: DB) -> EstadoHoy:
         .order_by(Checada.momento)
     )
     festivo = await festivos_svc.festivo_del_dia(db, empleado.empresa_id, local.date())
+    obra = await obras_svc.obra_del_dia(db, empleado.id, local.date())
     return EstadoHoy(
+        obra=ObraChecar.model_validate(obra, from_attributes=True) if obra else None,
         festivo_hoy=festivo,
         designado_festivo=bool(festivo)
         and await festivos_svc.designado(db, empleado.empresa_id, local.date(), empleado.id),
@@ -161,11 +165,17 @@ async def checar(
             http=status.HTTP_403_FORBIDDEN,
         )
 
+    # Si ese día está asignado a una obra, checa en la obra (y se valida su ubicación).
+    obra = None
+    if dispositivo_id is None:
+        hoy = datetime.now(UTC).astimezone(svc.zona(sucursal)).date()
+        obra = await obras_svc.obra_del_dia(db, empleado.id, hoy)
+    lugar = obra or sucursal
     distancia = None
     if config.validar_gps:
-        distancia = svc.validar_gps(sucursal, latitud, longitud, precision)
-    elif latitud is not None and longitud is not None and sucursal.latitud is not None:
-        distancia = round(svc.distancia_m(latitud, longitud, sucursal.latitud, sucursal.longitud))
+        distancia = svc.validar_gps(lugar, latitud, longitud, precision)
+    elif latitud is not None and longitud is not None and lugar.latitud is not None:
+        distancia = round(svc.distancia_m(latitud, longitud, lugar.latitud, lugar.longitud))
 
     if svc.requiere_foto(config, "movil") and foto is None:
         raise svc.error("foto_requerida", "Tu empresa pide una foto para checar.")
@@ -183,6 +193,7 @@ async def checar(
         precision_m=precision,
         distancia_m=distancia,
         dispositivo_id=dispositivo_id,
+        obra_id=obra.id if obra else None,
     )
     if foto is not None:
         checada.foto = await svc.guardar_foto(foto, empleado.empresa_id)
