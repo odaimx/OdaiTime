@@ -12,7 +12,7 @@ from app.api.deps import DB, CurrentUser, empresa_scope, require_roles
 from app.core.tenant import base_domain, tenant_de, tenant_de_host
 from app.models import Empresa
 from app.models.usuario import Rol
-from app.services import fotos
+from app.services import estado_empresa, fotos
 
 router = APIRouter(prefix="/tenant", tags=["subdominio"])
 
@@ -26,6 +26,7 @@ class TenantOut(BaseModel):
     logo_version: str | None = None
     fondo_color: str | None = None
     fondo_version: str | None = None
+    aviso: str | None = None  # suspendida o licencia vencida: motivo para el login
 
 
 @router.get("", response_model=TenantOut)
@@ -35,8 +36,8 @@ async def actual(request: Request, db: DB) -> TenantOut:
     dominio = base_domain() or None
     if t.modo != "tenant":
         return TenantOut(modo=t.modo, dominio=dominio)
-    empresa = await db.scalar(select(Empresa).where(Empresa.slug == t.slug, Empresa.activa))
-    if empresa is None:
+    empresa = await db.scalar(select(Empresa).where(Empresa.slug == t.slug))
+    if empresa is None or empresa.estado == "eliminada":
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Empresa no encontrada")
     return TenantOut(
         modo="tenant",
@@ -47,6 +48,7 @@ async def actual(request: Request, db: DB) -> TenantOut:
         logo_version=empresa.logo_version,
         fondo_color=empresa.fondo_color,
         fondo_version=empresa.fondo_version,
+        aviso=(b := estado_empresa.bloqueo(empresa)) and b["mensaje"],
     )
 
 

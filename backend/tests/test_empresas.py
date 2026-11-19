@@ -41,7 +41,8 @@ async def test_empresa_desactivada_bloquea_acceso(client, superadmin):
         f"/api/empresas/{empresa['id']}", headers=superadmin, json={"activa": False}
     )
     assert r.status_code == 200
-    assert (await client.get("/api/auth/me", headers=auth(admin))).status_code == 401
+    r = await client.get("/api/auth/me", headers=auth(admin))
+    assert r.status_code == 403 and r.json()["detail"]["codigo"] == "empresa_suspendida"
     r = await client.post(
         "/api/auth/login", json={"email": "admin@caribe.mx", "password": PASSWORD}
     )

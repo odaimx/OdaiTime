@@ -13,7 +13,7 @@ from app.models import Checada, Empleado, Empresa, Rol, Sucursal, Usuario
 from app.schemas.common import Nombre, Password
 from app.schemas.empresa import EmpresaCreate, EmpresaOut, EmpresaUpdate
 from app.schemas.usuario import UsuarioOut
-from app.services import accesos, uso
+from app.services import accesos, estado_empresa, uso
 
 # Solo el operador del SaaS administra empresas (clientes).
 router = APIRouter(
@@ -95,8 +95,16 @@ async def actualizar(empresa_id: uuid.UUID, data: EmpresaUpdate, db: DB) -> Empr
     for campo in ("demo", "max_usuarios"):
         if campo in cambios and cambios[campo] is None:
             cambios.pop(campo)
+    # El estado manda sobre "activa" (que se conserva por compatibilidad).
+    activa = cambios.pop("activa", None)
+    estado = cambios.pop("estado", None) or (
+        None if activa is None else ("corriendo" if activa else "suspendida")
+    )
+    motivo = cambios.pop("motivo_suspension", empresa.motivo_suspension)
     for campo, valor in cambios.items():
         setattr(empresa, campo, valor)
+    if estado is not None or motivo != empresa.motivo_suspension:
+        estado_empresa.aplicar(empresa, estado or empresa.estado, motivo)
     try:
         await db.commit()
     except IntegrityError:

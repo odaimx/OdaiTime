@@ -24,7 +24,7 @@ from app.models import Empleado, Empresa, Sesion, Usuario
 from app.schemas.auth import LoginIn, RefreshIn, TokenOut
 from app.schemas.common import Password
 from app.schemas.usuario import UsuarioOut
-from app.services import accesos
+from app.services import accesos, estado_empresa
 
 router = APIRouter(prefix="/auth", tags=["autenticación"])
 log = logging.getLogger(__name__)
@@ -109,8 +109,10 @@ async def login(data: LoginIn, request: Request, db: DB) -> TokenOut:
     if not verify_password(data.password, user.password_hash):
         await _registrar_fallo(key)
         raise _CREDENCIALES
-    if not user.activo or (user.empresa and not user.empresa.activa):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Usuario o empresa desactivados")
+    if not user.activo:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Usuario desactivado")
+    if user.empresa and (motivo := estado_empresa.bloqueo(user.empresa)):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, motivo)
 
     if not pertenece(user, tenant):
         if tenant.modo == "base" and user.empresa:
@@ -144,8 +146,10 @@ async def refresh(data: RefreshIn, request: Request, db: DB) -> TokenOut:
     if sesion is None or sesion.revocada_en is not None or sesion.expira_en < datetime.now(UTC):
         raise _SESION_INVALIDA
     user = await db.get(Usuario, sesion.usuario_id)
-    if user is None or not user.activo or (user.empresa and not user.empresa.activa):
+    if user is None or not user.activo:
         raise _SESION_INVALIDA
+    if user.empresa and (motivo := estado_empresa.bloqueo(user.empresa)):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, motivo)
     if not pertenece(user, tenant_de(request)):
         raise _SESION_INVALIDA
 

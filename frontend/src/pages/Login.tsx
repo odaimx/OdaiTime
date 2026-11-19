@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { ErrorBox } from "../components/ui";
-import { ApiError, estiloFondo, urlLogo, type TenantInfo } from "../lib/api";
+import { ApiError, AVISO_BLOQUEO, estiloFondo, urlLogo, type TenantInfo } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 export default function Login() {
@@ -35,12 +35,26 @@ export default function Login() {
   }
 
   useEffect(() => {
+    // Si la sesión terminó porque la empresa se suspendió o venció, se explica aquí.
+    try {
+      const aviso = sessionStorage.getItem(AVISO_BLOQUEO);
+      if (aviso) {
+        setError(aviso);
+        sessionStorage.removeItem(AVISO_BLOQUEO);
+      }
+    } catch {
+      /* sin almacenamiento */
+    }
     fetch("/api/tenant")
       .then((r) => {
         if (r.status === 404) setNoExiste(true);
         return r.ok ? r.json() : null;
       })
-      .then((t) => t && setTenant(t))
+      .then((t) => {
+        if (!t) return;
+        setTenant(t);
+        if (t.aviso) setError(t.aviso);
+      })
       .catch(() => {});
   }, []);
 

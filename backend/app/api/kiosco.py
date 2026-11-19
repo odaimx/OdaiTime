@@ -28,6 +28,7 @@ from app.core.config import get_settings
 from app.core.security import verify_password
 from app.models import Checada, Dispositivo, Empleado, Empresa
 from app.services import checadas as svc
+from app.services import estado_empresa
 from app.services import festivos as festivos_svc
 
 router = APIRouter(tags=["kiosco"])
@@ -45,6 +46,9 @@ async def _dispositivo(
     d = await db.scalar(select(Dispositivo).where(Dispositivo.token_hash == svc.hash_token(token)))
     if d is None or not d.activo:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Dispositivo no vinculado o desactivado")
+    empresa = await db.get(Empresa, d.empresa_id)
+    if empresa and (motivo := estado_empresa.bloqueo(empresa)):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, motivo)
     d.ultima_conexion = datetime.now(UTC)
     return d
 

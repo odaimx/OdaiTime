@@ -74,10 +74,11 @@ async def test_licencia_vencida(client, superadmin):
     await client.patch(
         f"/api/empresas/{empresa['id']}", headers=superadmin, json={"licencia_vence": "2020-01-01"}
     )
-    assert (await client.get("/api/licencia", headers=a)).json()["vencida"] is True
+    # Con la licencia vencida ya no se entra al sistema; se explica el motivo.
     r = await client.post("/api/empleados", headers=a, json=_emp("1", suc))
-    assert r.status_code == 409
+    assert r.status_code == 403
     assert r.json()["detail"]["codigo"] == "licencia_vencida"
+    assert "venció" in r.json()["detail"]["mensaje"]
 
 
 async def test_importacion_respeta_el_limite(client, superadmin):

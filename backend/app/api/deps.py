@@ -11,6 +11,7 @@ from app.core.security import decode_token
 from app.core.tenant import Tenant, tenant_de
 from app.db.session import get_db
 from app.models import Rol, Usuario
+from app.services import estado_empresa
 
 DB = Annotated[AsyncSession, Depends(get_db)]
 
@@ -49,8 +50,10 @@ async def get_current_user(
         raise _NO_AUTH from None
 
     user = await db.get(Usuario, user_id)
-    if user is None or not user.activo or (user.empresa and not user.empresa.activa):
+    if user is None or not user.activo:
         raise _NO_AUTH
+    if user.empresa and (motivo := estado_empresa.bloqueo(user.empresa)):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, motivo)
     # Un token emitido en una empresa no sirve en el subdominio de otra.
     if not pertenece(user, tenant_de(request)):
         raise _NO_AUTH

@@ -35,6 +35,13 @@ class Settings(BaseSettings):
     licencia_max_empleados_default: int = 15
     licencia_url_compra: str = "https://odai.lat"
     url_soporte: str = "https://odai.lat"
+    # Integración con el módulo de licencias de Odoo (odai.lat). Secreto compartido para firmar
+    # las peticiones (HMAC-SHA256); vacío = integración apagada. IPS: lista opcional de IPs
+    # permitidas, separadas por comas.
+    integracion_secreto: str = ""
+    integracion_ips: str = ""
+    # Días que se conservan los datos de una empresa eliminada antes de purgarla.
+    retencion_dias: int = 90
     # Base de datos de demostración: el pie de página lo indica en lugar de la licencia.
     demo: bool = False
 
