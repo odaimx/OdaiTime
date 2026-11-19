@@ -2,7 +2,17 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Date, DateTime, ForeignKey, LargeBinary, Numeric, String, UniqueConstraint
+from sqlalchemy import (
+    Date,
+    DateTime,
+    ForeignKey,
+    LargeBinary,
+    Numeric,
+    String,
+    UniqueConstraint,
+    Uuid,
+)
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, deferred, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
@@ -51,6 +61,14 @@ class Empleado(UUIDPkMixin, TimestampMixin, Base):
 
     # PIN para checar en el kiosco (hash Argon2).
     pin_hash: Mapped[str | None] = mapped_column(String(255))
+
+    # Medios con los que checa: movil | kiosco | biometrico. NULL = según la configuración
+    # de checadas de su sucursal (o la general).
+    medios_checado: Mapped[list[str] | None] = mapped_column(ARRAY(String(12)))
+    # Kioscos o relojes donde puede checar. Vacío = cualquiera de la empresa.
+    dispositivos_checado: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(Uuid), default=list, server_default="{}"
+    )
 
     activo: Mapped[bool] = mapped_column(default=True)
     fecha_baja: Mapped[date | None] = mapped_column(Date)
