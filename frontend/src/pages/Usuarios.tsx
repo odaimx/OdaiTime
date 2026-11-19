@@ -7,6 +7,7 @@ import { imprimirSecciones } from "../lib/imprimir";
 import { Badge, ErrorBox, PageHeader, useEmpresaScope } from "../components/ui";
 import { api, get, patch, post, ROLES, type Categoria, type Rol, type Sucursal, type Usuario } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { useBanda } from "../lib/bandas";
 
 type Form = { nombre: string; email: string; password: string; rol: Rol; sucursal_ids: string[] };
 const VACIO: Form = { nombre: "", email: "", password: "", rol: "gerente_sucursal", sucursal_ids: [] };
@@ -18,6 +19,7 @@ function fecha(iso: string | null) {
 }
 
 export default function Usuarios() {
+  const banda = useBanda("usuarios");
   const { usuario: yo } = useAuth();
   const { query, listo, selector } = useEmpresaScope();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -158,7 +160,7 @@ export default function Usuarios() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader submenu={banda}
         icono="users"
         title="Usuarios"
         subtitle="Quién entra a ODAITIME y qué puede ver"

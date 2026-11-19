@@ -1003,7 +1003,7 @@ function Lista<T>({ vista, resumen, recargar }: { vista: EstadoVista<T>; resumen
     });
 
   return (
-    <div className="-mx-4 overflow-x-auto border-y border-slate-200 bg-white sm:mx-0 sm:rounded-lg sm:border">
+    <div className="overflow-x-auto border border-slate-300 bg-white">
       <table className="tabla-lista w-full text-sm">
         <thead className="sticky top-0 z-10 border-b border-slate-300 bg-lista text-left text-sm font-semibold text-tinta-900">
           <tr>

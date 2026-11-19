@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import Bitacora from "../components/Bitacora";
 import ConfigWhatsApp from "../components/ConfigWhatsApp";
-import { Badge, BarraGuardar, ErrorBox, Modal, PageHeader, useEmpresaScope, Plegable } from "../components/ui";
+import { Badge, BarraGuardar, ErrorBox, Modal, PageHeader, useEmpresaScope, Plegable, type ItemSubmenu } from "../components/ui";
 import { api, fechaHora, get, patch, post, type ConfigChecadas as Config, type Dispositivo, type Sucursal } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -41,7 +41,12 @@ const TITULOS: Record<Seccion, [string, string]> = {
   whatsapp: ["WhatsApp", "Número de WhatsApp Business para checar por WhatsApp."],
 };
 
-export default function ConfigChecadas({ incrustado = false, scope, seccion }: { incrustado?: boolean; scope?: { query: string; empresaId: string | null }; seccion?: Seccion } = {}) {
+export default function ConfigChecadas({
+  incrustado = false,
+  scope,
+  seccion,
+  submenu,
+}: { incrustado?: boolean; scope?: { query: string; empresaId: string | null }; seccion?: Seccion; submenu?: ItemSubmenu[] } = {}) {
   const [pestanaPropia, setPestana] = useState<Seccion>("config");
   const pestana = seccion ?? pestanaPropia;
   const { usuario } = useAuth();
@@ -123,7 +128,7 @@ export default function ConfigChecadas({ incrustado = false, scope, seccion }: {
 
   return (
     <>
-      {!incrustado && <PageHeader icono="settings"
+      {!incrustado && <PageHeader submenu={submenu} icono="settings"
         title={seccion ? TITULOS[seccion][0] : "Configuración de asistencias"}
         subtitle={TITULOS[pestana][1]}
         action={selector}

@@ -241,7 +241,7 @@ export function GestorCategorias({
         </ul>
       </div>
   );
-  if (incrustado) return <div className="card p-5">{contenido}</div>;
+  if (incrustado) return <div className="ventana-form card mx-auto w-full max-w-6xl p-5">{contenido}</div>;
   return (
     <Modal title={TITULOS[modelo]} onClose={onCerrar ?? (() => {})}>
       {contenido}

@@ -8,6 +8,7 @@ import { imprimirSecciones } from "../lib/imprimir";
 import { Badge, Campos, CamposDomicilio, CamposUbicacion, DOMICILIO_VACIO, domicilioApi, domicilioDe, ErrorBox, Fila, PageHeader, Plegable, useEmpresaScope, type Domicilio } from "../components/ui";
 import { api, get, patch, post, ZONAS_MX, type Categoria, type Sucursal } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { useBanda } from "../lib/bandas";
 
 type Form = { clave: string; nombre: string; zona_horaria: string; domicilio: Domicilio; latitud: string; longitud: string; radio_metros: string };
 const VACIO: Form = { clave: "", nombre: "", zona_horaria: "America/Mexico_City", domicilio: DOMICILIO_VACIO, latitud: "", longitud: "", radio_metros: "150" };
@@ -25,6 +26,7 @@ const aForm = (s: Sucursal): Form => ({
 });
 
 export default function Sucursales() {
+  const banda = useBanda("empresa");
   const { usuario } = useAuth();
   const puedeEditar = usuario?.rol === "superadmin" || usuario?.rol === "admin_empresa";
   const { query, listo, selector } = useEmpresaScope();
@@ -151,7 +153,7 @@ export default function Sucursales() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader submenu={banda}
         icono="store"
         title="Sucursales"
         subtitle="Cada sucursal tiene su zona horaria y su geocerca para validar checadas"

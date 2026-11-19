@@ -33,6 +33,7 @@ import {
 } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { aDataUrl, campos, imprimirHtml } from "../lib/imprimir";
+import { useBanda } from "../lib/bandas";
 
 const CAMPOS = [
   "numero", "nombre", "apellido_paterno", "apellido_materno", "curp", "rfc", "nss", "fecha_ingreso",
@@ -68,6 +69,7 @@ const vacio = (sucursal_id = ""): Form => ({
 type Vista = "detalle" | "turno" | "baja" | "acceso";
 
 export default function Empleados() {
+  const banda = useBanda("empleados");
   const { usuario } = useAuth();
   const esAdmin = usuario?.rol === "superadmin" || usuario?.rol === "admin_empresa";
   const { query, listo, selector } = useEmpresaScope();
@@ -646,7 +648,7 @@ ${
 
   return (
     <>
-      <PageHeader
+      <PageHeader submenu={banda}
         icono="contact-round"
         title="Empleados"
         action={selector}

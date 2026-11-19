@@ -5,10 +5,15 @@ import Vista, { useVista, type ConfigVista } from "../components/Vista";
 import { ErrorBox, Modal, PageHeader } from "../components/ui";
 import { api, get, post, type Empleado, type Empresa, type Festivo } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { useBanda } from "../lib/bandas";
+import { useSoporte } from "../lib/soporte";
 
 const fecha = (iso: string) => new Date(iso + "T12:00").toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" });
 
 export default function Festivos() {
+  const soporte = useSoporte();
+  const { usuario: yo } = useAuth();
+  const banda = useBanda(yo?.rol === "superadmin" && !soporte ? "odai" : "empresa");
   const { usuario } = useAuth();
   const esSuper = usuario?.rol === "superadmin";
   const esAdmin = esSuper || usuario?.rol === "admin_empresa";
@@ -196,10 +201,7 @@ export default function Festivos() {
       <PageHeader
         icono="calendar-heart"
         title="Días festivos"
-        submenu={[
-          { etiqueta: OPCIONALES, activo: pestana === "opcionales", onClick: () => setPestana("opcionales") },
-          { etiqueta: OBLIGATORIOS, activo: pestana === "obligatorios", onClick: () => setPestana("obligatorios") },
-        ]}
+        submenu={banda}
         action={
           <div className="flex flex-col gap-3 sm:flex-row">
             {esSuper && (
@@ -229,6 +231,25 @@ export default function Festivos() {
       {mensaje && <p className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{mensaje}</p>}
       <ErrorBox message={!nuevo ? error : null} />
 
+      <div className="mb-3 inline-flex rounded-lg bg-slate-100 p-1 text-sm" role="tablist">
+        {(
+          [
+            ["opcionales", OPCIONALES],
+            ["obligatorios", OBLIGATORIOS],
+          ] as const
+        ).map(([k, t]) => (
+          <button
+            key={k}
+            type="button"
+            role="tab"
+            aria-selected={pestana === k}
+            onClick={() => setPestana(k)}
+            className={`rounded-md px-3 py-1.5 font-medium ${pestana === k ? "bg-white text-tinta-900 shadow-sm" : "text-slate-600 hover:text-tinta-900"}`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
       <Vista vista={vista} />
       <p className="mt-3 text-xs text-slate-500">
         Obligatorios: se descansan con goce de salario y solo checa el personal designado; si se trabajan se paga salario doble además del del día (<ArticuloLFT art="75" />), más prima dominical si cae en domingo (

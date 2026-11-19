@@ -438,7 +438,7 @@ export function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-navy-900/40 p-3 pt-6 sm:p-4 sm:pt-12" onMouseDown={onClose}>
       {/* La ventana nunca pasa del alto de la pantalla: su contenido se desplaza por dentro. */}
-      <div className={`ventana-form card flex max-h-[calc(100dvh-3rem)] w-full flex-col overflow-hidden sm:max-h-[calc(100dvh-7rem)] max-w-5xl`} onMouseDown={(e) => e.stopPropagation()}>
+      <div className={`ventana-form card flex max-h-[calc(100dvh-3rem)] w-full flex-col overflow-hidden sm:max-h-[calc(100dvh-7rem)] max-w-6xl`} onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex shrink-0 items-center justify-end border-b border-slate-200 bg-slate-100/70 px-4 py-2.5 sm:px-5">
           <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-tinta-900" aria-label="Cerrar">
             <Icono nombre="x" className="h-5 w-5" />
@@ -691,7 +691,7 @@ export function CamposDomicilio({ valor, onCambio, prefijo = "dom" }: { valor: D
   const set = (k: keyof Domicilio) => (e: { target: { value: string } }) => onCambio({ ...valor, [k]: e.target.value });
   return (
     <>
-      <Fila etiqueta="Calle y número" htmlFor={`${prefijo}-calle`} completo>
+      <Fila etiqueta="Calle y número" htmlFor={`${prefijo}-calle`}>
         <input id={`${prefijo}-calle`} className="input" maxLength={200} placeholder="Calle 71 No. 800" value={valor.calle} onChange={set("calle")} />
       </Fila>
       <Fila etiqueta="Colonia" htmlFor={`${prefijo}-colonia`}>
