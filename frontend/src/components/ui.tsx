@@ -44,14 +44,15 @@ export function PageHeader({
   return (
     <>
       <div className={`banda -mx-4 -mt-4 bg-navy-950 px-4 py-2.5 sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:-mt-8 lg:px-8 lg:py-2.5 ${submenu?.length ? "" : "mb-5"}`}>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
+        {/* En el celular el usuario queda a la derecha del título y las acciones bajan a otra línea. */}
+        <div className="flex flex-wrap items-center gap-3 sm:flex-nowrap sm:justify-between">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             {icono && <Icono nombre={icono} className="h-6 w-6 shrink-0 text-oro-400 sm:h-8 sm:w-8" />}
             <h1 className="truncate text-[1.45rem] font-semibold leading-tight tracking-tight text-oro-400 sm:text-[1.75rem]">{title}</h1>
             {fuentes !== undefined && <FuentesOficiales articulos={fuentes || undefined} oscuro />}
           </div>
-          <div className="flex items-center gap-3">
-            {action && <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">{action}</div>}
+          {action && <div className="order-last flex w-full flex-col gap-3 sm:order-none sm:w-auto sm:flex-row sm:items-center">{action}</div>}
+          <div className="flex shrink-0 items-center gap-3">
             <LicenciaBanda />
             <MenuUsuario />
           </div>
@@ -120,6 +121,37 @@ function LicenciaBanda() {
   );
 }
 
+/** Foto grande del usuario (la de su ficha de empleado si la tiene), para el portal. */
+export function FotoUsuario({ className = "h-28 w-28" }: { className?: string }) {
+  const { usuario } = useAuth();
+  const [foto, setFoto] = useState<string | null>(null);
+  useEffect(() => {
+    if (!usuario) return;
+    let url: string | null = null;
+    imagenProtegida(`/auth/me/foto?grande=1&v=${encodeURIComponent(usuario.foto_actualizada ?? "")}`)
+      .then((u) => {
+        url = u;
+        setFoto(u);
+      })
+      .catch(() => setFoto(null));
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [usuario]);
+  return (
+    <div className={`shrink-0 overflow-hidden rounded-2xl bg-white/10 ring-4 ring-white/20 ${className}`}>
+      {foto ? (
+        <img src={foto} alt={usuario?.nombre ?? ""} className="h-full w-full object-cover" />
+      ) : (
+        <svg viewBox="0 0 64 64" className="h-full w-full" aria-hidden="true">
+          <circle cx="32" cy="24" r="11" fill="#cbd5e1" />
+          <path d="M10 60c2-12 11-19 22-19s20 7 22 19" fill="#cbd5e1" />
+        </svg>
+      )}
+    </div>
+  );
+}
+
 export function MenuUsuario() {
   const { usuario, logout, refrescar } = useAuth();
   const [abierto, setAbierto] = useState(false);
@@ -170,7 +202,13 @@ export function MenuUsuario() {
   };
 
   return (
-    <div ref={caja} className="relative shrink-0" onMouseEnter={abrir} onMouseLeave={cerrarLuego}>
+    <div
+      ref={caja}
+      className="relative shrink-0"
+      // Solo el mouse abre por "hover"; en el celular el toque abriría y el clic cerraría al instante.
+      onPointerEnter={(e) => e.pointerType === "mouse" && abrir()}
+      onPointerLeave={(e) => e.pointerType === "mouse" && cerrarLuego()}
+    >
       <button
         onClick={() => setAbierto((a) => !a)}
         className={`flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg bg-white p-0.5 ring-2 transition ${abierto ? "ring-oro-400" : "ring-white/30 hover:ring-oro-300"}`}
@@ -190,7 +228,7 @@ export function MenuUsuario() {
       {abierto && (
         // pt-2 en lugar de margen: el puntero no "sale" del menú al bajar del botón.
         <div className="absolute right-0 top-full z-40 pt-2">
-          <div className="popover static w-64 p-1">
+          <div className="popover static w-64 max-w-[calc(100vw-2rem)] p-1">
             <div className="border-b border-slate-100 px-3 py-2">
               <p className="truncate text-sm font-semibold text-tinta-900">{usuario.nombre}</p>
               <p className="truncate text-xs text-slate-500">{usuario.email}</p>
