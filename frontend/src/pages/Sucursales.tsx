@@ -5,7 +5,7 @@ import Icono from "../components/Iconos";
 import { columnaCategorias, filtrosCategorias, GestorCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
 import Vista, { useAbrirDesdeUrl, useVista, type ConfigVista } from "../components/Vista";
 import { imprimirSecciones } from "../lib/imprimir";
-import { Ayuda, Badge, ErrorBox, PageHeader, Plegable, useEmpresaScope } from "../components/ui";
+import { Ayuda, Badge, ErrorBox, PageHeader, Plegable, UbicarBotones, useEmpresaScope } from "../components/ui";
 import { api, get, patch, post, ZONAS_MX, type Categoria, type Sucursal } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -226,9 +226,10 @@ export default function Sucursales() {
               <div>
                 <label className="label">
                   Latitud
-                  <Ayuda texto="En Google Maps, clic derecho sobre la sucursal para copiar las coordenadas." />
+                  <Ayuda texto="Usa los íconos de abajo: «Estoy aquí» toma tu ubicación actual (estando en la sucursal) y el pin la calcula con la dirección. También puedes copiarlas de Google Maps (clic derecho sobre el lugar)." />
                 </label>
                 <input className="input" type="number" step="any" min={-90} max={90} placeholder="21.1619" value={form.latitud} onChange={set("latitud")} />
+                <UbicarBotones direccion={form.direccion} deshabilitado={!puedeEditar} onUbicar={(latitud, longitud) => setForm({ ...form, latitud, longitud })} />
               </div>
               <div>
                 <label className="label">Longitud</label>
