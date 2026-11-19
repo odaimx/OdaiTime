@@ -606,6 +606,32 @@ export interface Vacaciones {
   dias_proximo_periodo: number;
 }
 
+export interface SolicitudVacaciones {
+  id: string;
+  empleado: { id: string; numero: string; nombre_completo: string; foto_actualizada?: string | null };
+  fecha_inicio: string;
+  fecha_fin: string;
+  dias: number;
+  motivo: string | null;
+  estado: "pendiente" | "aprobada" | "rechazada" | "cancelada";
+  comentario: string | null;
+  respondida_en: string | null;
+  created_at: string;
+  /** Avisos de la LFT (p. ej. art. 78) al crear o aprobar. */
+  avisos: string[];
+}
+
+export interface MisVacaciones {
+  saldo: Vacaciones;
+  pendientes_dias: number;
+  solicitudes: SolicitudVacaciones[];
+}
+
+export interface CalendarioEquipo {
+  empleados: { id: string; numero: string; nombre_completo: string; sucursal: SucursalRef; obra: string | null }[];
+  ausencias: { empleado_id: string; tipo: string; etiqueta: string; fecha_inicio: string; fecha_fin: string; pendiente: boolean }[];
+}
+
 export interface PoliticaAsistencia {
   retardos_por_falta: number;
   retardo_falta_min: number;

@@ -13,6 +13,7 @@ from app.models.sucursal import Sucursal
 from app.models.tarea import Tarea
 from app.models.turno import AsignacionTurno, Turno, TurnoDia
 from app.models.usuario import Rol, Sesion, Usuario, usuario_sucursales
+from app.models.vacaciones import SolicitudVacaciones
 
 __all__ = [
     "Actividad",
@@ -38,6 +39,7 @@ __all__ = [
     "PoliticaAsistencia",
     "Rol",
     "Sesion",
+    "SolicitudVacaciones",
     "Sucursal",
     "Tarea",
     "TokenAcceso",
