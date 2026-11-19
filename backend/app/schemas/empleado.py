@@ -2,7 +2,7 @@ import re
 import uuid
 from datetime import date
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import (
     AfterValidator,
@@ -63,6 +63,9 @@ Salario = Annotated[
 ]
 
 
+Medio = Literal["movil", "kiosco", "biometrico", "whatsapp"]
+
+
 class EmpleadoCreate(BaseModel):
     numero: NumeroEmpleado
     nombre: Nombre
@@ -81,6 +84,9 @@ class EmpleadoCreate(BaseModel):
     # Turno inicial (vigente desde la fecha de ingreso).
     turno_id: uuid.UUID | None = None
     pin: PIN = None
+    # None = según la configuración de checadas de su sucursal.
+    medios_checado: list[Medio] | None = None
+    dispositivos_checado: list[uuid.UUID] = Field(default_factory=list, max_length=50)
 
 
 class EmpleadoUpdate(BaseModel):
@@ -99,6 +105,8 @@ class EmpleadoUpdate(BaseModel):
     telefono: Telefono = None
     sucursal_id: uuid.UUID | None = None
     pin: PIN = None  # "" o null quita el PIN
+    medios_checado: list[Medio] | None = None  # null = según su sucursal
+    dispositivos_checado: list[uuid.UUID] | None = Field(default=None, max_length=50)
 
 
 class EmpleadoOut(BaseModel):
@@ -124,6 +132,8 @@ class EmpleadoOut(BaseModel):
     portal: bool = False
     portal_email: str | None = None
     tiene_pin: bool
+    medios_checado: list[str] | None = None
+    dispositivos_checado: list[uuid.UUID] = []
     foto_version: str | None  # cambia al actualizar la foto (sirve para refrescar caché)
     activo: bool
     fecha_baja: date | None

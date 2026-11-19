@@ -83,8 +83,9 @@ async def hoy(user: CurrentUser, db: DB) -> EstadoHoy:
     tz = svc.zona(sucursal)
     ahora = datetime.now(UTC)
     local = ahora.astimezone(tz)
-    turno = svc.turno_del_dia(empleado, local.date(), tz)
-    inicio_dia = datetime.combine(local.date(), time.min, tz)
+    # En turno nocturno, de madrugada sigue mostrando el turno (y las checadas) de anoche.
+    jornada, turno = svc.jornada_de(empleado, ahora, tz)
+    inicio_dia = datetime.combine(jornada, time.min, tz)
     hoy_checadas = await db.scalars(
         select(Checada)
         .where(Checada.empleado_id == empleado.id, Checada.momento >= inicio_dia)
@@ -109,7 +110,7 @@ async def hoy(user: CurrentUser, db: DB) -> EstadoHoy:
         if turno
         else None,
         siguiente_tipo=svc.siguiente_tipo(await svc.ultima_checada(db, empleado.id), ahora),
-        permitir_movil=config.permitir_movil,
+        permitir_movil=svc.medio_permitido(empleado, "movil", config),
         permitir_offline=config.permitir_offline,
         requiere=Requisitos(
             gps=config.validar_gps,
@@ -155,15 +156,13 @@ async def checar(
         )
         if kiosco is None:
             raise svc.error("qr_invalido", "El código QR no es de un kiosco de tu empresa.")
+        svc.validar_dispositivo(
+            empleado, kiosco, await svc.nombres_dispositivos(db, empleado.dispositivos_checado)
+        )
         sucursal = kiosco.sucursal
         config, _ = await svc.config_efectiva(db, empleado.empresa_id, sucursal.id)
 
-    if not config.permitir_movil:
-        raise svc.error(
-            "movil_no_permitido",
-            "Tu empresa no permite checar desde el celular en esta sucursal. Usa el kiosco.",
-            http=status.HTTP_403_FORBIDDEN,
-        )
+    svc.validar_medio(empleado, "movil", config)
 
     # Si ese día está asignado a una obra, checa en la obra (y se valida su ubicación).
     obra = None
@@ -214,7 +213,9 @@ async def portal(user: CurrentUser, db: DB) -> PortalOut:
     """Qué puede hacer el empleado en el portal, según la configuración de su sucursal."""
     empleado = await _mi_empleado(db, user)
     config, _ = await svc.config_efectiva(db, empleado.empresa_id, empleado.sucursal_id)
-    return PortalOut(checar=config.permitir_movil, historial=config.portal_historial)
+    return PortalOut(
+        checar=svc.medio_permitido(empleado, "movil", config), historial=config.portal_historial
+    )
 
 
 @router.get(

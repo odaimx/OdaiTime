@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import Bitacora from "../components/Bitacora";
+import ConfigWhatsApp from "../components/ConfigWhatsApp";
 import { Badge, BarraGuardar, ErrorBox, Modal, PageHeader, useEmpresaScope, Plegable } from "../components/ui";
 import { api, fechaHora, get, patch, post, type ConfigChecadas as Config, type Dispositivo, type Sucursal } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -34,7 +35,7 @@ function Opcion({ checked, onChange, titulo, children, extra }: { checked: boole
 }
 
 export default function ConfigChecadas({ incrustado = false, scope }: { incrustado?: boolean; scope?: { query: string; empresaId: string | null } } = {}) {
-  const [pestana, setPestana] = useState<"config" | "dispositivos">("config");
+  const [pestana, setPestana] = useState<"config" | "dispositivos" | "whatsapp">("config");
   const { usuario } = useAuth();
   const esAdmin = usuario?.rol === "superadmin" || usuario?.rol === "admin_empresa";
   const propio = useEmpresaScope();
@@ -124,6 +125,7 @@ export default function ConfigChecadas({ incrustado = false, scope }: { incrusta
           [
             ["config", "Configuración"],
             ["dispositivos", "Dispositivos"],
+            ...(esAdmin ? ([["whatsapp", "WhatsApp"]] as const) : []),
           ] as const
         ).map(([k, l]) => (
           <button
@@ -252,6 +254,8 @@ export default function ConfigChecadas({ incrustado = false, scope }: { incrusta
           )}
           </>
           )}
+
+          {pestana === "whatsapp" && esAdmin && <ConfigWhatsApp query={query} />}
 
           {pestana === "dispositivos" && esAdmin && (
             <section className="card space-y-4 p-5">

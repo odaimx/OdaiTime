@@ -76,6 +76,61 @@ async def config_efectiva(
     return config_por_defecto(empresa_id), "predeterminada"
 
 
+MEDIOS = {
+    "movil": "celular",
+    "kiosco": "kiosco",
+    "biometrico": "reloj biométrico",
+    "whatsapp": "WhatsApp",
+}
+
+
+def medio_permitido(empleado: Empleado, medio: str, config: ConfigChecadas) -> bool:
+    """Lo que diga la ficha del empleado; si no dice nada, la configuración de su sucursal."""
+    if empleado.medios_checado is not None:
+        return medio in empleado.medios_checado
+    if medio == "movil":
+        return config.permitir_movil
+    if medio == "kiosco":
+        return config.permitir_kiosco
+    if medio == "whatsapp":
+        return False  # lo decide la configuración de WhatsApp de la empresa
+    return True  # reloj biométrico: si está dado de alta, se usa
+
+
+def validar_medio(empleado: Empleado, medio: str, config: ConfigChecadas) -> None:
+    if not medio_permitido(empleado, medio, config):
+        if empleado.medios_checado:
+            otros = " o ".join(MEDIOS[m] for m in empleado.medios_checado if m in MEDIOS)
+            detalle = f"Tú checas por {otros}."
+        elif empleado.medios_checado is not None:
+            detalle = "No tienes ningún medio de checado asignado; pregunta a tu administrador."
+        elif medio == "movil":
+            detalle = "En tu sucursal no se checa desde el celular. Usa el kiosco."
+        else:
+            detalle = "El kiosco está desactivado para esta sucursal."
+        raise error(f"{medio}_no_permitido", detalle, http=status.HTTP_403_FORBIDDEN)
+
+
+def validar_dispositivo(empleado: Empleado, dispositivo, nombres: list[str] | None = None) -> None:
+    """Si el empleado tiene kioscos/relojes asignados, solo puede checar en esos."""
+    if empleado.dispositivos_checado and dispositivo.id not in empleado.dispositivos_checado:
+        donde = f" Checa en: {', '.join(nombres)}." if nombres else ""
+        que = MEDIOS.get(dispositivo.tipo, "dispositivo")
+        raise error(
+            "dispositivo_no_asignado",
+            f"{empleado.nombre}, este no es tu {que}.{donde}",
+            http=status.HTTP_403_FORBIDDEN,
+        )
+
+
+async def nombres_dispositivos(db: AsyncSession, ids: list[uuid.UUID]) -> list[str]:
+    from app.models import Dispositivo
+
+    if not ids:
+        return []
+    return list(await db.scalars(select(Dispositivo.nombre).where(Dispositivo.id.in_(ids))))
+
+
 def requiere_foto(config: ConfigChecadas, origen: str) -> bool:
     return config.foto == "ambos" or config.foto == origen
 
@@ -159,6 +214,17 @@ def turno_del_dia(empleado: Empleado, dia: date, tz: ZoneInfo) -> TurnoHoy | Non
         for ini, fin in lft_bloques(horario)
     ]
     return TurnoHoy(turno.nombre, turno.tolerancia_minutos, d, rangos)
+
+
+def jornada_de(empleado: Empleado, momento: datetime, tz: ZoneInfo) -> tuple[date, TurnoHoy | None]:
+    """(día de la jornada, turno) de una entrada. Si cae dentro de un turno que empezó el día
+    anterior y cruza la medianoche (p. ej. llega 00:10 a un turno de 23:00 a 07:00), la
+    jornada es la del día anterior."""
+    d = momento.astimezone(tz).date()
+    anterior = turno_del_dia(empleado, d - timedelta(days=1), tz)
+    if anterior and momento < anterior.fin:
+        return d - timedelta(days=1), anterior
+    return d, turno_del_dia(empleado, d, tz)
 
 
 async def ultima_checada(db: AsyncSession, empleado_id: uuid.UUID) -> Checada | None:
@@ -258,6 +324,11 @@ async def guardar_foto(archivo: UploadFile, empresa_id: uuid.UUID) -> str:
         raise error("foto_grande", "La foto supera 3 MB.")
     if not datos:
         raise error("foto_invalida", "La foto está vacía.")
+    return guardar_bytes(datos, ext, empresa_id)
+
+
+def guardar_bytes(datos: bytes, ext: str, empresa_id: uuid.UUID) -> str:
+    """Guarda la foto de una checada y devuelve su ruta relativa."""
     hoy = datetime.now(UTC)
     rel = Path(str(empresa_id)) / f"{hoy:%Y}" / f"{hoy:%m}" / f"{uuid.uuid4()}.{ext}"
     destino = dir_fotos() / rel
@@ -328,10 +399,9 @@ async def registrar(
 
     tipo = siguiente_tipo(ultima, momento)
     tz = zona(sucursal)
-    local = momento.astimezone(tz)
+    dia, turno = jornada_de(empleado, momento, tz)
     if tipo == "entrada":
-        await validar_festivo(db, empleado, local.date())
-    turno = turno_del_dia(empleado, local.date(), tz)
+        await validar_festivo(db, empleado, dia)
     if tipo == "entrada" and turno and not offline:
         apertura = turno.inicio - timedelta(minutes=config.minutos_antes_entrada)
         if momento < apertura:

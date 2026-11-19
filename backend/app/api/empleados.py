@@ -15,6 +15,7 @@ from app.core.security import hash_password
 from app.models import (
     AsignacionTurno,
     Checada,
+    Dispositivo,
     Empleado,
     Incidencia,
     Rol,
@@ -65,10 +66,45 @@ CAMPOS_BITACORA = (
 )
 
 
+_MEDIOS = {
+    "movil": "Celular",
+    "kiosco": "Kiosco",
+    "biometrico": "Reloj biométrico",
+    "whatsapp": "WhatsApp",
+}
+
+
 def _snap(e: Empleado) -> dict:
-    return bitacora.snapshot(
-        e, CAMPOS_BITACORA, {"sucursal": e.sucursal.clave if e.sucursal else None}
+    medios = (
+        "Según su sucursal"
+        if e.medios_checado is None
+        else ", ".join(_MEDIOS.get(m, m) for m in e.medios_checado) or "Ninguno"
     )
+    return bitacora.snapshot(
+        e,
+        CAMPOS_BITACORA,
+        {
+            "sucursal": e.sucursal.clave if e.sucursal else None,
+            "medios_checado": medios,
+            "dispositivos_checado": len(e.dispositivos_checado or []) or "Cualquiera",
+        },
+    )
+
+
+async def _validar_dispositivos(db: DB, empresa_id: uuid.UUID, ids: list[uuid.UUID]) -> list:
+    """Quita repetidos y verifica que los kioscos/relojes sean de la empresa."""
+    ids = list(dict.fromkeys(ids))
+    if ids:
+        encontrados = set(
+            await db.scalars(
+                select(Dispositivo.id).where(
+                    Dispositivo.id.in_(ids), Dispositivo.empresa_id == empresa_id
+                )
+            )
+        )
+        if len(encontrados) != len(ids):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Kiosco o reloj no válido")
+    return ids
 
 
 async def _log(db: DB, user: Usuario, e: Empleado, tipo: str, mensaje: str | None = None, **kw):
@@ -286,6 +322,7 @@ async def crear(
     emp = empresa_scope(user, empresa_id)
     await _validar_sucursal(db, user, emp, data.sucursal_id)
     await licencia.verificar_cupo(db, emp)
+    data.dispositivos_checado = await _validar_dispositivos(db, emp, data.dispositivos_checado)
     empleado = Empleado(empresa_id=emp, **data.model_dump(exclude={"turno_id", "pin"}))
     if data.pin:
         empleado.pin_hash = hash_password(data.pin)
@@ -332,6 +369,13 @@ async def actualizar(
     for requerido in ("numero", "nombre", "apellido_paterno", "fecha_ingreso", "sucursal_id"):
         if requerido in cambios and cambios[requerido] is None:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"{requerido} es obligatorio")
+
+    if "dispositivos_checado" in cambios:
+        cambios["dispositivos_checado"] = await _validar_dispositivos(
+            db, emp, cambios["dispositivos_checado"] or []
+        )
+    if "medios_checado" in cambios and cambios["medios_checado"] is not None:
+        cambios["medios_checado"] = list(dict.fromkeys(cambios["medios_checado"]))
 
     if "sucursal_id" in cambios and cambios["sucursal_id"] != empleado.sucursal_id:
         await _validar_sucursal(db, user, emp, cambios["sucursal_id"])

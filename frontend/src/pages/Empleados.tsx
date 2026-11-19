@@ -22,6 +22,7 @@ import {
   patch,
   post,
   subir,
+  type Dispositivo,
   type Empleado,
   type EmpleadoDetalle,
   type Licencia,
@@ -38,7 +39,21 @@ const CAMPOS = [
   "puesto", "departamento", "salario_diario", "email", "telefono", "sucursal_id",
 ] as const;
 type Campo = (typeof CAMPOS)[number];
-type Form = Record<Campo, string> & { turno_id: string; pin: string };
+/** medios: "sucursal" = según su sucursal; si no, lista separada por comas (vacía = ninguno). */
+type Form = Record<Campo, string> & { turno_id: string; pin: string; medios: string; dispositivos: string };
+
+const MEDIOS: { valor: string; etiqueta: string }[] = [
+  { valor: "kiosco", etiqueta: "Kiosco" },
+  { valor: "movil", etiqueta: "Portal (celular)" },
+  { valor: "biometrico", etiqueta: "Reloj biométrico" },
+  { valor: "whatsapp", etiqueta: "WhatsApp" },
+];
+const lista = (v: string) => v.split(",").filter(Boolean);
+/** Campos de checado del formulario → lo que espera la API. */
+const mediosApi = (f: Form) => ({
+  medios_checado: f.medios === "sucursal" ? null : lista(f.medios),
+  dispositivos_checado: f.medios === "sucursal" ? [] : lista(f.dispositivos),
+});
 
 const vacio = (sucursal_id = ""): Form => ({
   ...(Object.fromEntries(CAMPOS.map((c) => [c, ""])) as Record<Campo, string>),
@@ -46,6 +61,8 @@ const vacio = (sucursal_id = ""): Form => ({
   sucursal_id,
   turno_id: "",
   pin: "",
+  medios: "sucursal",
+  dispositivos: "",
 });
 
 type Vista = "detalle" | "turno" | "baja" | "acceso";
@@ -58,6 +75,7 @@ export default function Empleados() {
 
   const navegar = useNavigate();
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
+  const [dispositivos, setDispositivos] = useState<Dispositivo[]>([]);
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
   const [turnos, setTurnos] = useState<Turno[]>([]);
   const [presentes, setPresentes] = useState<Set<string>>(new Set());
@@ -119,6 +137,10 @@ export default function Empleados() {
     if (!listo) return;
     get<Sucursal[]>(`/sucursales${query}`).then(setSucursales);
     get<Turno[]>(`/turnos${query}`).then(setTurnos);
+    // Solo los administradores ven los kioscos; para el resto la lista queda vacía.
+    get<Dispositivo[]>(`/dispositivos${query}`)
+      .then((d) => setDispositivos(d.filter((x) => x.activo)))
+      .catch(() => setDispositivos([]));
   }, [listo, query]);
 
   const turnosActivos = turnos.filter((t) => t.activo);
@@ -131,6 +153,8 @@ export default function Empleados() {
       sucursal_id: e.sucursal.id,
       turno_id: "",
       pin: "",
+      medios: e.medios_checado == null ? "sucursal" : e.medios_checado.join(","),
+      dispositivos: (e.dispositivos_checado ?? []).join(","),
     };
   }
 
@@ -150,7 +174,8 @@ export default function Empleados() {
     if (!sel) return true;
     setError(null);
     try {
-      const { turno_id: _t, pin, ...datos } = form;
+      const { turno_id: _t, pin, medios: _m, dispositivos: _d, ...resto } = form;
+      const datos = { ...resto, ...mediosApi(form) };
       const r = await patch<EmpleadoDetalle>(`/empleados/${sel.id}${query}`, pin ? { ...datos, pin } : datos);
       mostrar(r);
       setHistorial((n) => n + 1);
@@ -362,8 +387,8 @@ export default function Empleados() {
     ev.preventDefault();
     setError(null);
     try {
-      const { turno_id, pin, ...datos } = form;
-      let creado = await post<EmpleadoDetalle>(`/empleados${query}`, { ...datos, turno_id: turno_id || null, pin: pin || null });
+      const { turno_id, pin, medios: _m, dispositivos: _d, ...datos } = form;
+      let creado = await post<EmpleadoDetalle>(`/empleados${query}`, { ...datos, ...mediosApi(form), turno_id: turno_id || null, pin: pin || null });
       if (fotoNueva) {
         const body = new FormData();
         body.append("archivo", await comprimir(fotoNueva, 1200), "foto.jpg");
@@ -536,6 +561,13 @@ export default function Empleados() {
                   value={form.pin}
                   onChange={(e) => setForm({ ...form, pin: e.target.value.replace(/\D/g, "") })}
                 />
+              </Fila>,
+              <Fila
+                key="medios"
+                etiqueta="Medios de checado"
+                ayuda="Por dónde registra su asistencia. «Según su sucursal» usa la configuración de checadas de su sucursal (o la general)."
+              >
+                <MediosChecado form={form} setForm={setForm} dispositivos={dispositivos} />
               </Fila>,
             ],
           )}
@@ -978,5 +1010,54 @@ function PuntoPresencia({ presente, activo, className = "" }: { presente: boolea
       title={presente ? "En el trabajo" : "Ausente"}
       aria-label={presente ? "En el trabajo" : "Ausente"}
     />
+  );
+}
+
+/** Casillas de medios de checado y, si checa en kiosco o reloj, en cuáles. */
+function MediosChecado({ form, setForm, dispositivos }: { form: Form; setForm: (f: Form) => void; dispositivos: Dispositivo[] }) {
+  const propios = form.medios !== "sucursal";
+  const medios = propios ? lista(form.medios) : [];
+  const elegidos = lista(form.dispositivos);
+  const tipos = medios.filter((m) => m === "kiosco" || m === "biometrico");
+  const aplicables = dispositivos.filter((d) => tipos.includes(d.tipo));
+  const alternar = (valor: string, en: string[]) => (en.includes(valor) ? en.filter((x) => x !== valor) : [...en, valor]).join(",");
+  return (
+    <div className="space-y-2 text-sm">
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={!propios}
+          onChange={(e) => setForm({ ...form, medios: e.target.checked ? "sucursal" : "kiosco", dispositivos: e.target.checked ? "" : form.dispositivos })}
+        />
+        Según su sucursal
+      </label>
+      {propios && (
+        <>
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            {MEDIOS.map((m) => (
+              <label key={m.valor} className="flex items-center gap-2">
+                <input type="checkbox" checked={medios.includes(m.valor)} onChange={() => setForm({ ...form, medios: alternar(m.valor, medios) })} />
+                {m.etiqueta}
+              </label>
+            ))}
+          </div>
+          {!medios.length && <p className="text-xs text-amber-700">Sin medios marcados no podrá checar.</p>}
+          {aplicables.length > 0 && (
+            <div className="rounded-lg border border-slate-200 p-2">
+              <p className="mb-1 text-xs text-slate-500">¿En cuáles? (ninguno marcado = en cualquiera)</p>
+              {aplicables.map((d) => (
+                <label key={d.id} className="flex items-center gap-2 py-0.5">
+                  <input type="checkbox" checked={elegidos.includes(d.id)} onChange={() => setForm({ ...form, dispositivos: alternar(d.id, elegidos) })} />
+                  <span>{d.nombre}</span>
+                  <span className="text-xs text-slate-400">
+                    {d.tipo === "biometrico" ? "Reloj" : "Kiosco"} · {d.sucursal.clave}
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
   );
 }

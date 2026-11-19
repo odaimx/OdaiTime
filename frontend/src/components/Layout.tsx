@@ -12,6 +12,7 @@ import { entrarSoporte, salirSoporte, useSoporte } from "../lib/soporte";
 const NAV: { to: string; label: string; roles: Rol[]; icon: NombreIcono }[] = [
   { to: "/checar", label: "Checar", roles: ["empleado"], icon: "fingerprint-pattern" },
   { to: "/mis-registros", label: "Mis registros", roles: ["empleado"], icon: "list-checks" },
+  { to: "/mis-vacaciones", label: "Mis vacaciones", roles: ["empleado"], icon: "tree-palm" },
   { to: "/", label: "Inicio", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "house" },
   { to: "/empresas", label: "Empresas", roles: ["superadmin"], icon: "building" },
   { to: "/sucursales", label: "Sucursales", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "store" },
@@ -19,6 +20,7 @@ const NAV: { to: string; label: string; roles: Rol[]; icon: NombreIcono }[] = [
   { to: "/empleados", label: "Empleados", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "contact-round" },
   { to: "/asistencia", label: "Tarjeta de asistencia", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "clipboard-list" },
   { to: "/checadas", label: "Asistencias", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "fingerprint-pattern" },
+  { to: "/vacaciones", label: "Ausencias", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "tree-palm" },
   { to: "/actividades", label: "Actividades", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "calendar-check" },
   { to: "/turnos", label: "Turnos", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "calendar-clock" },
   { to: "/festivos", label: "Días festivos", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "calendar-heart" },

@@ -10,6 +10,8 @@ from app.schemas.sucursal import SucursalRef
 TipoIncidencia = Literal[
     "vacaciones", "incapacidad", "permiso_con_goce", "permiso_sin_goce", "falta_justificada"
 ]
+Ramo = Literal["enfermedad_general", "riesgo_trabajo", "maternidad"]
+TipoIncapacidad = Literal["inicial", "subsecuente", "alta"]
 
 
 class PoliticaIn(BaseModel):
@@ -97,6 +99,8 @@ class IncidenciaIn(BaseModel):
     fecha_fin: date
     notas: Annotated[str, StringConstraints(strip_whitespace=True, max_length=1000)] | None = None
     folio: Annotated[str, StringConstraints(strip_whitespace=True, max_length=40)] | None = None
+    ramo: Ramo | None = None
+    tipo_incapacidad: TipoIncapacidad | None = None
 
     @model_validator(mode="after")
     def _rango(self):
@@ -104,6 +108,11 @@ class IncidenciaIn(BaseModel):
             raise ValueError("La fecha final no puede ser anterior a la inicial")
         if (self.fecha_fin - self.fecha_inicio).days > 365:
             raise ValueError("Una incidencia no puede durar más de un año")
+        if self.tipo == "incapacidad":
+            self.ramo = self.ramo or "enfermedad_general"
+            self.tipo_incapacidad = self.tipo_incapacidad or "inicial"
+        else:
+            self.ramo = self.tipo_incapacidad = None
         return self
 
 
@@ -117,7 +126,27 @@ class IncidenciaOut(BaseModel):
     fecha_fin: date
     notas: str | None
     folio: str | None
+    ramo: str | None = None
+    tipo_incapacidad: str | None = None
+    tiene_certificado: bool = False
     created_at: datetime
+
+    @model_validator(mode="before")
+    @classmethod
+    def _certificado(cls, v):
+        if hasattr(v, "certificado"):
+            return {
+                **{k: getattr(v, k, None) for k in cls.model_fields if k != "tiene_certificado"},
+                "empleado": EmpleadoRef.model_validate(v.empleado),
+                "tiene_certificado": bool(v.certificado),
+            }
+        return v
+
+
+class AlertaIncapacidad(BaseModel):
+    incidencia: IncidenciaOut
+    tipo: str  # por_vencer | sin_certificado | sin_alta
+    mensaje: str
 
 
 class VacacionesOut(BaseModel):

@@ -1,13 +1,15 @@
 import uuid
 from collections import defaultdict
 from datetime import UTC, date, datetime, time, timedelta
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from sqlalchemy import select
 
 from app.api.deps import DB, CurrentUser, empresa_scope, require_roles, sucursales_permitidas
 from app.models import Checada, Empleado, Incidencia, PoliticaAsistencia, Rol, Usuario
 from app.schemas.asistencia import (
+    AlertaIncapacidad,
     DetalleAsistencia,
     DiaOut,
     FilaResumen,
@@ -361,6 +363,26 @@ async def crear_incidencia(
             f"Se empalma con otra incidencia ({motor.TIPOS_INCIDENCIA[choque.tipo]}, "
             f"{choque.fecha_inicio:%d/%m/%Y} – {choque.fecha_fin:%d/%m/%Y})",
         )
+    if data.tipo == "incapacidad" and data.tipo_incapacidad == "subsecuente":
+        anterior = await db.scalar(
+            select(Incidencia).where(
+                Incidencia.empleado_id == e.id,
+                Incidencia.tipo == "incapacidad",
+                Incidencia.fecha_fin == data.fecha_inicio - timedelta(days=1),
+            )
+        )
+        if anterior is None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Una incapacidad subsecuente debe empezar el día siguiente a que termina la "
+                "anterior; registra primero la inicial",
+            )
+        if anterior.ramo and anterior.ramo != data.ramo:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                f"La subsecuente debe ser del mismo ramo que la anterior "
+                f"({RAMOS.get(anterior.ramo, anterior.ramo).lower()})",
+            )
     inc = Incidencia(empresa_id=emp, registrada_por=user.id, **data.model_dump())
     db.add(inc)
     await bitacora.registrar(
@@ -371,8 +393,15 @@ async def crear_incidencia(
         usuario=user,
         tipo="cambio",
         mensaje=(
-            f"{motor.TIPOS_INCIDENCIA[data.tipo]}: {data.fecha_inicio:%d/%m/%Y} – "
-            f"{data.fecha_fin:%d/%m/%Y}" + (f" ({data.notas})" if data.notas else "")
+            f"{motor.TIPOS_INCIDENCIA[data.tipo]}"
+            + (
+                f" {TIPOS_INCAPACIDAD[data.tipo_incapacidad].lower()} por "
+                f"{RAMOS[data.ramo].lower()}"
+                if data.ramo and data.tipo_incapacidad
+                else ""
+            )
+            + f": {data.fecha_inicio:%d/%m/%Y} – {data.fecha_fin:%d/%m/%Y}"
+            + (f" ({data.notas})" if data.notas else "")
         ),
     )
     await db.commit()
@@ -409,6 +438,165 @@ async def borrar_incidencia(
     )
     await db.delete(inc)
     await db.commit()
+
+
+# --- Incapacidades: certificado y alertas ---
+
+RAMOS = {
+    "enfermedad_general": "Enfermedad general",
+    "riesgo_trabajo": "Riesgo de trabajo",
+    "maternidad": "Maternidad",
+}
+TIPOS_INCAPACIDAD = {"inicial": "Inicial", "subsecuente": "Subsecuente", "alta": "Alta"}
+CERT_TIPOS = {
+    "application/pdf": "pdf",
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+}
+CERT_MAX = 5 * 1024 * 1024
+
+
+async def _incidencia(db: DB, user: Usuario, emp: uuid.UUID, incidencia_id: uuid.UUID):
+    inc = await db.scalar(
+        select(Incidencia).where(Incidencia.id == incidencia_id, Incidencia.empresa_id == emp)
+    )
+    if inc is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Incidencia no encontrada")
+    await _empleado(db, user, emp, inc.empleado_id)  # alcance del gerente
+    return inc
+
+
+@router.put(
+    "/incidencias/{incidencia_id}/certificado",
+    response_model=IncidenciaOut,
+    dependencies=[Depends(require_roles(*_GESTION))],
+)
+async def subir_certificado(
+    incidencia_id: uuid.UUID,
+    user: CurrentUser,
+    db: DB,
+    archivo: Annotated[UploadFile, File()],
+    empresa_id: uuid.UUID | None = None,
+) -> Incidencia:
+    """Certificado de incapacidad del IMSS (PDF o foto, máx. 5 MB)."""
+    emp = empresa_scope(user, empresa_id)
+    inc = await _incidencia(db, user, emp, incidencia_id)
+    ext = CERT_TIPOS.get((archivo.content_type or "").split(";")[0])
+    if ext is None:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Sube un PDF o una imagen")
+    datos = await archivo.read(CERT_MAX + 1)
+    if len(datos) > CERT_MAX:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "El archivo supera 5 MB")
+    if ext == "pdf" and not datos.startswith(b"%PDF"):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "El PDF no es válido")
+    inc.certificado = svc.guardar_bytes(datos, ext, emp)
+    inc.certificado_tipo = archivo.content_type
+    await bitacora.registrar(
+        db,
+        empresa_id=emp,
+        modelo="empleado",
+        registro_id=inc.empleado_id,
+        usuario=user,
+        tipo="cambio",
+        mensaje=f"Certificado de incapacidad adjunto ({inc.fecha_inicio:%d/%m/%Y})",
+    )
+    await db.commit()
+    await db.refresh(inc, attribute_names=["empleado"])
+    return inc
+
+
+@router.get(
+    "/incidencias/{incidencia_id}/certificado",
+    dependencies=[Depends(require_roles(*_GESTION))],
+)
+async def ver_certificado(
+    incidencia_id: uuid.UUID, user: CurrentUser, db: DB, empresa_id: uuid.UUID | None = None
+) -> Response:
+    inc = await _incidencia(db, user, empresa_scope(user, empresa_id), incidencia_id)
+    ruta = svc.dir_fotos() / inc.certificado if inc.certificado else None
+    if ruta is None or not ruta.is_file():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Sin certificado")
+    return Response(
+        ruta.read_bytes(),
+        media_type=inc.certificado_tipo or "application/octet-stream",
+        headers={"Cache-Control": "private, max-age=300", "X-Content-Type-Options": "nosniff"},
+    )
+
+
+@router.delete(
+    "/incidencias/{incidencia_id}/certificado",
+    response_model=IncidenciaOut,
+    dependencies=[Depends(require_roles(*_GESTION))],
+)
+async def quitar_certificado(
+    incidencia_id: uuid.UUID, user: CurrentUser, db: DB, empresa_id: uuid.UUID | None = None
+) -> Incidencia:
+    emp = empresa_scope(user, empresa_id)
+    inc = await _incidencia(db, user, emp, incidencia_id)
+    inc.certificado = inc.certificado_tipo = None
+    await db.commit()
+    await db.refresh(inc, attribute_names=["empleado"])
+    return inc
+
+
+@router.get(
+    "/incapacidades/alertas",
+    response_model=list[AlertaIncapacidad],
+    dependencies=[Depends(require_roles(*_GESTION))],
+)
+async def alertas_incapacidades(
+    user: CurrentUser, db: DB, empresa_id: uuid.UUID | None = None
+) -> list[AlertaIncapacidad]:
+    """Incapacidades por vencer (falta la subsecuente o el alta), sin certificado, o de
+    riesgo de trabajo que terminaron sin alta."""
+    emp = empresa_scope(user, empresa_id)
+    hoy = date.today()
+    q = (
+        select(Incidencia)
+        .join(Empleado, Empleado.id == Incidencia.empleado_id)
+        .where(
+            Incidencia.empresa_id == emp,
+            Incidencia.tipo == "incapacidad",
+            Incidencia.fecha_fin >= hoy - timedelta(days=30),
+            Empleado.activo,
+        )
+    )
+    permitidas = sucursales_permitidas(user)
+    if permitidas is not None:
+        q = q.where(Empleado.sucursal_id.in_(permitidas))
+    incs = list(await db.scalars(q.order_by(Incidencia.fecha_fin)))
+    inicios = {(i.empleado_id, i.fecha_inicio) for i in incs}
+    salida: list[AlertaIncapacidad] = []
+
+    def alerta(i: Incidencia, tipo: str, mensaje: str) -> None:
+        salida.append(
+            AlertaIncapacidad(
+                incidencia=IncidenciaOut.model_validate(i), tipo=tipo, mensaje=mensaje
+            )
+        )
+
+    for i in incs:
+        continua = (i.empleado_id, i.fecha_fin + timedelta(days=1)) in inicios
+        nombre = i.empleado.nombre_completo
+        if i.tipo_incapacidad != "alta" and not continua:
+            if hoy <= i.fecha_fin <= hoy + timedelta(days=2):
+                alerta(
+                    i,
+                    "por_vencer",
+                    f"La incapacidad de {nombre} vence el {i.fecha_fin:%d/%m/%Y}: registra la "
+                    "subsecuente o confirma su regreso.",
+                )
+            elif i.ramo == "riesgo_trabajo" and hoy - timedelta(days=7) <= i.fecha_fin < hoy:
+                alerta(
+                    i,
+                    "sin_alta",
+                    f"El riesgo de trabajo de {nombre} terminó el {i.fecha_fin:%d/%m/%Y} sin "
+                    "alta (ST-2) registrada.",
+                )
+        if not i.certificado and i.fecha_inicio >= hoy - timedelta(days=30):
+            alerta(i, "sin_certificado", f"Falta el certificado de incapacidad de {nombre}.")
+    return salida
 
 
 # --- Vacaciones (art. 76) ---

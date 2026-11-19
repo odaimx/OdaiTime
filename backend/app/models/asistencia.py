@@ -24,6 +24,13 @@ class Incidencia(UUIDPkMixin, TimestampMixin, Base):
     fecha_fin: Mapped[date] = mapped_column(Date)
     notas: Mapped[str | None] = mapped_column(Text)
     folio: Mapped[str | None] = mapped_column(String(40))  # p. ej. folio de incapacidad del IMSS
+    # Solo incapacidades (IMSS):
+    ramo: Mapped[str | None] = mapped_column(
+        String(20)
+    )  # enfermedad_general|riesgo_trabajo|maternidad
+    tipo_incapacidad: Mapped[str | None] = mapped_column(String(12))  # inicial|subsecuente|alta
+    certificado: Mapped[str | None] = mapped_column(String(200))  # ruta del archivo (PDF/imagen)
+    certificado_tipo: Mapped[str | None] = mapped_column(String(50))
     registrada_por: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("usuarios.id", ondelete="SET NULL")
     )

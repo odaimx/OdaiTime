@@ -38,6 +38,8 @@ ETIQUETAS: dict[str, dict[str, str]] = {
         "turno": "Turno",
         "activo": "Activo",
         "pin": "PIN del kiosco",
+        "medios_checado": "Medios de checado",
+        "dispositivos_checado": "Kioscos / relojes",
     },
     "sucursal": {
         "clave": "Clave",

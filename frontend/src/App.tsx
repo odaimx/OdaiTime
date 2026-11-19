@@ -18,6 +18,8 @@ import Login from "./pages/Login";
 import Reportes from "./pages/Reportes";
 import Restablecer from "./pages/Restablecer";
 import MisRegistros from "./pages/MisRegistros";
+import MisVacaciones from "./pages/MisVacaciones";
+import Vacaciones from "./pages/Vacaciones";
 import MiEmpresa from "./pages/MiEmpresa";
 import Sucursales from "./pages/Sucursales";
 import Obras from "./pages/Obras";
@@ -69,6 +71,22 @@ export default function App() {
           element={
             <Requiere roles={["empleado"]}>
               <MisRegistros />
+            </Requiere>
+          }
+        />
+        <Route
+          path="mis-vacaciones"
+          element={
+            <Requiere roles={["empleado"]}>
+              <MisVacaciones />
+            </Requiere>
+          }
+        />
+        <Route
+          path="vacaciones"
+          element={
+            <Requiere roles={GESTION}>
+              <Vacaciones />
             </Requiere>
           }
         />

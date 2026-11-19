@@ -8,7 +8,9 @@ import Icono from "../components/Iconos";
 import Vista, { abrirEn, useVista, type ConfigVista } from "../components/Vista";
 import { ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
 import { periodo } from "../lib/periodo";
-import { descargar, get, hm, hora, INCIDENCIAS, post, type DetalleAsistencia, type DiaAsistencia, type FilaResumen, type Sucursal } from "../lib/api";
+import { descargar, get, hm, hora, INCIDENCIAS,
+  RAMOS,
+  TIPOS_INCAPACIDAD, post, type DetalleAsistencia, type DiaAsistencia, type FilaResumen, type Sucursal } from "../lib/api";
 
 const ESTADOS: Record<string, { label: string; clase: string }> = {
   asistencia: { label: "Asistencia", clase: "bg-emerald-50 text-emerald-700" },
@@ -35,7 +37,7 @@ export default function TarjetaAsistencia() {
   const [error, setError] = useState<string | null>(null);
   const [detalle, setDetalle] = useState<DetalleAsistencia | null>(null);
   const [justificar, setJustificar] = useState<DiaAsistencia | null>(null);
-  const [formInc, setFormInc] = useState({ tipo: "falta_justificada", notas: "", folio: "" });
+  const [formInc, setFormInc] = useState({ tipo: "falta_justificada", notas: "", folio: "", ramo: "enfermedad_general", tipo_incapacidad: "inicial" });
 
   const cargar = useCallback(() => {
     if (!listo) return;
@@ -75,6 +77,8 @@ export default function TarjetaAsistencia() {
         fecha_fin: justificar.fecha,
         notas: formInc.notas || null,
         folio: formInc.folio || null,
+        ramo: formInc.tipo === "incapacidad" ? formInc.ramo : null,
+        tipo_incapacidad: formInc.tipo === "incapacidad" ? formInc.tipo_incapacidad : null,
       });
       setJustificar(null);
       await abrir(detalle.empleado.id);
@@ -321,7 +325,7 @@ export default function TarjetaAsistencia() {
                             className="mt-1 block text-xs font-medium text-brand-600 hover:underline"
                             onClick={() => {
                               setError(null);
-                              setFormInc({ tipo: "falta_justificada", notas: "", folio: "" });
+                              setFormInc({ tipo: "falta_justificada", notas: "", folio: "", ramo: "enfermedad_general", tipo_incapacidad: "inicial" });
                               setJustificar(d);
                             }}
                           >
@@ -332,7 +336,9 @@ export default function TarjetaAsistencia() {
                       <td className="py-2 pr-2 text-xs tabular-nums text-slate-600">
                         {d.entradas.map((e, i) => (
                           <span key={e} className="block">
-                            {hora(e, tz)} – {d.salidas[i] ? hora(d.salidas[i], tz) : "?"}
+                            {hora(e, tz)}
+                            {masDias(e, d.fecha, tz)} – {d.salidas[i] ? hora(d.salidas[i], tz) : "?"}
+                            {d.salidas[i] && masDias(d.salidas[i], d.fecha, tz)}
                           </span>
                         ))}
                       </td>
@@ -366,9 +372,31 @@ export default function TarjetaAsistencia() {
               </select>
             </div>
             {formInc.tipo === "incapacidad" && (
-              <div>
-                <label className="label">Folio de incapacidad (IMSS)</label>
-                <input className="input" maxLength={40} value={formInc.folio} onChange={(e) => setFormInc({ ...formInc, folio: e.target.value })} />
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div>
+                  <label className="label">Ramo</label>
+                  <select className="input" value={formInc.ramo} onChange={(e) => setFormInc({ ...formInc, ramo: e.target.value })}>
+                    {Object.entries(RAMOS).map(([k, v]) => (
+                      <option key={k} value={k}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Tipo</label>
+                  <select className="input" value={formInc.tipo_incapacidad} onChange={(e) => setFormInc({ ...formInc, tipo_incapacidad: e.target.value })}>
+                    {Object.entries(TIPOS_INCAPACIDAD).map(([k, v]) => (
+                      <option key={k} value={k}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Folio (IMSS)</label>
+                  <input className="input" maxLength={40} value={formInc.folio} onChange={(e) => setFormInc({ ...formInc, folio: e.target.value })} />
+                </div>
               </div>
             )}
             <div>
@@ -486,4 +514,11 @@ function SelectorPeriodo({
       )}
     </div>
   );
+}
+
+/** " (+1)" si la hora cae al día siguiente de la jornada (turno nocturno). */
+function masDias(iso: string, fecha: string, tz: string | undefined): string {
+  const local = new Date(iso).toLocaleDateString("en-CA", { timeZone: tz });
+  const n = Math.round((new Date(`${local}T12:00`).getTime() - new Date(`${fecha}T12:00`).getTime()) / 86_400_000);
+  return n > 0 ? ` (+${n})` : "";
 }
