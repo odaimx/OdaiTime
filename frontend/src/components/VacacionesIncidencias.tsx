@@ -1,6 +1,6 @@
 import Icono from "./Iconos";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { api, get, INCIDENCIAS, post, type IncidenciaReg, type Vacaciones } from "../lib/api";
+import { abrirArchivo, api, get, INCIDENCIAS, post, RAMOS, subirPut, TIPOS_INCAPACIDAD, type IncidenciaReg, type Vacaciones } from "../lib/api";
 import { ArticuloLFT } from "./LFT";
 import { ErrorBox } from "./ui";
 
@@ -12,7 +12,9 @@ export default function VacacionesIncidencias({ empleadoId, query, onCambio }: {
   const [vac, setVac] = useState<Vacaciones | null>(null);
   const [lista, setLista] = useState<IncidenciaReg[]>([]);
   const [abierto, setAbierto] = useState(false);
-  const [form, setForm] = useState({ tipo: "vacaciones", fecha_inicio: "", fecha_fin: "", notas: "", folio: "" });
+  const VACIO = { tipo: "vacaciones", fecha_inicio: "", fecha_fin: "", notas: "", folio: "", ramo: "enfermedad_general", tipo_incapacidad: "inicial" };
+  const [form, setForm] = useState(VACIO);
+  const [certificado, setCertificado] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const cargar = useCallback(() => {
@@ -25,15 +27,20 @@ export default function VacacionesIncidencias({ empleadoId, query, onCambio }: {
     e.preventDefault();
     setError(null);
     try {
-      await post(`/asistencia/incidencias${query}`, {
+      const incap = form.tipo === "incapacidad";
+      const nueva = await post<IncidenciaReg>(`/asistencia/incidencias${query}`, {
         empleado_id: empleadoId,
         ...form,
         fecha_fin: form.fecha_fin || form.fecha_inicio,
         notas: form.notas || null,
         folio: form.folio || null,
+        ramo: incap ? form.ramo : null,
+        tipo_incapacidad: incap ? form.tipo_incapacidad : null,
       });
+      if (incap && certificado) await subirPut(`/asistencia/incidencias/${nueva.id}/certificado${query}`, "archivo", certificado);
       setAbierto(false);
-      setForm({ tipo: "vacaciones", fecha_inicio: "", fecha_fin: "", notas: "", folio: "" });
+      setForm(VACIO);
+      setCertificado(null);
       cargar();
       onCambio?.();
     } catch (err) {
@@ -94,7 +101,29 @@ export default function VacacionesIncidencias({ empleadoId, query, onCambio }: {
             <input type="date" className="input" aria-label="Desde" required value={form.fecha_inicio} onChange={(e) => setForm({ ...form, fecha_inicio: e.target.value })} />
             <input type="date" className="input" aria-label="Hasta" min={form.fecha_inicio} value={form.fecha_fin} onChange={(e) => setForm({ ...form, fecha_fin: e.target.value })} />
           </div>
-          {form.tipo === "incapacidad" && <input className="input" placeholder="Folio de incapacidad (IMSS)" maxLength={40} value={form.folio} onChange={(e) => setForm({ ...form, folio: e.target.value })} />}
+          {form.tipo === "incapacidad" && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <select className="input" aria-label="Ramo" value={form.ramo} onChange={(e) => setForm({ ...form, ramo: e.target.value })}>
+                {Object.entries(RAMOS).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+              <select className="input" aria-label="Tipo de incapacidad" value={form.tipo_incapacidad} onChange={(e) => setForm({ ...form, tipo_incapacidad: e.target.value })}>
+                {Object.entries(TIPOS_INCAPACIDAD).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+              <input className="input" placeholder="Folio (IMSS)" maxLength={40} value={form.folio} onChange={(e) => setForm({ ...form, folio: e.target.value })} />
+              <label className="text-sm text-slate-600 sm:col-span-3">
+                Certificado (PDF o foto, opcional):{" "}
+                <input type="file" accept="application/pdf,image/*" className="text-sm" onChange={(e) => setCertificado(e.target.files?.[0] ?? null)} />
+              </label>
+            </div>
+          )}
           <input className="input" placeholder="Notas (opcional)" maxLength={1000} value={form.notas} onChange={(e) => setForm({ ...form, notas: e.target.value })} />
           <ErrorBox message={error} />
           <div className="flex justify-end">
@@ -103,6 +132,7 @@ export default function VacacionesIncidencias({ empleadoId, query, onCambio }: {
         </form>
       )}
 
+      {!abierto && <ErrorBox message={error} />}
       {lista.length === 0 ? (
         <p className="text-sm text-slate-500">Sin incidencias registradas.</p>
       ) : (
@@ -112,11 +142,41 @@ export default function VacacionesIncidencias({ empleadoId, query, onCambio }: {
               <div>
                 <p className="font-medium text-tinta-900">{INCIDENCIAS[i.tipo] ?? i.tipo}</p>
                 <p className="text-xs text-slate-500">
+                  {i.ramo && `${RAMOS[i.ramo]} · ${TIPOS_INCAPACIDAD[i.tipo_incapacidad ?? "inicial"]} · `}
                   {fecha(i.fecha_inicio)}
                   {i.fecha_fin !== i.fecha_inicio && ` – ${fecha(i.fecha_fin)}`}
                   {i.folio && ` · Folio ${i.folio}`}
                   {i.notas && ` · ${i.notas}`}
                 </p>
+                {i.tipo === "incapacidad" && (
+                  <div className="mt-1 flex gap-3 text-xs">
+                    {i.tiene_certificado ? (
+                      <button type="button" className="text-brand-600 hover:underline" onClick={() => abrirArchivo(`/asistencia/incidencias/${i.id}/certificado${query}`)}>
+                        Ver certificado
+                      </button>
+                    ) : (
+                      <span className="text-amber-700">Sin certificado</span>
+                    )}
+                    <label className="cursor-pointer text-brand-600 hover:underline">
+                      {i.tiene_certificado ? "Cambiar" : "Adjuntar"}
+                      <input
+                        type="file"
+                        accept="application/pdf,image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const f = e.target.files?.[0];
+                          if (!f) return;
+                          try {
+                            await subirPut(`/asistencia/incidencias/${i.id}/certificado${query}`, "archivo", f);
+                            cargar();
+                          } catch (err) {
+                            setError((err as Error).message);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                )}
               </div>
               <button type="button" className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Eliminar" aria-label="Eliminar" onClick={() => borrar(i.id)}>
                 <Icono nombre="trash" className="h-4 w-4" />
