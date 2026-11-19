@@ -52,3 +52,16 @@ class Frase(UUIDPkMixin, TimestampMixin, Base):
     tipo: Mapped[str] = mapped_column(String(10), index=True)  # frase | proverbio | cita
     texto: Mapped[str] = mapped_column(String(600))
     autor: Mapped[str | None] = mapped_column(String(150))  # autor o referencia (Juan 3:16)
+
+
+class PlantillaCorreo(Base):
+    """Texto editable de un correo (asunto, título, párrafos y botón). Sin fila = el de fábrica."""
+
+    __tablename__ = "plantillas_correo"
+
+    clave: Mapped[str] = mapped_column(String(30), primary_key=True)
+    asunto: Mapped[str] = mapped_column(String(200))
+    titulo: Mapped[str] = mapped_column(String(200))
+    cuerpo: Mapped[str] = mapped_column(String(4000))
+    boton: Mapped[str | None] = mapped_column(String(80))
+    actualizada: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
