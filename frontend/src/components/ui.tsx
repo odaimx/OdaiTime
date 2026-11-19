@@ -653,3 +653,64 @@ export function ImagenEditable({
     </div>
   );
 }
+
+/**
+ * Botones junto a la latitud: «Estoy aquí» (GPS del navegador) y «Buscar la dirección»
+ * (OpenStreetMap). Llenan latitud y longitud; se pueden ajustar a mano.
+ */
+export function UbicarBotones({ direccion, onUbicar, deshabilitado }: { direccion?: string; onUbicar: (lat: string, lon: string) => void; deshabilitado?: boolean }) {
+  const [ocupado, setOcupado] = useState<"gps" | "dir" | null>(null);
+  const [mensaje, setMensaje] = useState<string | null>(null);
+
+  function aqui() {
+    setMensaje(null);
+    if (!navigator.geolocation) return setMensaje("Este navegador no da la ubicación.");
+    setOcupado("gps");
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        setOcupado(null);
+        onUbicar(p.coords.latitude.toFixed(6), p.coords.longitude.toFixed(6));
+        setMensaje(`Ubicación tomada (precisión ±${Math.round(p.coords.accuracy)} m).`);
+      },
+      (e) => {
+        setOcupado(null);
+        setMensaje(e.code === e.PERMISSION_DENIED ? "Permite el acceso a la ubicación en el navegador." : "No se pudo obtener la ubicación.");
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    );
+  }
+
+  async function buscar() {
+    setMensaje(null);
+    const q = direccion?.trim();
+    if (!q) return setMensaje("Escribe primero la dirección.");
+    setOcupado("dir");
+    try {
+      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=mx&accept-language=es&q=${encodeURIComponent(q)}`);
+      const lista = (await r.json()) as { lat: string; lon: string; display_name: string }[];
+      if (!lista.length) setMensaje("No se encontró la dirección; agrega colonia, ciudad y estado.");
+      else {
+        onUbicar(Number(lista[0].lat).toFixed(6), Number(lista[0].lon).toFixed(6));
+        setMensaje(`Encontrada: ${lista[0].display_name}. Revisa que sea correcta.`);
+      }
+    } catch {
+      setMensaje("No se pudo buscar la dirección. Intenta más tarde.");
+    } finally {
+      setOcupado(null);
+    }
+  }
+
+  return (
+    <div className="mt-1 space-y-1">
+      <div className="flex gap-1.5">
+        <button type="button" className="rounded-md p-1.5 text-slate-500 ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-brand-600 disabled:opacity-50" title="Estoy aquí: tomar mi ubicación actual" aria-label="Tomar mi ubicación actual" disabled={deshabilitado || !!ocupado} onClick={aqui}>
+          <Icono nombre="locate-fixed" className={`h-4 w-4 ${ocupado === "gps" ? "animate-pulse" : ""}`} />
+        </button>
+        <button type="button" className="rounded-md p-1.5 text-slate-500 ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-brand-600 disabled:opacity-50" title="Calcular a partir de la dirección" aria-label="Calcular a partir de la dirección" disabled={deshabilitado || !!ocupado} onClick={buscar}>
+          <Icono nombre="map-pin" className={`h-4 w-4 ${ocupado === "dir" ? "animate-pulse" : ""}`} />
+        </button>
+      </div>
+      {mensaje && <p className="text-xs text-slate-500">{mensaje}</p>}
+    </div>
+  );
+}

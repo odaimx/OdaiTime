@@ -4,7 +4,7 @@ import Registro, { useFormulario } from "../components/Registro";
 import Icono from "../components/Iconos";
 import Vista, { useAbrirDesdeUrl, useVista, type ConfigVista } from "../components/Vista";
 import { imprimirSecciones } from "../lib/imprimir";
-import { Ayuda, Badge, ErrorBox, PageHeader, Plegable, useEmpresaScope } from "../components/ui";
+import { Ayuda, Badge, ErrorBox, PageHeader, Plegable, UbicarBotones, useEmpresaScope } from "../components/ui";
 import { api, descargar, fechaCorta, get, patch, post, type AsignacionObra, type Empleado, type Obra, type Sucursal } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -264,9 +264,10 @@ export default function Obras() {
                 <div>
                   <label className="label">
                     Latitud
-                    <Ayuda texto="En Google Maps, clic derecho sobre la obra para copiar las coordenadas. Los empleados asignados checan con GPS contra este punto." />
+                    <Ayuda texto="Usa los íconos de abajo: «Estoy aquí» toma tu ubicación actual (estando en la obra) y el pin la calcula con la dirección. Los empleados asignados checan con GPS contra este punto." />
                   </label>
                   <input className="input" type="number" step="any" min={-90} max={90} placeholder="21.1619" value={form.latitud} onChange={set("latitud")} />
+                <UbicarBotones direccion={form.direccion} deshabilitado={!puedeEditar} onUbicar={(latitud, longitud) => setForm({ ...form, latitud, longitud })} />
                 </div>
                 <div>
                   <label className="label">Longitud</label>
