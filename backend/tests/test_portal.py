@@ -215,9 +215,11 @@ async def test_frases_apariencia_y_foto(client, superadmin):
             "fondo_color": "#EEF2FF",
             "login_titulo": "Control de asistencia",
             "login_color_subtitulo": "#8A64DE",
+            "login_tamano_subtitulo": 28,
         },
     )
     assert r.json()["login_colores"]["subtitulo"] == "#8a64de"
+    assert r.json()["login_tamanos"]["subtitulo"] == 28
     assert (
         r.json()["fondo_color"] == "#eef2ff" and r.json()["login_titulo"] == "Control de asistencia"
     )

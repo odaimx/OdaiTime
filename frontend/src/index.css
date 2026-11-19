@@ -59,10 +59,18 @@
     @apply inline-flex max-w-full items-center gap-1 overflow-hidden rounded-md bg-slate-100 text-xs text-tinta-900 ring-1 ring-slate-200;
   }
   .btn-icono {
-    @apply inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-100 text-tinta-900 transition hover:bg-slate-200 disabled:cursor-default disabled:text-slate-500 disabled:hover:bg-slate-100;
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-100 text-tinta-900 ring-1 ring-slate-300 transition hover:bg-slate-200 disabled:cursor-default disabled:text-slate-500 disabled:hover:bg-slate-100;
   }
   .btn-icono-activo {
     @apply inline-flex h-9 w-9 items-center justify-center rounded-md bg-brand-50 text-tinta-900 ring-1 ring-brand-500;
+  }
+  /* Flechas de avanzar y regresar: fondo tenue y su marco. */
+  .btn-flecha {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-md bg-slate-50 text-tinta-900 ring-1 ring-slate-300 transition hover:bg-slate-100 disabled:cursor-default disabled:text-slate-400 disabled:hover:bg-slate-50;
+  }
+  .btn-flecha > svg {
+    width: 1.3rem !important;
+    height: 1.3rem !important;
   }
   /* Grupo de botones de vista (lista, kanban, calendario, fuentes) */
   /* Íconos de la barra de vistas (lista, kanban, calendario, filtros, ⋮) más grandes. */
@@ -78,7 +86,7 @@
     @apply flex items-center gap-2;
   }
   .btn-vista {
-    @apply inline-flex h-9 w-11 items-center justify-center rounded-md bg-slate-100 text-tinta-900 transition hover:bg-slate-200;
+    @apply inline-flex h-9 w-11 items-center justify-center rounded-md bg-slate-100 text-tinta-900 ring-1 ring-slate-300 transition hover:bg-slate-200;
   }
   .btn-vista-activo {
     @apply inline-flex h-9 w-11 items-center justify-center rounded-md bg-brand-50 text-tinta-900 ring-1 ring-brand-500;

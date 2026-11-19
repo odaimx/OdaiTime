@@ -35,6 +35,10 @@ class ConfigSistema(Base):
     login_color_titulo: Mapped[str | None] = mapped_column(String(7))
     login_color_subtitulo: Mapped[str | None] = mapped_column(String(7))
     login_color_texto: Mapped[str | None] = mapped_column(String(7))
+    # Tamaño de letra (px) de cada renglón del panel de acceso; vacío = predeterminado.
+    login_tamano_titulo: Mapped[int | None] = mapped_column(Integer)
+    login_tamano_subtitulo: Mapped[int | None] = mapped_column(Integer)
+    login_tamano_texto: Mapped[int | None] = mapped_column(Integer)
 
 
 class Frase(UUIDPkMixin, TimestampMixin, Base):
