@@ -24,6 +24,7 @@ from app.api import (
     tenant,
     turnos,
     usuarios,
+    vacaciones,
 )
 from app.core.config import get_settings
 
@@ -67,5 +68,6 @@ for r in (
     sistema.router,
     integracion.router,
     obras.router,
+    vacaciones.router,
 ):
     app.include_router(r, prefix="/api")

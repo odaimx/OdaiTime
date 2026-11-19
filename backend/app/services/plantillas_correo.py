@@ -2,7 +2,8 @@
 
 Cada plantilla tiene asunto, título, cuerpo (párrafos separados por un renglón en blanco) y el
 texto del botón. Se escriben como texto: los valores se escapan y **así** se pone en negritas.
-Variables: {empresa}, {nombre}, {nombre_completo}, {correo}, {horas}, {usuario_envia}.
+Variables: {empresa}, {nombre}, {nombre_completo}, {correo}, {horas}, {usuario_envia} y, en
+vacaciones, {empleado}, {fechas}, {dias}, {motivo}, {estado}, {comentario}.
 El diseño (colores, encabezado con la empresa y pie de ODAI) es fijo.
 """
 
@@ -56,6 +57,23 @@ FABRICA: dict[str, Plantilla] = {
         "correo: tu contraseña no cambia.",
         "Cambiar mi contraseña",
     ),
+    "vacaciones_solicitud": Plantilla(
+        "Solicitud de vacaciones",
+        "Se envía al administrador y a los gerentes de la sucursal cuando un empleado pide "
+        "vacaciones desde el portal.",
+        "{empresa}: {empleado} pide vacaciones",
+        "Solicitud de vacaciones",
+        "**{empleado}** pidió vacaciones del **{fechas}** ({dias} día(s) hábiles).\n\n{motivo}",
+        "Revisar solicitud",
+    ),
+    "vacaciones_respuesta": Plantilla(
+        "Respuesta a la solicitud de vacaciones",
+        "Se envía al empleado cuando aprueban, rechazan o cancelan su solicitud.",
+        "{empresa}: tus vacaciones fueron {estado}",
+        "Hola, {nombre}",
+        "Tu solicitud de vacaciones del **{fechas}** fue **{estado}**.\n\n{comentario}",
+        "Ver mis vacaciones",
+    ),
     "prueba": Plantilla(
         "Correo de prueba",
         "Se envía desde Correo saliente para probar el servidor.",
@@ -73,6 +91,12 @@ VARIABLES = {
     "correo": "Correo (usuario) del destinatario",
     "horas": "Horas que dura el enlace",
     "usuario_envia": "Quien envía (solo en la prueba)",
+    "empleado": "Empleado que pide vacaciones",
+    "fechas": "Fechas de las vacaciones",
+    "dias": "Días hábiles de vacaciones",
+    "motivo": "Motivo que escribió el empleado",
+    "estado": "aprobada, rechazada o cancelada",
+    "comentario": "Comentario de quien responde",
 }
 
 EJEMPLO = {
@@ -82,6 +106,12 @@ EJEMPLO = {
     "correo": "lucia@hotelmar.mx",
     "horas": "72",
     "usuario_envia": "Odai",
+    "empleado": "Lucía Mar Pérez",
+    "fechas": "02/12/2026 al 13/12/2026",
+    "dias": "10",
+    "motivo": "Motivo: viaje familiar",
+    "estado": "aprobada",
+    "comentario": "Comentario: ¡Disfrútalas!",
 }
 
 

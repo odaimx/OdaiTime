@@ -28,7 +28,7 @@ async def limpiar_bd():
                 "TRUNCATE config_sistema, tokens_acceso, categoria_registros, categorias, "
                 "config_correo, "
                 "tareas, claves_nomina, festivo_designados, empresa_festivos, "
-                "incidencias, "
+                "solicitudes_vacaciones, incidencias, "
                 "politica_asistencia, "
                 "actividades, checadas, asignaciones_obra, obras, dispositivos, config_checadas, "
                 "asignaciones_turno, empleados, turno_dias, turnos, sesiones, "
