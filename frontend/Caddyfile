@@ -1,7 +1,7 @@
 # Variables de .env:
 #   https://ADMIN_HOST          → panel de Odai (superadmin), p. ej. time.odai.lat
 #   https://<empresa>.DOMAIN    → cada cliente, p. ej. hotel.odai.lat; certificado al primer acceso
-#   http://IP                   → acceso directo por IP para pruebas, sin subdominios
+#   http://IP                   → bloqueado: por seguridad solo se entra por los dominios
 # El dominio raíz (odai.lat) no se sirve aquí: es el sitio web de Odai.
 {
 	on_demand_tls {
@@ -48,7 +48,9 @@
 	import app
 }
 
-# Acceso por IP (sin HTTPS). Los nombres de arriba tienen prioridad y redirigen a HTTPS.
+# Cualquier otra dirección (la IP del servidor o un dominio ajeno) se rechaza: solo se entra
+# por ADMIN_HOST y por los subdominios de DOMAIN, siempre con HTTPS. Los nombres de arriba
+# tienen prioridad, así que su redirección a HTTPS y los certificados no se ven afectados.
 :80 {
-	import app
+	abort
 }
