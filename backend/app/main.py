@@ -25,6 +25,7 @@ from app.api import (
     turnos,
     usuarios,
     vacaciones,
+    whatsapp,
 )
 from app.core.config import get_settings
 
@@ -69,5 +70,6 @@ for r in (
     integracion.router,
     obras.router,
     vacaciones.router,
+    whatsapp.router,
 ):
     app.include_router(r, prefix="/api")

@@ -321,7 +321,7 @@ export interface Empleado {
   tiene_pin: boolean;
   foto_version: string | null;
   /** null = según la configuración de checadas de su sucursal. */
-  medios_checado?: ("movil" | "kiosco" | "biometrico")[] | null;
+  medios_checado?: ("movil" | "kiosco" | "biometrico" | "whatsapp")[] | null;
   /** Kioscos/relojes donde puede checar; vacío = cualquiera. */
   dispositivos_checado?: string[];
   activo: boolean;
@@ -386,7 +386,7 @@ export interface Checada {
   id: string;
   tipo: "entrada" | "salida";
   momento: string;
-  origen: "movil" | "kiosco" | "biometrico" | "manual";
+  origen: "movil" | "kiosco" | "biometrico" | "manual" | "whatsapp";
   offline: boolean;
   distancia_m: number | null;
   retardo_minutos: number | null;
@@ -403,6 +403,7 @@ export const ORIGENES: Record<Checada["origen"], string> = {
   kiosco: "Kiosco",
   biometrico: "Reloj biométrico",
   manual: "Manual",
+  whatsapp: "WhatsApp",
 };
 
 export interface EstadoHoy {

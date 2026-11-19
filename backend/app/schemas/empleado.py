@@ -63,7 +63,7 @@ Salario = Annotated[
 ]
 
 
-Medio = Literal["movil", "kiosco", "biometrico"]
+Medio = Literal["movil", "kiosco", "biometrico", "whatsapp"]
 
 
 class EmpleadoCreate(BaseModel):

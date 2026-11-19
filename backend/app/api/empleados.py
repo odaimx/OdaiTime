@@ -66,7 +66,12 @@ CAMPOS_BITACORA = (
 )
 
 
-_MEDIOS = {"movil": "Celular", "kiosco": "Kiosco", "biometrico": "Reloj biométrico"}
+_MEDIOS = {
+    "movil": "Celular",
+    "kiosco": "Kiosco",
+    "biometrico": "Reloj biométrico",
+    "whatsapp": "WhatsApp",
+}
 
 
 def _snap(e: Empleado) -> dict:

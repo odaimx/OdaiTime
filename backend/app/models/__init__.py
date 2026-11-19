@@ -14,6 +14,7 @@ from app.models.tarea import Tarea
 from app.models.turno import AsignacionTurno, Turno, TurnoDia
 from app.models.usuario import Rol, Sesion, Usuario, usuario_sucursales
 from app.models.vacaciones import SolicitudVacaciones
+from app.models.whatsapp import ConfigWhatsApp
 
 __all__ = [
     "Actividad",
@@ -23,6 +24,7 @@ __all__ = [
     "ConfigCorreo",
     "AsignacionObra",
     "ConfigSistema",
+    "ConfigWhatsApp",
     "Frase",
     "Obra",
     "PlantillaCorreo",
