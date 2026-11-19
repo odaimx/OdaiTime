@@ -199,6 +199,7 @@ class MiEmpresaIn(BaseModel):
     nombre: Nombre
     razon_social: str | None = Field(default=None, max_length=250)
     rfc: RFC | None = None
+    direccion: str | None = Field(default=None, max_length=300)
 
 
 class MiEmpresaOut(BaseModel):
@@ -206,6 +207,7 @@ class MiEmpresaOut(BaseModel):
     nombre: str
     razon_social: str | None
     rfc: str | None
+    direccion: str | None
     slug: str
     logo_version: str | None
 
@@ -216,6 +218,7 @@ def _mi_empresa(e: Empresa) -> MiEmpresaOut:
         nombre=e.nombre,
         razon_social=e.razon_social,
         rfc=e.rfc,
+        direccion=e.direccion,
         slug=e.slug,
         logo_version=e.logo_version,
     )
@@ -235,13 +238,14 @@ async def ver_mi_empresa(
 async def guardar_mi_empresa(
     data: MiEmpresaIn, user: CurrentUser, db: DB, empresa_id: uuid.UUID | None = None
 ) -> MiEmpresaOut:
-    """Nombre, razón social y RFC. La licencia y el subdominio solo los cambia Odai."""
+    """Nombre, razón social, RFC y dirección. La licencia y el subdominio solo los cambia Odai."""
     e = await db.get(Empresa, empresa_scope(user, empresa_id))
     if e is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Empresa no encontrada")
     e.nombre = data.nombre
     e.razon_social = (data.razon_social or "").strip() or None
     e.rfc = data.rfc or None
+    e.direccion = (data.direccion or "").strip() or None
     try:
         await db.commit()
     except IntegrityError:

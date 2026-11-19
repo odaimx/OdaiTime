@@ -101,12 +101,12 @@ export default function Login() {
             {tema?.login_subtitulo ?? "claro y en regla."}
           </p>
           {textoLogin && (
-            <p className="mt-4 max-w-md whitespace-pre-line text-slate-200" style={{ color: colores.texto ?? undefined }}>
+            <p className="mt-4 max-w-2xl whitespace-pre-line text-slate-200" style={{ color: colores.texto ?? undefined }}>
               {textoLogin}
             </p>
           )}
         </div>
-        <p className="relative text-xs text-slate-300">© {new Date().getFullYear()} Odai · Cancún, México</p>
+        <p className="relative self-end text-right text-xs text-slate-300">© {new Date().getFullYear()} Odai · Cancún, México</p>
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-slate-50 p-6" style={estiloFondoLogin(tema)}>
@@ -198,10 +198,10 @@ type Frase = { id: string; tipo: "frase" | "proverbio" | "cita"; texto: string; 
 type Preferencia = "todas" | "frase" | "proverbio" | "cita";
 const ETIQUETA: Record<Frase["tipo"], string> = { frase: "Frase", proverbio: "Proverbio", cita: "Cita bíblica" };
 const OPCIONES: [Preferencia, string][] = [
-  ["todas", "Todas"],
   ["frase", "Frases"],
   ["proverbio", "Proverbios"],
   ["cita", "Citas bíblicas"],
+  ["todas", "Todas"],
 ];
 const PREF = "odaitime.frases";
 
@@ -238,7 +238,18 @@ function Frases({ conteo }: { conteo: Record<string, number> }) {
 
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between gap-2">
+      {frase ? (
+        <figure>
+          <blockquote className="text-sm italic text-tinta-900">“{frase.texto}”</blockquote>
+          <figcaption className="mt-3 text-right text-xs text-slate-500">
+            — {frase.autor || "Anónimo"} · <span className="text-brand-700">{ETIQUETA[frase.tipo]}</span>
+          </figcaption>
+        </figure>
+      ) : (
+        <p className="text-xs text-slate-400">Sin frases de este tipo.</p>
+      )}
+      {/* Qué ver y la flecha para otra, separados del autor. */}
+      <div className="mt-6 flex items-center justify-between gap-2">
         <select className="-ml-1 rounded-md border-0 bg-transparent py-0.5 pl-1 pr-7 text-xs font-medium text-brand-700 focus:ring-1 focus:ring-brand-300" value={pref} onChange={(e) => elegir(e.target.value as Preferencia)} aria-label="Qué frases ver">
           {OPCIONES.filter(([k]) => k === "todas" || conteo[k]).map(([k, l]) => (
             <option key={k} value={k}>
@@ -250,16 +261,6 @@ function Frases({ conteo }: { conteo: Record<string, number> }) {
           <Icono nombre="arrow-right" className="h-4 w-4" />
         </button>
       </div>
-      {frase ? (
-        <figure>
-          <blockquote className="text-sm italic text-tinta-900">“{frase.texto}”</blockquote>
-          <figcaption className="mt-1.5 text-xs text-slate-500">
-            — {frase.autor || "Anónimo"} · <span className="text-brand-700">{ETIQUETA[frase.tipo]}</span>
-          </figcaption>
-        </figure>
-      ) : (
-        <p className="text-xs text-slate-400">Sin frases de este tipo.</p>
-      )}
     </div>
   );
 }

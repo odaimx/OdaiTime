@@ -15,6 +15,7 @@ class Empresa(UUIDPkMixin, TimestampMixin, Base):
     # Subdominio: <slug>.time.odai.lat
     slug: Mapped[str] = mapped_column(String(40), unique=True)
     razon_social: Mapped[str | None] = mapped_column(String(250))
+    direccion: Mapped[str | None] = mapped_column(String(300))  # domicilio fiscal o comercial
     rfc: Mapped[str | None] = mapped_column(String(13), unique=True)
     activa: Mapped[bool] = mapped_column(default=True)
 
