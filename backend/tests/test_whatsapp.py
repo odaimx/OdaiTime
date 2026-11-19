@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import json
 import time
+from datetime import date, timedelta
 
 import pytest
 
@@ -129,7 +130,12 @@ async def test_checar_por_whatsapp(client, superadmin, enviados):
     await _enviar(client, cfg, _mensaje("location", actual, "m4"))
     assert len(enviados) == n
 
-    r = await client.get("/api/checadas", headers=a)
+    hoy = date.today()
+    r = await client.get(
+        "/api/checadas",
+        headers=a,
+        params={"desde": str(hoy - timedelta(days=1)), "hasta": str(hoy + timedelta(days=1))},
+    )
     assert [c["origen"] for c in r.json()] == ["whatsapp"]
 
     await _enviar(client, cfg, _mensaje("text", {"body": "Hoy"}, "m5"))
