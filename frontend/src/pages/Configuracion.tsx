@@ -1,9 +1,10 @@
-import { Navigate, useParams } from "react-router";
+import { Navigate, useLocation, useParams } from "react-router";
 import { GestorCategorias, TITULOS_CATEGORIAS } from "../components/Categorias";
 import ConfigSistema, { SECCIONES_SISTEMA, type Pestana } from "../components/ConfigSistema";
 import ReglasTarjeta from "../components/ReglasTarjeta";
 import { PageHeader, useEmpresaScope } from "../components/ui";
 import { useAuth } from "../lib/auth";
+import { areaDeRuta, useBanda } from "../lib/bandas";
 import type { ModeloCategoria } from "../lib/api";
 import ConfigChecadas from "./ConfigChecadas";
 
@@ -13,16 +14,18 @@ export default function Configuracion() {
   const { usuario } = useAuth();
   const esAdmin = usuario?.rol === "superadmin" || usuario?.rol === "admin_empresa";
   const { query, listo, selector } = useEmpresaScope();
+  const { pathname } = useLocation();
+  const banda = useBanda(areaDeRuta(pathname));
 
   if (seccion === "checadas" || seccion === "dispositivos" || seccion === "whatsapp") {
-    return <ConfigChecadas key={seccion} seccion={seccion === "checadas" ? "config" : seccion} />;
+    return <ConfigChecadas key={seccion} seccion={seccion === "checadas" ? "config" : seccion} submenu={banda} />;
   }
   if (seccion === "reglas") {
     return (
       <>
-        <PageHeader icono="settings" title="Reglas de asistencia" subtitle="Retardos, faltas y tiempo extra de la tarjeta de asistencia." action={selector} />
+        <PageHeader submenu={banda} icono="settings" title="Reglas de asistencia" subtitle="Retardos, faltas y tiempo extra de la tarjeta de asistencia." action={selector} />
         {listo && (
-          <div className="card p-5">
+          <div className="ventana-form card mx-auto w-full max-w-6xl p-5">
             <ReglasTarjeta query={query} esAdmin={esAdmin} />
           </div>
         )}
@@ -33,7 +36,7 @@ export default function Configuracion() {
     const modelo = (["empleado", "sucursal", "usuario", "empresa"].includes(sub) ? sub : "empleado") as ModeloCategoria;
     return (
       <>
-        <PageHeader icono="settings" title={TITULOS_CATEGORIAS[modelo]} action={modelo === "empresa" ? undefined : selector} />
+        <PageHeader submenu={banda} icono="settings" title={TITULOS_CATEGORIAS[modelo]} action={modelo === "empresa" ? undefined : selector} />
         {(listo || modelo === "empresa") && <GestorCategorias key={modelo} modelo={modelo} query={modelo === "empresa" ? "" : query} puedeEditar={esAdmin || usuario?.rol === "gerente_sucursal"} incrustado />}
       </>
     );
@@ -43,8 +46,8 @@ export default function Configuracion() {
     const titulo = SECCIONES_SISTEMA.find(([k]) => k === s)?.[1] ?? "Sistema";
     return (
       <>
-        <PageHeader icono="settings" title={titulo} subtitle="Se aplica a todas las empresas." />
-        <div className="card p-5">
+        <PageHeader submenu={banda} icono="settings" title={titulo} subtitle="Se aplica a todas las empresas." />
+        <div className="ventana-form card mx-auto w-full max-w-6xl p-5">
           <ConfigSistema key={s} seccion={s} />
         </div>
       </>

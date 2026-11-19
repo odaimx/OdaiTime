@@ -138,7 +138,7 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-navy-900/40 p-3 pt-6 sm:p-4 sm:pt-12" onMouseDown={cerrar}>
-      <div className={`registro-hoja ventana-form card flex max-h-[calc(100dvh-3rem)] w-full flex-col overflow-hidden sm:max-h-[calc(100dvh-7rem)] max-w-5xl`} onMouseDown={(e) => e.stopPropagation()}>
+      <div className={`registro-hoja ventana-form card flex max-h-[calc(100dvh-3rem)] w-full flex-col overflow-hidden sm:max-h-[calc(100dvh-7rem)] max-w-6xl`} onMouseDown={(e) => e.stopPropagation()}>
         <div className="no-imprimir flex shrink-0 items-center gap-2 rounded-t-xl border-b border-slate-200 bg-slate-100/70 px-4 py-2.5 sm:px-5">
           {menuAcciones}
           {onGuardar && (

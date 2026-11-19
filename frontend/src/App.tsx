@@ -190,9 +190,13 @@ export default function App() {
         <Route
           path="mi-empresa"
           element={
-            <Requiere roles={["superadmin", "admin_empresa"]}>
-              <MiEmpresa />
-            </Requiere>
+            usuario.rol === "gerente_sucursal" ? (
+              <Navigate to="/sucursales" replace />
+            ) : (
+              <Requiere roles={["superadmin", "admin_empresa"]}>
+                <MiEmpresa />
+              </Requiere>
+            )
           }
         />
         <Route

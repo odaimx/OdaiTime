@@ -190,7 +190,8 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     column-gap: 2.5rem;
   }
+  /* Ningún campo ocupa las dos columnas: todos del mismo ancho. */
   .ventana-form .grid:has(> div > label.label) > [class*="col-span-"] {
-    grid-column: 1 / -1;
+    grid-column: auto;
   }
 }

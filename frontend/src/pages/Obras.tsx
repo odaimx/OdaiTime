@@ -7,6 +7,7 @@ import { imprimirSecciones } from "../lib/imprimir";
 import { Ayuda, Badge, Campos, CamposDomicilio, CamposUbicacion, DOMICILIO_VACIO, domicilioApi, domicilioDe, ErrorBox, Fila, Modal, PageHeader, Plegable, useEmpresaScope, type Domicilio } from "../components/ui";
 import { api, descargar, fechaCorta, get, patch, post, type AsignacionObra, type Empleado, type Obra, type Sucursal } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { useBanda } from "../lib/bandas";
 
 type Form = {
   clave: string;
@@ -42,6 +43,7 @@ const vigencia = (o: Obra) => `${fechaCorta(o.fecha_inicio)} – ${o.fecha_fin ?
 const terminada = (o: Obra) => !!o.fecha_fin && o.fecha_fin < hoyIso();
 
 export default function Obras() {
+  const banda = useBanda("empresa");
   const { usuario } = useAuth();
   const puedeEditar = !!usuario && ["superadmin", "admin_empresa", "gerente_sucursal"].includes(usuario.rol);
   const { query, listo, selector } = useEmpresaScope();
@@ -181,7 +183,7 @@ export default function Obras() {
 
   return (
     <>
-      <PageHeader icono="map-pin" title="Otras zonas" action={selector} />
+      <PageHeader submenu={banda} icono="map-pin" title="Otras zonas" action={selector} />
       <Vista vista={vista} />
       {reporte && <ReporteObras obras={obras} query={query} onCerrar={() => setReporte(false)} />}
 

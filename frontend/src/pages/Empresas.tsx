@@ -10,6 +10,7 @@ import { imprimirSecciones } from "../lib/imprimir";
 import { entrarSoporte } from "../lib/soporte";
 import { Ayuda, CamposDomicilio, DOMICILIO_VACIO, domicilioApi, domicilioDe, ErrorBox, PageHeader, type Domicilio } from "../components/ui";
 import { api, get, patch, post, urlLogo, type Categoria, type Empresa, type TenantInfo } from "../lib/api";
+import { useBanda } from "../lib/bandas";
 
 type Form = { nombre: string; slug: string; razon_social: string; rfc: string; domicilio: Domicilio; max_empleados: string; licencia_vence: string; demo: boolean; max_usuarios: string; estado: string; motivo_suspension: string; periodicidad: string; admin_nombre: string; admin_email: string; admin_password: string };
 const VACIO: Form = { nombre: "", slug: "", razon_social: "", rfc: "", domicilio: DOMICILIO_VACIO, max_empleados: "15", licencia_vence: "", demo: false, max_usuarios: "5", estado: "corriendo", motivo_suspension: "", periodicidad: "", admin_nombre: "", admin_email: "", admin_password: "" };
@@ -28,6 +29,7 @@ function EstadoEmpresa({ e }: { e: Empresa }) {
 }
 
 export default function Empresas() {
+  const banda = useBanda("odai");
   const navegar = useNavigate();
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [editando, setEditando] = useState<Empresa | "nueva" | null>(null);
@@ -190,7 +192,7 @@ export default function Empresas() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader submenu={banda}
         icono="building"
         title="Empresas"
         subtitle="Clientes de ODAITIME"

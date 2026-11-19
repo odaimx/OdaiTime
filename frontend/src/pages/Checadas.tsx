@@ -7,6 +7,7 @@ import Icono from "../components/Iconos";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
 import { Badge, ErrorBox, Modal, PageHeader, useEmpresaScope, Plegable } from "../components/ui";
 import { fechaHora, get, hoyISO, ORIGENES, patch, post, type Checada, type Empleado, type Sucursal } from "../lib/api";
+import { useBanda } from "../lib/bandas";
 
 const haceDias = (n: number) => {
   const d = new Date();
@@ -21,6 +22,7 @@ const localInput = (iso: string) => {
 };
 
 export default function Checadas() {
+  const banda = useBanda("asistencias");
   const { query, listo, selector, empresaId } = useEmpresaScope();
   const sep = query ? "&" : "?";
   const [filtros, setFiltros] = useState({ desde: haceDias(6), hasta: hoyISO() });
@@ -186,7 +188,7 @@ export default function Checadas() {
 
   return (
     <>
-      <PageHeader
+      <PageHeader submenu={banda}
         icono="fingerprint-pattern"
         title="Asistencias"
         subtitle="Registros de entrada y salida (checadas) de todas las sucursales"

@@ -9,22 +9,16 @@ import { REPORTE } from "../lib/imprimir";
 import PiePagina from "./PiePagina";
 import { entrarSoporte, salirSoporte, useSoporte } from "../lib/soporte";
 
-type Grupo = "empresa" | "config";
 type ItemNav = {
   to: string;
   label: string;
   roles: Rol[];
   icon: NombreIcono;
-  grupo?: Grupo;
   /** Del sistema (todas las empresas): el superadmin lo ve aunque no esté en modo soporte. */
   global?: boolean;
 };
 
-const GRUPOS: Record<Grupo, { label: string; icon: NombreIcono }> = {
-  empresa: { label: "Empresa", icon: "building" },
-  config: { label: "Configuración", icon: "settings" },
-};
-
+/** Menú principal corto: lo secundario y la configuración van en la banda de cada módulo. */
 const NAV: ItemNav[] = [
   { to: "/checar", label: "Checar", roles: ["empleado"], icon: "fingerprint-pattern" },
   { to: "/mis-registros", label: "Mis registros", roles: ["empleado"], icon: "list-checks" },
@@ -32,36 +26,16 @@ const NAV: ItemNav[] = [
   { to: "/", label: "Inicio", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "house", global: true },
   { to: "/empresas", label: "Empresas", roles: ["superadmin"], icon: "building", global: true },
   { to: "/empleados", label: "Empleados", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "contact-round" },
+  { to: "/turnos", label: "Turnos", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "calendar-clock" },
   { to: "/asistencia", label: "Tarjeta de asistencia", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "clipboard-list" },
   { to: "/checadas", label: "Asistencias", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "fingerprint-pattern" },
   { to: "/vacaciones", label: "Ausencias", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "tree-palm" },
   { to: "/actividades", label: "Actividades", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "calendar-check" },
   { to: "/reportes", label: "Exportaciones", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "file-chart-column" },
-  // Empresa
-  { to: "/mi-empresa", label: "Mi empresa", roles: ["superadmin", "admin_empresa"], icon: "building", grupo: "empresa" },
-  { to: "/sucursales", label: "Sucursales", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "store", grupo: "empresa" },
-  { to: "/obras", label: "Otras zonas", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "map-pin", grupo: "empresa" },
-  { to: "/turnos", label: "Turnos", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "calendar-clock", grupo: "empresa" },
-  { to: "/festivos", label: "Días festivos", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "calendar-heart", grupo: "empresa" },
-  { to: "/usuarios", label: "Usuarios", roles: ["superadmin", "admin_empresa"], icon: "users", grupo: "empresa" },
-  // Configuración
-  { to: "/configuracion/checadas", label: "Checadas", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "sliders-horizontal", grupo: "config" },
-  { to: "/configuracion/dispositivos", label: "Dispositivos", roles: ["superadmin", "admin_empresa"], icon: "monitor", grupo: "config" },
-  { to: "/configuracion/whatsapp", label: "WhatsApp", roles: ["superadmin", "admin_empresa"], icon: "phone", grupo: "config" },
-  { to: "/configuracion/reglas", label: "Reglas de asistencia", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "scale", grupo: "config" },
-  { to: "/configuracion/categorias/empleado", label: "Categorías de empleados", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "tags", grupo: "config" },
-  { to: "/configuracion/categorias/sucursal", label: "Categorías de sucursales", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "tags", grupo: "config" },
-  { to: "/configuracion/categorias/usuario", label: "Categorías de usuarios", roles: ["superadmin", "admin_empresa"], icon: "tags", grupo: "config" },
-  { to: "/configuracion/categorias/empresa", label: "Categorías de empresas", roles: ["superadmin"], icon: "tags", grupo: "config", global: true },
-  { to: "/configuracion/sistema/tema", label: "Colores del tema", roles: ["superadmin"], icon: "palette", grupo: "config", global: true },
-  { to: "/configuracion/sistema/acceso", label: "Pantalla de acceso", roles: ["superadmin"], icon: "image", grupo: "config", global: true },
-  { to: "/configuracion/sistema/frases", label: "Frases", roles: ["superadmin"], icon: "file-text", grupo: "config", global: true },
-  { to: "/configuracion/sistema/correo", label: "Correo saliente", roles: ["superadmin"], icon: "mail", grupo: "config", global: true },
-  { to: "/configuracion/sistema/plantillas", label: "Plantillas de correo", roles: ["superadmin"], icon: "mail-check", grupo: "config", global: true },
-  { to: "/configuracion/sistema/enlaces", label: "Enlaces de Odai", roles: ["superadmin"], icon: "send", grupo: "config", global: true },
+  { to: "/usuarios", label: "Usuarios", roles: ["superadmin", "admin_empresa"], icon: "users" },
+  { to: "/mi-empresa", label: "Mi empresa", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "building" },
 ];
 
-const GRUPOS_KEY = "odaitime.menuGrupos";
 const FIJO_KEY = "odaitime.menuFijo";
 
 export default function Layout() {
@@ -110,22 +84,6 @@ export default function Layout() {
     }
   });
   const { pathname } = useLocation();
-  const [grupos, setGrupos] = useState<Partial<Record<Grupo, boolean>>>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(GRUPOS_KEY) ?? "{}");
-    } catch {
-      return {};
-    }
-  });
-  function alternarGrupo(g: Grupo, v: boolean) {
-    const n = { ...grupos, [g]: v };
-    setGrupos(n);
-    try {
-      localStorage.setItem(GRUPOS_KEY, JSON.stringify(n));
-    } catch {
-      /* sin almacenamiento */
-    }
-  }
 
   // Al navegar se cierra en móvil y se repliega en escritorio.
   useEffect(() => {
@@ -211,7 +169,7 @@ export default function Layout() {
                 end={n.to === "/" || n.to === "/checadas"}
                 title={expandido ? undefined : n.label}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition ${n.grupo && expandido ? "pl-5" : ""} ${
+                  `flex items-center gap-3 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition ${
                     isActive ? "bg-brand-500 text-white" : "text-oro-400 hover:bg-navy-800 hover:text-oro-300"
                   }`
                 }
@@ -225,29 +183,7 @@ export default function Layout() {
                 <span className={oculto}>{n.label}</span>
               </NavLink>
             );
-            const salida = visibles.filter((n) => !n.grupo).map(enlace);
-            for (const g of Object.keys(GRUPOS) as Grupo[]) {
-              const items = visibles.filter((n) => n.grupo === g);
-              if (!items.length) continue;
-              const activo = items.some((n) => pathname === n.to || pathname.startsWith(`${n.to}/`));
-              const abiertoG = grupos[g] ?? activo;
-              salida.push(
-                <div key={g} className="pt-2">
-                  <button
-                    type="button"
-                    onClick={() => alternarGrupo(g, !abiertoG)}
-                    title={expandido ? undefined : GRUPOS[g].label}
-                    className={`flex w-full items-center gap-3 whitespace-nowrap rounded-lg px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-oro-400/70 hover:bg-navy-800 hover:text-oro-300 ${expandido ? "" : "lg:hidden"}`}
-                  >
-                    <Icono nombre={GRUPOS[g].icon} className="h-4 w-4 shrink-0" />
-                    <span className="flex-1">{GRUPOS[g].label}</span>
-                    <Icono nombre="chevron-down" className={`h-4 w-4 transition ${abiertoG ? "" : "-rotate-90"}`} />
-                  </button>
-                  {!expandido && <hr className="mx-2 my-1 hidden border-navy-700 lg:block" />}
-                  {(abiertoG || !expandido) && <div className="space-y-1">{items.map(enlace)}</div>}
-                </div>,
-              );
-            }
+            const salida = visibles.map(enlace);
             return salida;
           })()}
         </nav>

@@ -4,11 +4,13 @@ import Icono from "../components/Iconos";
 import { Campos, CamposDomicilio, DOMICILIO_VACIO, domicilioApi, domicilioDe, ErrorBox, Fila, PageHeader, useEmpresaScope } from "../components/ui";
 import { api, get, type DomicilioApi } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { useBanda } from "../lib/bandas";
 
 type MiEmpresa = DomicilioApi & { id: string; nombre: string; razon_social: string | null; rfc: string | null; direccion: string | null; slug: string; logo_version: string | null };
 
 /** Datos básicos de la empresa y su logo (los cambia su administrador; la licencia, Odai). */
 export default function MiEmpresaPagina() {
+  const banda = useBanda("empresa");
   const { refrescar } = useAuth();
   const { query, listo } = useEmpresaScope();
   const [empresa, setEmpresa] = useState<MiEmpresa | null>(null);
@@ -68,9 +70,9 @@ export default function MiEmpresaPagina() {
 
   return (
     <>
-      <PageHeader icono="building" title="Mi empresa" />
+      <PageHeader submenu={banda} icono="building" title="Mi empresa" />
       {empresa && (
-        <form className="card max-w-5xl overflow-hidden" onSubmit={guardar}>
+        <form className="card mx-auto w-full max-w-6xl overflow-hidden" onSubmit={guardar}>
           {/* Mismo guardado que las fichas: nube roja con cambios, verde guardado. */}
           <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-100/70 px-4 py-2.5 sm:px-5">
             <button
