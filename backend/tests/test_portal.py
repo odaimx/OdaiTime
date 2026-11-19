@@ -178,3 +178,58 @@ async def test_cambiar_password(client, superadmin):
     r = await client.post("/api/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
     assert r.status_code == 401
     assert (await login(client, "admin@caribe.mx", "OtraClave456!"))["access_token"]
+
+
+async def test_frases_apariencia_y_foto(client, superadmin):
+    import csv as _csv
+    from io import StringIO
+
+    salida = StringIO()
+    w = _csv.writer(salida)
+    w.writerows(
+        [
+            ["Tipo", "Texto", "Autor"],
+            ["Refrán", "Al que madruga, Dios lo ayuda.", "Refrán popular"],
+            ["Cita bíblica", "Todo lo puedo en Cristo que me fortalece.", "Filipenses 4:13"],
+            ["", "sin tipo", ""],
+        ]
+    )
+    archivo = {"archivo": ("frases.csv", salida.getvalue().encode(), "text/csv")}
+    r = await client.post("/api/sistema/frases/importar", headers=superadmin, files=archivo)
+    assert r.json() == {"importadas": 2, "omitidas": 1}
+    tema = (await client.get("/api/sistema/tema")).json()
+    assert tema["frases"] == {"refran": 1, "cita": 1}
+    cita = (await client.get("/api/sistema/frases/aleatoria?tipo=cita")).json()
+    assert cita["autor"] == "Filipenses 4:13"
+    otra = (await client.get(f"/api/sistema/frases/aleatoria?excluir={cita['id']}")).json()
+    assert otra["tipo"] == "refran"
+
+    r = await client.put(
+        "/api/sistema/apariencia",
+        headers=superadmin,
+        json={"fondo_color": "#EEF2FF", "login_titulo": "Control de asistencia"},
+    )
+    assert (
+        r.json()["fondo_color"] == "#eef2ff" and r.json()["login_titulo"] == "Control de asistencia"
+    )
+    img = BytesIO()
+    Image.new("RGB", (800, 400), (10, 20, 30)).save(img, "JPEG")
+    r = await client.put(
+        "/api/sistema/imagen/login",
+        headers=superadmin,
+        files={"archivo": ("l.jpg", img.getvalue(), "image/jpeg")},
+    )
+    assert r.json()["login_version"]
+    assert (await client.get("/api/sistema/imagen/login")).status_code == 200
+
+    # Foto propia del usuario.
+    await crear_empresa(client, superadmin, "Caribe", "admin@caribe.mx")
+    a = auth(await login(client, "admin@caribe.mx"))
+    assert (await client.get("/api/auth/me/foto", headers=a)).status_code == 404
+    r = await client.put(
+        "/api/auth/me/foto", headers=a, files={"archivo": ("f.jpg", img.getvalue(), "image/jpeg")}
+    )
+    assert r.status_code == 204
+    assert (await client.get("/api/auth/me/foto", headers=a)).status_code == 200
+    me = (await client.get("/api/auth/me", headers=a)).json()
+    assert me["foto_actualizada"] and "licencia_vence" in me["empresa"]

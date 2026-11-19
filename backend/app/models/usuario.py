@@ -2,8 +2,8 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, String, Table, func
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, LargeBinary, String, Table, func
+from sqlalchemy.orm import Mapped, deferred, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
 from app.models.empresa import Empresa
@@ -39,6 +39,9 @@ class Usuario(UUIDPkMixin, TimestampMixin, Base):
     )
     activo: Mapped[bool] = mapped_column(default=True)
     ultimo_acceso: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Foto del usuario (128 px) para su botón; si no tiene, se usa la de su ficha de empleado.
+    foto: Mapped[bytes | None] = deferred(mapped_column(LargeBinary))
+    foto_actualizada: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     empresa: Mapped[Empresa | None] = relationship(lazy="joined")
     sucursales: Mapped[list[Sucursal]] = relationship(

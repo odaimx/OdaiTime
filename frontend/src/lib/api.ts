@@ -21,9 +21,10 @@ export interface Usuario {
   nombre: string;
   rol: Rol;
   activo: boolean;
-  empresa: { id: string; nombre: string; logo_version: string | null; fondo_color?: string | null; fondo_version?: string | null; demo?: boolean } | null;
+  empresa: { id: string; nombre: string; logo_version: string | null; fondo_color?: string | null; fondo_version?: string | null; demo?: boolean; licencia_vence?: string | null } | null;
   sucursales: SucursalRef[];
   ultimo_acceso: string | null;
+  foto_actualizada?: string | null;
 }
 
 export interface Sucursal extends SucursalRef {

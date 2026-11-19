@@ -4,7 +4,7 @@ from sqlalchemy import DateTime, Integer, LargeBinary, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, deferred, mapped_column
 
-from app.db.base import Base
+from app.db.base import Base, TimestampMixin, UUIDPkMixin
 
 
 class ConfigSistema(Base):
@@ -21,3 +21,23 @@ class ConfigSistema(Base):
     # Enlaces de Odai: tienda en línea (comprar más empleados) y soporte. Vacío = valor del .env.
     url_tienda: Mapped[str | None] = mapped_column(String(300))
     url_soporte: Mapped[str | None] = mapped_column(String(300))
+    # Fondo de la aplicación (para todas las empresas): color o imagen.
+    fondo_color: Mapped[str | None] = mapped_column(String(7))
+    fondo_imagen: Mapped[bytes | None] = deferred(mapped_column(LargeBinary))
+    fondo_actualizado: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Pantalla de acceso: imagen del panel izquierdo y sus textos.
+    login_imagen: Mapped[bytes | None] = deferred(mapped_column(LargeBinary))
+    login_actualizada: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    login_titulo: Mapped[str | None] = mapped_column(String(120))
+    login_subtitulo: Mapped[str | None] = mapped_column(String(120))
+    login_texto: Mapped[str | None] = mapped_column(String(600))
+
+
+class Frase(UUIDPkMixin, TimestampMixin, Base):
+    """Refranes y citas bíblicas que se muestran en la pantalla de acceso."""
+
+    __tablename__ = "frases"
+
+    tipo: Mapped[str] = mapped_column(String(10), index=True)  # refran | cita
+    texto: Mapped[str] = mapped_column(String(600))
+    autor: Mapped[str | None] = mapped_column(String(150))  # autor o referencia (Juan 3:16)

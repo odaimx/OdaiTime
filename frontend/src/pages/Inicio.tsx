@@ -1,63 +1,24 @@
-import FondoEmpresa from "../components/FondoEmpresa";
-import LogoEmpresa from "../components/LogoEmpresa";
-import { useEffect, useState } from "react";
 import { PageHeader } from "../components/ui";
 import { ROLES } from "../lib/api";
-import { temaActual } from "../lib/tema";
 import { useAuth } from "../lib/auth";
+import { useTema } from "../lib/tema";
 
+/** Pantalla de inicio: la imagen general de ODAITIME (la define Odai) a todo lo ancho y alto. */
 export default function Inicio() {
-  const { usuario, refrescar } = useAuth();
-  const [imagen, setImagen] = useState<string | null>(null);
-  useEffect(() => {
-    temaActual()
-      .then((t) => setImagen(t.imagen_version))
-      .catch(() => {});
-  }, []);
-
+  const { usuario } = useAuth();
+  const tema = useTema();
   if (!usuario) return null;
-
-  const esAdmin = usuario.rol === "admin_empresa" && !!usuario.empresa;
-  const hayTarjetas = esAdmin || usuario.sucursales.length > 0;
+  const imagen = tema?.imagen_version;
 
   return (
     <>
       <PageHeader icono="house" title={`Hola, ${usuario.nombre.split(" ")[0]}`} subtitle={`${ROLES[usuario.rol]}${usuario.empresa ? ` · ${usuario.empresa.nombre}` : ""}`} />
-
       {imagen && (
         // Llena todo el espacio libre hasta la línea del pie de página.
-        <div className={`relative -mx-4 -mt-5 min-h-64 flex-1 sm:-mx-6 lg:-mx-8 ${hayTarjetas ? "" : "-mb-6"}`}>
+        <div className="relative -mx-4 -mb-3 -mt-5 min-h-64 flex-1 sm:-mx-6 lg:-mx-8">
           <img src={`/api/sistema/imagen-inicio?v=${encodeURIComponent(imagen)}`} alt="" className="absolute inset-0 h-full w-full object-cover" />
         </div>
       )}
-
-      <div className={`grid gap-4 empty:hidden sm:gap-6 md:grid-cols-2 ${imagen ? "mt-6" : ""}`}>
-        {usuario.rol === "admin_empresa" && usuario.empresa && (
-          <div className="card p-6">
-            <h2 className="mb-3 text-sm font-medium text-slate-500">Logo de la empresa</h2>
-            <LogoEmpresa empresaId={usuario.empresa.id} version={usuario.empresa.logo_version} onCambio={() => refrescar()} />
-          </div>
-        )}
-        {usuario.rol === "admin_empresa" && usuario.empresa && (
-          <div className="card p-6">
-            <h2 className="mb-3 text-sm font-medium text-slate-500">Fondo principal de la empresa</h2>
-            <FondoEmpresa empresaId={usuario.empresa.id} color={usuario.empresa.fondo_color} version={usuario.empresa.fondo_version} onCambio={() => refrescar()} />
-          </div>
-        )}
-        {usuario.sucursales.length > 0 && (
-          <div className="card p-6">
-            <h2 className="text-sm font-medium text-slate-500">Tus sucursales</h2>
-            <ul className="mt-3 space-y-1">
-              {usuario.sucursales.map((s) => (
-                <li key={s.id} className="text-tinta-900">
-                  <span className="font-mono text-xs text-brand-600">{s.clave}</span> {s.nombre}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-      </div>
     </>
   );
 }
