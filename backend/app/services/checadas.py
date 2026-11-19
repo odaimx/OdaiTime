@@ -76,6 +76,54 @@ async def config_efectiva(
     return config_por_defecto(empresa_id), "predeterminada"
 
 
+MEDIOS = {"movil": "celular", "kiosco": "kiosco", "biometrico": "reloj biométrico"}
+
+
+def medio_permitido(empleado: Empleado, medio: str, config: ConfigChecadas) -> bool:
+    """Lo que diga la ficha del empleado; si no dice nada, la configuración de su sucursal."""
+    if empleado.medios_checado is not None:
+        return medio in empleado.medios_checado
+    if medio == "movil":
+        return config.permitir_movil
+    if medio == "kiosco":
+        return config.permitir_kiosco
+    return True  # reloj biométrico: si está dado de alta, se usa
+
+
+def validar_medio(empleado: Empleado, medio: str, config: ConfigChecadas) -> None:
+    if not medio_permitido(empleado, medio, config):
+        if empleado.medios_checado:
+            otros = " o ".join(MEDIOS[m] for m in empleado.medios_checado if m in MEDIOS)
+            detalle = f"Tú checas por {otros}."
+        elif empleado.medios_checado is not None:
+            detalle = "No tienes ningún medio de checado asignado; pregunta a tu administrador."
+        elif medio == "movil":
+            detalle = "En tu sucursal no se checa desde el celular. Usa el kiosco."
+        else:
+            detalle = "El kiosco está desactivado para esta sucursal."
+        raise error(f"{medio}_no_permitido", detalle, http=status.HTTP_403_FORBIDDEN)
+
+
+def validar_dispositivo(empleado: Empleado, dispositivo, nombres: list[str] | None = None) -> None:
+    """Si el empleado tiene kioscos/relojes asignados, solo puede checar en esos."""
+    if empleado.dispositivos_checado and dispositivo.id not in empleado.dispositivos_checado:
+        donde = f" Checa en: {', '.join(nombres)}." if nombres else ""
+        que = MEDIOS.get(dispositivo.tipo, "dispositivo")
+        raise error(
+            "dispositivo_no_asignado",
+            f"{empleado.nombre}, este no es tu {que}.{donde}",
+            http=status.HTTP_403_FORBIDDEN,
+        )
+
+
+async def nombres_dispositivos(db: AsyncSession, ids: list[uuid.UUID]) -> list[str]:
+    from app.models import Dispositivo
+
+    if not ids:
+        return []
+    return list(await db.scalars(select(Dispositivo.nombre).where(Dispositivo.id.in_(ids))))
+
+
 def requiere_foto(config: ConfigChecadas, origen: str) -> bool:
     return config.foto == "ambos" or config.foto == origen
 

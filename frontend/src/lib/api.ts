@@ -320,6 +320,10 @@ export interface Empleado {
   portal_email: string | null;
   tiene_pin: boolean;
   foto_version: string | null;
+  /** null = según la configuración de checadas de su sucursal. */
+  medios_checado?: ("movil" | "kiosco" | "biometrico")[] | null;
+  /** Kioscos/relojes donde puede checar; vacío = cualquiera. */
+  dispositivos_checado?: string[];
   activo: boolean;
   fecha_baja: string | null;
   motivo_baja: string | null;

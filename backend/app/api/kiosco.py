@@ -120,6 +120,22 @@ def _solo_kiosco(d: Dispositivo) -> None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Este dispositivo no es un kiosco")
 
 
+async def _kiosco_por_empleado(db, d: Dispositivo) -> bool:
+    """¿Algún empleado tiene el kiosco en su ficha aunque la sucursal lo tenga apagado?"""
+    return bool(
+        await db.scalar(
+            select(Empleado.id)
+            .where(
+                Empleado.empresa_id == d.empresa_id,
+                Empleado.activo,
+                Empleado.medios_checado.contains(["kiosco"])
+                | Empleado.dispositivos_checado.contains([d.id]),
+            )
+            .limit(1)
+        )
+    )
+
+
 @router.get("/kiosco/estado")
 async def estado(d: DispositivoActual, request: Request, db: DB) -> dict:
     _solo_kiosco(d)
@@ -146,7 +162,7 @@ async def estado(d: DispositivoActual, request: Request, db: DB) -> dict:
             "zona_horaria": d.sucursal.zona_horaria,
         },
         "config": {
-            "permitir_kiosco": config.permitir_kiosco,
+            "permitir_kiosco": config.permitir_kiosco or await _kiosco_por_empleado(db, d),
             "pin": config.pin_kiosco,
             "foto": svc.requiere_foto(config, "kiosco"),
             "qr": config.permitir_movil,
@@ -178,7 +194,7 @@ async def checar_kiosco(
 ) -> dict:
     _solo_kiosco(d)
     config, _ = await svc.config_efectiva(db, d.empresa_id, d.sucursal_id)
-    if not config.permitir_kiosco:
+    if not config.permitir_kiosco and not await _kiosco_por_empleado(db, d):
         raise svc.error(
             "kiosco_no_permitido", "El kiosco está desactivado para esta sucursal.", http=403
         )
@@ -206,6 +222,11 @@ async def checar_kiosco(
         if not pin or not verify_password(pin, empleado.pin_hash):
             await _limite(key, 5, 900, registrar_fallo=True)
             raise invalido
+    # La ficha del empleado puede indicar sus medios y en qué kioscos checa.
+    svc.validar_medio(empleado, "kiosco", config)
+    svc.validar_dispositivo(
+        empleado, d, await svc.nombres_dispositivos(db, empleado.dispositivos_checado)
+    )
     if svc.requiere_foto(config, "kiosco") and foto is None:
         raise svc.error("foto_requerida", "Se necesita la foto para checar.")
 
@@ -265,6 +286,11 @@ async def registros_biometricos(lote: LoteBiometrico, d: DispositivoActual, db: 
         )
         if empleado is None:
             errores.append({"numero": r.numero, "error": "Empleado no encontrado"})
+            continue
+        if (
+            empleado.medios_checado is not None and "biometrico" not in empleado.medios_checado
+        ) or (empleado.dispositivos_checado and d.id not in empleado.dispositivos_checado):
+            errores.append({"numero": r.numero, "error": "No checa en este reloj"})
             continue
         if await db.scalar(
             select(Checada.id).where(Checada.empleado_id == empleado.id, Checada.momento == momento)
