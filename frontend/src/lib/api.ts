@@ -47,6 +47,7 @@ export interface Empresa {
   licencia_vence: string | null;
   demo?: boolean;
   max_usuarios?: number;
+  direccion?: string | null;
   estado?: "corriendo" | "suspendida" | "eliminada";
   motivo_suspension?: string | null;
   periodicidad?: string | null;
@@ -352,16 +353,20 @@ export function fechaCorta(iso: string | null): string {
 export const hoyISO = () => new Date().toLocaleDateString("en-CA"); // AAAA-MM-DD local
 
 /** Descarga un archivo de la API (con el token) y lo guarda. */
-export async function descargar(path: string, nombre: string): Promise<void> {
+export async function descargar(path: string, nombre: string): Promise<Headers> {
   const token = session.get()?.access_token;
   const r = await fetch(`/api${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-  if (!r.ok) throw new ApiError(r.status, "No se pudo descargar el archivo");
+  if (!r.ok) {
+    const body = await r.json().catch(() => null);
+    throw new ApiError(r.status, (typeof body?.detail === "string" && body.detail) || "No se pudo descargar el archivo");
+  }
   const url = URL.createObjectURL(await r.blob());
   const a = document.createElement("a");
   a.href = url;
   a.download = nombre;
   a.click();
   URL.revokeObjectURL(url);
+  return r.headers;
 }
 
 /** Sube un archivo (multipart) a la API. */

@@ -158,7 +158,7 @@ export default function Calendario({ query, modelo }: { query: string; modelo?: 
     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
       {/* Barra */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-2">
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
           <button className="btn-icono" onClick={() => mover(-1)} aria-label="Anterior">
             <Icono nombre="arrow-left" />
           </button>
@@ -204,7 +204,7 @@ export default function Calendario({ query, modelo }: { query: string; modelo?: 
           </button>
           <h2 className="ml-2 text-base font-semibold capitalize text-tinta-900 sm:text-lg">{titulo}</h2>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <button className="btn-primary h-9 py-0" onClick={() => nueva(iso(ref))}>
             <Icono nombre="calendar-plus" /> Actividad
           </button>

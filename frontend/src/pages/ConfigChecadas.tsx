@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import Bitacora from "../components/Bitacora";
-import { Badge, ErrorBox, Modal, PageHeader, useEmpresaScope, Plegable } from "../components/ui";
+import { Badge, BarraGuardar, ErrorBox, Modal, PageHeader, useEmpresaScope, Plegable } from "../components/ui";
 import { api, fechaHora, get, patch, post, type ConfigChecadas as Config, type Dispositivo, type Sucursal } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -48,6 +48,7 @@ export default function ConfigChecadas({ incrustado = false, scope }: { incrusta
   const [config, setConfig] = useState<Config | null>(null);
   const [mensaje, setMensaje] = useState<{ ok: boolean; texto: string } | null>(null);
   const [rev, setRev] = useState(0);
+  const [guardada, setGuardada] = useState("");
   const [dispositivos, setDispositivos] = useState<Dispositivo[]>([]);
   const [nuevoDisp, setNuevoDisp] = useState(false);
   const [codigo, setCodigo] = useState<Dispositivo | null>(null);
@@ -55,7 +56,10 @@ export default function ConfigChecadas({ incrustado = false, scope }: { incrusta
   const [errorDisp, setErrorDisp] = useState<string | null>(null);
   const cargar = useCallback(() => {
     if (!listo) return;
-    get<Config>(`/checadas/config${query}${alcance ? `${sep}sucursal_id=${alcance}` : ""}`).then(setConfig);
+    get<Config>(`/checadas/config${query}${alcance ? `${sep}sucursal_id=${alcance}` : ""}`).then((c) => {
+      setConfig(c);
+      setGuardada(JSON.stringify(c));
+    });
   }, [listo, query, sep, alcance]);
   useEffect(cargar, [cargar]);
 
@@ -70,14 +74,15 @@ export default function ConfigChecadas({ incrustado = false, scope }: { incrusta
 
   const set = <K extends keyof Config>(k: K, v: Config[K]) => setConfig((c) => (c ? { ...c, [k]: v } : c));
 
-  async function guardar(e: FormEvent) {
-    e.preventDefault();
+  async function guardar(e?: FormEvent) {
+    e?.preventDefault();
     if (!config) return;
     setMensaje(null);
     try {
       const datos = Object.fromEntries(CAMPOS.map((k) => [k, config[k]]));
       const r = await api<Config>(`/checadas/config${query}`, { method: "PUT", body: JSON.stringify({ ...datos, sucursal_id: alcance || null }) });
       setConfig(r);
+      setGuardada(JSON.stringify(r));
       setMensaje({ ok: true, texto: "Configuración guardada." });
       setRev((n) => n + 1);
     } catch (err) {
@@ -170,6 +175,7 @@ export default function ConfigChecadas({ incrustado = false, scope }: { incrusta
 
           {config && (
             <form onSubmit={guardar} className="space-y-5">
+              {esAdmin && <BarraGuardar sucio={JSON.stringify(config) !== guardada} onGuardar={() => guardar()} />}
               <fieldset disabled={bloqueado} className="card space-y-1 p-5">
                 <legend className="sr-only">Dónde se puede checar</legend>
                 <h2 className="mb-2 font-semibold text-tinta-900">Dónde se puede checar</h2>
@@ -242,11 +248,6 @@ export default function ConfigChecadas({ incrustado = false, scope }: { incrusta
               </fieldset>
 
               {mensaje && <p className={`rounded-lg px-3 py-2 text-sm ${mensaje.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{mensaje.texto}</p>}
-              {esAdmin && (
-                <div className="flex justify-end">
-                  <button className="btn-primary">Guardar cambios</button>
-                </div>
-              )}
             </form>
           )}
           </>

@@ -205,4 +205,11 @@ async def exportar_nomina(
         await _claves(db, emp, sistema),
         opciones,
     )
-    return _archivo(contenido, mime, f"nomina_{sistema}_{desde:%Y%m%d}_{hasta:%Y%m%d}.{ext}")
+    claves = await _claves(db, emp, sistema)
+    resp = _archivo(contenido, mime, f"nomina_{sistema}_{desde:%Y%m%d}_{hasta:%Y%m%d}.{ext}")
+    # Cuántos movimientos lleva el archivo: si es 0, la pantalla avisa por qué está vacío.
+    resp.headers["X-Odai-Movimientos"] = str(
+        len(reportes.movimientos(periodo, claves, hasta, diario=True))
+    )
+    resp.headers["X-Odai-Empleados"] = str(len(periodo))
+    return resp

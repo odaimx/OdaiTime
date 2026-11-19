@@ -344,6 +344,42 @@ function CambiarPassword({ onClose }: { onClose: () => void }) {
   );
 }
 
+/**
+ * Guardado de las pantallas de configuración, igual que en las fichas: nube roja con cambios
+ * sin guardar, verde cuando está guardado. Ctrl+S también guarda.
+ */
+export function BarraGuardar({ sucio, guardando = false, onGuardar, children }: { sucio: boolean; guardando?: boolean; onGuardar: () => void; children?: ReactNode }) {
+  const ref = useRef(onGuardar);
+  ref.current = onGuardar;
+  useEffect(() => {
+    if (!sucio) return;
+    const tecla = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        ref.current();
+      }
+    };
+    window.addEventListener("keydown", tecla);
+    return () => window.removeEventListener("keydown", tecla);
+  }, [sucio]);
+  return (
+    <div className="flex items-center gap-2 rounded-lg bg-slate-100/70 px-3 py-1.5">
+      <button
+        type="button"
+        disabled={!sucio || guardando}
+        onClick={onGuardar}
+        title={sucio ? "Guardar (Ctrl+S)" : "Guardado"}
+        aria-label="Guardar"
+        className={`rounded-lg p-1 transition disabled:cursor-default ${sucio ? "text-red-600 hover:text-red-700" : "text-emerald-600"}`}
+      >
+        <Icono nombre={sucio ? "cloud-upload" : "cloud-check"} className="h-5 w-5" />
+      </button>
+      <span className={`text-xs ${sucio ? "text-red-600" : "text-emerald-600"}`}>{guardando ? "Guardando…" : sucio ? "Sin guardar" : "Guardado"}</span>
+      {children && <div className="ml-auto flex items-center gap-2">{children}</div>}
+    </div>
+  );
+}
+
 export function Modal({
   title,
   onClose,

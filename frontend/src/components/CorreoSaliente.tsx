@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, get, post } from "../lib/api";
+import { BarraGuardar } from "./ui";
 
 interface Config {
   host: string;
@@ -15,20 +16,26 @@ interface Config {
  * El remitente visible de cada correo es el nombre de la empresa del destinatario. */
 export default function CorreoSaliente() {
   const [c, setC] = useState<Config | null>(null);
+  const [guardado, setGuardado] = useState("");
   const [password, setPassword] = useState("");
   const [prueba, setPrueba] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; texto: string } | null>(null);
 
   useEffect(() => {
-    get<Config>("/correo").then(setC);
+    get<Config>("/correo").then((r) => {
+      setC(r);
+      setGuardado(JSON.stringify(r));
+    });
   }, []);
 
-  async function guardar(e: FormEvent) {
-    e.preventDefault();
+  async function guardar(e?: FormEvent) {
+    e?.preventDefault();
     if (!c) return;
     setMsg(null);
     try {
-      setC(await api<Config>("/correo", { method: "PUT", body: JSON.stringify({ ...c, password: password || null }) }));
+      const r = await api<Config>("/correo", { method: "PUT", body: JSON.stringify({ ...c, password: password || null }) });
+      setC(r);
+      setGuardado(JSON.stringify(r));
       setPassword("");
       setMsg({ ok: true, texto: "Configuración guardada." });
     } catch (err) {
@@ -50,6 +57,9 @@ export default function CorreoSaliente() {
   const set = (k: keyof Config, v: string | number | boolean) => setC({ ...c, [k]: v });
   return (
     <form onSubmit={guardar} className="form-2col">
+      <div className="completo">
+        <BarraGuardar sucio={JSON.stringify(c) !== guardado || !!password} onGuardar={() => guardar()} />
+      </div>
       <p className="completo text-sm text-slate-600">
         Un solo servidor envía los correos de todas las empresas (invitaciones al portal, recuperar contraseña). Cada correo sale con el <strong>nombre de la empresa</strong> como remitente.
       </p>
@@ -95,7 +105,6 @@ export default function CorreoSaliente() {
         <button type="button" className="btn-secondary" disabled={!prueba} onClick={enviarPrueba}>
           Enviar prueba
         </button>
-        <button className="btn-primary">Guardar</button>
       </div>
       {msg && <p className={`completo rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"}`}>{msg.texto}</p>}
     </form>

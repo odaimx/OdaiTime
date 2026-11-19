@@ -3,9 +3,9 @@ import { api, descargar } from "../lib/api";
 import { aplicarTema, cargarTema, COLORES_ODAI, temaActual, type Colores, type Enlaces, type Tema as TemaGuardado } from "../lib/tema";
 import CorreoSaliente from "./CorreoSaliente";
 import Icono from "./Iconos";
-import { Ayuda, ErrorBox, Fila, ImagenEditable } from "./ui";
+import { Ayuda, BarraGuardar, ErrorBox, Fila, ImagenEditable } from "./ui";
 
-type Pestana = "tema" | "imagenes" | "acceso" | "frases" | "correo" | "enlaces";
+type Pestana = "tema" | "acceso" | "frases" | "correo" | "enlaces";
 
 /** Configuración general de ODAITIME para todas las empresas (solo superadmin). */
 export default function ConfigSistema() {
@@ -16,7 +16,6 @@ export default function ConfigSistema() {
         {(
           [
             ["tema", "Colores del tema"],
-            ["imagenes", "Fondo e inicio"],
             ["acceso", "Pantalla de acceso"],
             ["frases", "Frases"],
             ["correo", "Correo saliente"],
@@ -36,7 +35,6 @@ export default function ConfigSistema() {
         ))}
       </div>
       {pestana === "tema" && <Tema />}
-      {pestana === "imagenes" && <FondoEInicio />}
       {pestana === "acceso" && <PantallaAcceso />}
       {pestana === "frases" && <FrasesLogin />}
       {pestana === "correo" && <CorreoSaliente />}
@@ -56,11 +54,16 @@ const ETIQUETAS: Record<keyof Colores, [string, string]> = {
 
 function Tema() {
   const [colores, setColores] = useState<Required<{ [K in keyof Colores]: string }>>(COLORES_ODAI);
+  const [guardados, setGuardados] = useState(JSON.stringify(COLORES_ODAI));
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    cargarTema().then((t) => setColores({ ...COLORES_ODAI, ...Object.fromEntries(Object.entries(t.colores).filter(([, v]) => v)) }));
+    cargarTema().then((t) => {
+      const c = { ...COLORES_ODAI, ...Object.fromEntries(Object.entries(t.colores).filter(([, v]) => v)) };
+      setColores(c);
+      setGuardados(JSON.stringify(c));
+    });
   }, []);
 
   function cambiar(k: keyof Colores, v: string) {
@@ -78,6 +81,7 @@ function Tema() {
       await api("/sistema/tema", { method: "PUT", body: JSON.stringify(cambios) });
       aplicarTema(cambios);
       setColores(valores);
+      setGuardados(JSON.stringify(valores));
       setMsg("Tema guardado. Se aplica a todas las empresas.");
     } catch (e) {
       setError((e as Error).message);
@@ -86,6 +90,11 @@ function Tema() {
 
   return (
     <div className="space-y-4">
+      <BarraGuardar sucio={JSON.stringify(colores) !== guardados} onGuardar={() => guardar(colores)}>
+        <button type="button" className="text-xs text-slate-600 hover:underline" onClick={() => guardar(COLORES_ODAI)}>
+          Restablecer colores de Odai
+        </button>
+      </BarraGuardar>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {(Object.keys(ETIQUETAS) as (keyof Colores)[]).map((k) => (
           <label key={k} className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 p-3 hover:border-brand-300">
@@ -102,14 +111,6 @@ function Tema() {
       </div>
       {msg && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{msg}</p>}
       <ErrorBox message={error} />
-      <div className="flex justify-end gap-3">
-        <button type="button" className="btn-secondary" onClick={() => guardar(COLORES_ODAI)}>
-          Restablecer colores de Odai
-        </button>
-        <button type="button" className="btn-primary" onClick={() => guardar(colores)}>
-          <Icono nombre="palette" /> Guardar tema
-        </button>
-      </div>
     </div>
   );
 }
@@ -178,86 +179,94 @@ async function guardarApariencia(cambios: Partial<Apariencia>) {
   await cargarTema();
 }
 
-function FondoEInicio() {
-  const [color, setColor] = useState("");
-  const [msg, setMsg] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    temaActual().then((t) => setColor(t.fondo_color ?? ""));
-  }, []);
-  async function guardarColor(valor: string | null) {
-    setMsg(null);
-    setError(null);
-    try {
-      await guardarApariencia({ fondo_color: valor });
-      setColor(valor ?? "");
-      setMsg("Color de fondo guardado.");
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }
-  return (
-    <div className="space-y-6">
-      <section className="space-y-2">
-        <h3 className="text-sm font-semibold text-tinta-900">Imagen de inicio</h3>
-        <p className="text-xs text-slate-500">Aparece a todo lo ancho en la pantalla de Inicio de todas las empresas.</p>
-        <ImagenSistema tipo="inicio" aspecto="aspect-[4/1]" vacia="Sin imagen · pasa el mouse para subirla" />
-      </section>
-      <section className="space-y-2">
-        <h3 className="text-sm font-semibold text-tinta-900">Fondo de la aplicación</h3>
-        <p className="text-xs text-slate-500">Color detrás de las pantallas y del pie de página de todas las empresas.</p>
-        <div className="flex flex-wrap items-center gap-3">
-          <input type="color" className="h-9 w-12 cursor-pointer rounded border border-slate-300 bg-white p-0.5" value={color || "#f8fafc"} onChange={(e) => setColor(e.target.value)} aria-label="Color de fondo" />
-          <span className="font-mono text-xs text-slate-500">{color || "Predeterminado"}</span>
-          <button type="button" className="btn-secondary" onClick={() => guardarColor(color || null)}>
-            <Icono nombre="check" /> Guardar color
-          </button>
-          {color && (
-            <button type="button" className="text-sm text-slate-500 hover:underline" onClick={() => guardarColor(null)}>
-              Usar el predeterminado
-            </button>
-          )}
-        </div>
-        {msg && <p className="text-sm text-emerald-700">{msg}</p>}
-        <ErrorBox message={error} />
-      </section>
-    </div>
-  );
-}
+const COLOR_DEFECTO = { login_color_titulo: "#ffffff", login_color_subtitulo: "#8a64de", login_color_texto: "#e2e8f0", fondo_color: "#f8fafc" };
+type CampoColor = keyof typeof COLOR_DEFECTO;
 
+/** Pantalla de acceso, imagen de inicio y color de fondo de la aplicación (todas las empresas). */
 function PantallaAcceso() {
-  const [textos, setTextos] = useState({ login_titulo: "", login_subtitulo: "", login_texto: "" });
-  // Colores predeterminados de cada renglón: blanco, color de marca y gris claro.
-  const [colores, setColores] = useState({ login_color_titulo: "", login_color_subtitulo: "", login_color_texto: "" });
-  const [msg, setMsg] = useState<string | null>(null);
+  const vacio = { login_titulo: "", login_subtitulo: "", login_texto: "", login_color_titulo: "", login_color_subtitulo: "", login_color_texto: "", fondo_color: "" };
+  const [form, setForm] = useState(vacio);
+  const [guardado, setGuardado] = useState(JSON.stringify(vacio));
+  const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     temaActual().then((t) => {
-      setTextos({ login_titulo: t.login_titulo ?? "", login_subtitulo: t.login_subtitulo ?? "", login_texto: t.login_texto ?? "" });
       const c = t.login_colores ?? {};
-      setColores({ login_color_titulo: c.titulo ?? "", login_color_subtitulo: c.subtitulo ?? "", login_color_texto: c.texto ?? "" });
+      const f = {
+        login_titulo: t.login_titulo ?? "",
+        login_subtitulo: t.login_subtitulo ?? "",
+        login_texto: t.login_texto ?? "",
+        login_color_titulo: c.titulo ?? "",
+        login_color_subtitulo: c.subtitulo ?? "",
+        login_color_texto: c.texto ?? "",
+        fondo_color: t.fondo_color ?? "",
+      };
+      setForm(f);
+      setGuardado(JSON.stringify(f));
     });
   }, []);
-  async function guardar(e: FormEvent) {
-    e.preventDefault();
-    setMsg(null);
+  const sucio = JSON.stringify(form) !== guardado;
+
+  async function guardar() {
     setError(null);
+    setGuardando(true);
     try {
-      await guardarApariencia({
-        login_titulo: textos.login_titulo || null,
-        login_subtitulo: textos.login_subtitulo || null,
-        login_texto: textos.login_texto || null,
-        login_color_titulo: colores.login_color_titulo || null,
-        login_color_subtitulo: colores.login_color_subtitulo || null,
-        login_color_texto: colores.login_color_texto || null,
-      });
-      setMsg("Textos guardados.");
+      await guardarApariencia(Object.fromEntries(Object.entries(form).map(([k, v]) => [k, v.trim() || null])) as Partial<Apariencia>);
+      setGuardado(JSON.stringify(form));
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setGuardando(false);
     }
   }
+
+  const color = (campo: CampoColor) => (
+    <span className="flex shrink-0 items-center gap-1">
+      <input
+        type="color"
+        className="h-9 w-10 cursor-pointer rounded border border-slate-300 bg-white p-0.5"
+        value={form[campo] || COLOR_DEFECTO[campo]}
+        onChange={(e) => setForm({ ...form, [campo]: e.target.value })}
+        title="Color"
+        aria-label="Color"
+      />
+      {form[campo] && (
+        <button type="button" className="text-xs text-slate-500 hover:underline" onClick={() => setForm({ ...form, [campo]: "" })}>
+          Predeterminado
+        </button>
+      )}
+    </span>
+  );
+
   return (
     <div className="space-y-6">
+      <BarraGuardar sucio={sucio} guardando={guardando} onGuardar={guardar} />
+      <ErrorBox message={error} />
+      <section className="max-w-2xl space-y-3">
+        <h3 className="text-sm font-semibold text-tinta-900">Textos del panel izquierdo y su color</h3>
+        <p className="text-xs text-slate-500">Lo que se deje vacío no se muestra.</p>
+        <Fila etiqueta="Título" htmlFor="login-titulo">
+          <div className="flex items-center gap-2">
+            <input id="login-titulo" className="input" maxLength={120} value={form.login_titulo} onChange={(e) => setForm({ ...form, login_titulo: e.target.value })} />
+            {color("login_color_titulo")}
+          </div>
+        </Fila>
+        <Fila etiqueta="Subtítulo" htmlFor="login-sub">
+          <div className="flex items-center gap-2">
+            <input id="login-sub" className="input" maxLength={120} value={form.login_subtitulo} onChange={(e) => setForm({ ...form, login_subtitulo: e.target.value })} />
+            {color("login_color_subtitulo")}
+          </div>
+        </Fila>
+        <Fila etiqueta="Texto" htmlFor="login-texto" ayuda="Puede tener varias líneas.">
+          <div className="flex items-start gap-2">
+            <textarea id="login-texto" className="input min-h-24" maxLength={600} value={form.login_texto} onChange={(e) => setForm({ ...form, login_texto: e.target.value })} />
+            {color("login_color_texto")}
+          </div>
+        </Fila>
+        <Fila etiqueta="Fondo de la aplicación" ayuda="Color detrás de las pantallas y del pie de página de todas las empresas.">
+          {color("fondo_color")}
+        </Fila>
+      </section>
       <section className="space-y-2">
         <h3 className="text-sm font-semibold text-tinta-900">Imagen del panel izquierdo</h3>
         <p className="text-xs text-slate-500">Si no hay imagen, el panel usa el color del menú.</p>
@@ -268,55 +277,11 @@ function PantallaAcceso() {
         <p className="text-xs text-slate-500">Se ve detrás del recuadro de inicio de sesión. Si no hay, se usa el color de fondo de la aplicación.</p>
         <ImagenSistema tipo="fondo" aspecto="aspect-[16/9] max-w-xl" vacia="Sin imagen de fondo · pasa el mouse para subirla" />
       </section>
-      <form className="max-w-2xl space-y-3" onSubmit={guardar}>
-        <h3 className="text-sm font-semibold text-tinta-900">Textos del panel y su color</h3>
-        <Fila etiqueta="Título" htmlFor="login-titulo">
-          <div className="flex items-center gap-2">
-            <input id="login-titulo" className="input" maxLength={120} placeholder="Control de asistencia" value={textos.login_titulo} onChange={(e) => setTextos({ ...textos, login_titulo: e.target.value })} />
-            <span className="flex items-center gap-1">
-            <input type="color" className="h-9 w-10 shrink-0 cursor-pointer rounded border border-slate-300 bg-white p-0.5" value={colores.login_color_titulo || "#ffffff"} onChange={(e) => setColores({ ...colores, login_color_titulo: e.target.value })} title="Color del renglón" aria-label="Color del renglón" />
-            {colores.login_color_titulo && (
-              <button type="button" className="text-xs text-slate-500 hover:underline" onClick={() => setColores({ ...colores, login_color_titulo: "" })}>
-                Predeterminado
-              </button>
-            )}
-          </span>
-          </div>
-        </Fila>
-        <Fila etiqueta="Subtítulo" htmlFor="login-sub">
-          <div className="flex items-center gap-2">
-            <input id="login-sub" className="input" maxLength={120} placeholder="claro y en regla." value={textos.login_subtitulo} onChange={(e) => setTextos({ ...textos, login_subtitulo: e.target.value })} />
-            <span className="flex items-center gap-1">
-            <input type="color" className="h-9 w-10 shrink-0 cursor-pointer rounded border border-slate-300 bg-white p-0.5" value={colores.login_color_subtitulo || "#8a64de"} onChange={(e) => setColores({ ...colores, login_color_subtitulo: e.target.value })} title="Color del renglón" aria-label="Color del renglón" />
-            {colores.login_color_subtitulo && (
-              <button type="button" className="text-xs text-slate-500 hover:underline" onClick={() => setColores({ ...colores, login_color_subtitulo: "" })}>
-                Predeterminado
-              </button>
-            )}
-          </span>
-          </div>
-        </Fila>
-        <Fila etiqueta="Texto" htmlFor="login-texto" ayuda="Puede tener varias líneas.">
-          <div className="flex items-start gap-2">
-            <textarea id="login-texto" className="input min-h-24" maxLength={600} placeholder="Checadas, retardos, horas extra y reportes…" value={textos.login_texto} onChange={(e) => setTextos({ ...textos, login_texto: e.target.value })} />
-            <span className="flex items-center gap-1">
-            <input type="color" className="h-9 w-10 shrink-0 cursor-pointer rounded border border-slate-300 bg-white p-0.5" value={colores.login_color_texto || "#e2e8f0"} onChange={(e) => setColores({ ...colores, login_color_texto: e.target.value })} title="Color del renglón" aria-label="Color del renglón" />
-            {colores.login_color_texto && (
-              <button type="button" className="text-xs text-slate-500 hover:underline" onClick={() => setColores({ ...colores, login_color_texto: "" })}>
-                Predeterminado
-              </button>
-            )}
-          </span>
-          </div>
-        </Fila>
-        <ErrorBox message={error} />
-        {msg && <p className="text-sm text-emerald-700">{msg}</p>}
-        <div className="flex justify-end">
-          <button className="btn-primary">
-            <Icono nombre="check" /> Guardar textos
-          </button>
-        </div>
-      </form>
+      <section className="space-y-2">
+        <h3 className="text-sm font-semibold text-tinta-900">Imagen de inicio</h3>
+        <p className="text-xs text-slate-500">Aparece a todo lo ancho en la pantalla de Inicio de todas las empresas.</p>
+        <ImagenSistema tipo="inicio" aspecto="aspect-[4/1]" vacia="Sin imagen · pasa el mouse para subirla" />
+      </section>
     </div>
   );
 }
@@ -430,15 +395,20 @@ function FrasesLogin() {
 /** Tienda en línea (comprar más empleados cuando se acaba el cupo) y soporte de Odai. */
 function EnlacesOdai() {
   const [enlaces, setEnlaces] = useState<Enlaces>({ url_tienda: "", url_soporte: "" });
+  const [guardado, setGuardado] = useState(JSON.stringify({ url_tienda: "", url_soporte: "" }));
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    cargarTema().then((t) => setEnlaces({ url_tienda: t.enlaces?.url_tienda ?? "", url_soporte: t.enlaces?.url_soporte ?? "" }));
+    cargarTema().then((t) => {
+      const e = { url_tienda: t.enlaces?.url_tienda ?? "", url_soporte: t.enlaces?.url_soporte ?? "" };
+      setEnlaces(e);
+      setGuardado(JSON.stringify(e));
+    });
   }, []);
 
-  async function guardar(e: FormEvent) {
-    e.preventDefault();
+  async function guardar(e?: FormEvent) {
+    e?.preventDefault();
     setMsg(null);
     setError(null);
     try {
@@ -446,7 +416,9 @@ function EnlacesOdai() {
         method: "PUT",
         body: JSON.stringify({ url_tienda: enlaces.url_tienda?.trim() || null, url_soporte: enlaces.url_soporte?.trim() || null }),
       });
-      setEnlaces({ url_tienda: t.enlaces.url_tienda ?? "", url_soporte: t.enlaces.url_soporte ?? "" });
+      const n = { url_tienda: t.enlaces.url_tienda ?? "", url_soporte: t.enlaces.url_soporte ?? "" };
+      setEnlaces(n);
+      setGuardado(JSON.stringify(n));
       await cargarTema();
       setMsg("Enlaces guardados.");
     } catch (err) {
@@ -456,6 +428,7 @@ function EnlacesOdai() {
 
   return (
     <form className="max-w-2xl space-y-4" onSubmit={guardar}>
+      <BarraGuardar sucio={JSON.stringify(enlaces) !== guardado} onGuardar={() => guardar()} />
       <Fila etiqueta="Tienda en línea" htmlFor="url-tienda" ayuda="A donde se envía a la empresa cuando ya no tiene empleados disponibles en su licencia o está vencida, para comprar más.">
         <input id="url-tienda" className="input" type="url" placeholder="https://odai.lat/tienda" value={enlaces.url_tienda ?? ""} onChange={(e) => setEnlaces({ ...enlaces, url_tienda: e.target.value })} />
       </Fila>
@@ -468,11 +441,6 @@ function EnlacesOdai() {
       </p>
       <ErrorBox message={error} />
       {msg && <p className="text-sm text-emerald-700">{msg}</p>}
-      <div className="flex justify-end">
-        <button className="btn-primary">
-          <Icono nombre="check" /> Guardar
-        </button>
-      </div>
     </form>
   );
 }
