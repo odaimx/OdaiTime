@@ -7,11 +7,13 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import DB, CurrentUser, empresa_scope, require_roles
 from app.core.tenant import base_domain, tenant_de, tenant_de_host
 from app.models import Empresa
 from app.models.usuario import Rol
+from app.schemas.common import RFC, Nombre
 from app.services import estado_empresa, fotos
 
 router = APIRouter(prefix="/tenant", tags=["subdominio"])
@@ -188,3 +190,61 @@ async def quitar_fondo(user: CurrentUser, db: DB, empresa_id: uuid.UUID | None =
     e.fondo_actualizado = None
     await db.commit()
     return _fondo(e)
+
+
+# --- Datos básicos de la empresa (los cambia su administrador) ---
+
+
+class MiEmpresaIn(BaseModel):
+    nombre: Nombre
+    razon_social: str | None = Field(default=None, max_length=250)
+    rfc: RFC | None = None
+
+
+class MiEmpresaOut(BaseModel):
+    id: uuid.UUID
+    nombre: str
+    razon_social: str | None
+    rfc: str | None
+    slug: str
+    logo_version: str | None
+
+
+def _mi_empresa(e: Empresa) -> MiEmpresaOut:
+    return MiEmpresaOut(
+        id=e.id,
+        nombre=e.nombre,
+        razon_social=e.razon_social,
+        rfc=e.rfc,
+        slug=e.slug,
+        logo_version=e.logo_version,
+    )
+
+
+@router.get("/empresa", response_model=MiEmpresaOut, dependencies=[_admin])
+async def ver_mi_empresa(
+    user: CurrentUser, db: DB, empresa_id: uuid.UUID | None = None
+) -> MiEmpresaOut:
+    e = await db.get(Empresa, empresa_scope(user, empresa_id))
+    if e is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Empresa no encontrada")
+    return _mi_empresa(e)
+
+
+@router.patch("/empresa", response_model=MiEmpresaOut, dependencies=[_admin])
+async def guardar_mi_empresa(
+    data: MiEmpresaIn, user: CurrentUser, db: DB, empresa_id: uuid.UUID | None = None
+) -> MiEmpresaOut:
+    """Nombre, razón social y RFC. La licencia y el subdominio solo los cambia Odai."""
+    e = await db.get(Empresa, empresa_scope(user, empresa_id))
+    if e is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Empresa no encontrada")
+    e.nombre = data.nombre
+    e.razon_social = (data.razon_social or "").strip() or None
+    e.rfc = data.rfc or None
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "Ya existe una empresa con ese RFC") from None
+    return _mi_empresa(e)

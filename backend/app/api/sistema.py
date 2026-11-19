@@ -50,6 +50,7 @@ class TemaOut(BaseModel):
     login_titulo: str | None = None
     login_subtitulo: str | None = None
     login_texto: str | None = None
+    login_colores: dict[str, str | None] = {}  # titulo, subtitulo, texto
     frases: dict[str, int] = {}  # cuántos refranes y citas hay
 
 
@@ -90,6 +91,11 @@ def _out(c: ConfigSistema | None, frases: dict[str, int] | None = None) -> TemaO
         login_titulo=c.login_titulo,
         login_subtitulo=c.login_subtitulo,
         login_texto=c.login_texto,
+        login_colores={
+            "titulo": c.login_color_titulo,
+            "subtitulo": c.login_color_subtitulo,
+            "texto": c.login_color_texto,
+        },
         frases=frases or {},
     )
 
@@ -200,6 +206,9 @@ class AparienciaIn(BaseModel):
     login_titulo: str | None = Field(default=None, max_length=120)
     login_subtitulo: str | None = Field(default=None, max_length=120)
     login_texto: str | None = Field(default=None, max_length=600)
+    login_color_titulo: str | None = Field(default=None, pattern=HEX)
+    login_color_subtitulo: str | None = Field(default=None, pattern=HEX)
+    login_color_texto: str | None = Field(default=None, pattern=HEX)
 
 
 @router.put("/apariencia", response_model=TemaOut, dependencies=_SUPER)
@@ -210,13 +219,16 @@ async def guardar_apariencia(data: AparienciaIn, db: DB) -> TemaOut:
     c.login_titulo = (data.login_titulo or "").strip() or None
     c.login_subtitulo = (data.login_subtitulo or "").strip() or None
     c.login_texto = (data.login_texto or "").strip() or None
+    for campo in ("login_color_titulo", "login_color_subtitulo", "login_color_texto"):
+        valor = getattr(data, campo)
+        setattr(c, campo, valor.lower() if valor else None)
     await db.commit()
     return _out(c)
 
 
-# --- Frases de la pantalla de acceso: refranes y citas bíblicas ---
+# --- Frases de la pantalla de acceso: frases, proverbios y citas bíblicas ---
 
-TIPOS_FRASE = {"refran": "Refrán", "cita": "Cita bíblica"}
+TIPOS_FRASE = {"frase": "Frase", "proverbio": "Proverbio", "cita": "Cita bíblica"}
 
 
 class FraseOut(BaseModel):
@@ -232,7 +244,7 @@ class FraseOut(BaseModel):
 async def frase_aleatoria(
     db: DB, tipo: str = "ambas", excluir: uuid.UUID | None = None
 ) -> Frase | None:
-    """Público: una frase al azar del tipo pedido (refran, cita o ambas), distinta a `excluir`."""
+    """Público: una frase al azar del tipo pedido (frase, proverbio, cita o todas)."""
     q = select(Frase)
     if tipo in TIPOS_FRASE:
         q = q.where(Frase.tipo == tipo)
@@ -255,7 +267,8 @@ async def plantilla_frases() -> Response:
     ws = wb.active
     ws.title = "Frases"
     ws.append(["Tipo", "Texto", "Autor"])
-    ws.append(["Refrán", "Al que madruga, Dios lo ayuda.", "Refrán popular"])
+    ws.append(["Frase", "La disciplina es el puente entre metas y logros.", "Jim Rohn"])
+    ws.append(["Proverbio", "Al que madruga, Dios lo ayuda.", "Proverbio popular"])
     ws.append(["Cita bíblica", "Todo lo puedo en Cristo que me fortalece.", "Filipenses 4:13"])
     for col, ancho in zip("ABC", (14, 70, 28), strict=True):
         ws.column_dimensions[col].width = ancho
@@ -271,10 +284,12 @@ async def plantilla_frases() -> Response:
 def _tipo_frase(valor: object) -> str | None:
     t = str(valor or "").strip().lower()
     t = t.replace("á", "a").replace("í", "i")
-    if t.startswith("refr"):
-        return "refran"
+    if t.startswith("prov") or t.startswith("refr"):
+        return "proverbio"
     if t.startswith("cita") or "bibl" in t:
         return "cita"
+    if t.startswith("frase"):
+        return "frase"
     return None
 
 
@@ -282,7 +297,7 @@ def _tipo_frase(valor: object) -> str | None:
 async def importar_frases(
     db: DB, archivo: Annotated[UploadFile, File()], reemplazar: bool = False
 ) -> dict[str, int]:
-    """Importa frases de un Excel o CSV con columnas Tipo, Texto y Autor."""
+    """Importa de Excel o CSV: Tipo (Frase, Proverbio o Cita bíblica), Texto y Autor."""
     contenido = await archivo.read()
     if len(contenido) > 5 * 1024 * 1024:
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "Archivo mayor a 5 MB")

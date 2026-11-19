@@ -23,6 +23,7 @@ const NAV: { to: string; label: string; roles: Rol[]; icon: NombreIcono }[] = [
   { to: "/turnos", label: "Turnos", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "calendar-clock" },
   { to: "/festivos", label: "Días festivos", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "calendar-heart" },
   { to: "/usuarios", label: "Usuarios", roles: ["superadmin", "admin_empresa"], icon: "users" },
+  { to: "/mi-empresa", label: "Mi empresa", roles: ["superadmin", "admin_empresa"], icon: "building" },
 ];
 
 const FIJO_KEY = "odaitime.menuFijo";
