@@ -1,3 +1,5 @@
+import { useSyncExternalStore } from "react";
+
 /**
  * Colores del tema para todo el sistema (los define Odai). Tailwind 4 genera las clases con
  * variables CSS (--color-brand-500, …), así que basta con cambiar esas variables; los tonos
@@ -59,22 +61,52 @@ export type Tema = {
   url_tienda: string;
   url_soporte: string;
   enlaces: Enlaces;
+  fondo_color?: string | null;
+  fondo_version?: string | null;
+  login_version?: string | null;
+  login_titulo?: string | null;
+  login_subtitulo?: string | null;
+  login_texto?: string | null;
+  frases?: Record<string, number>;
 };
 
-let pendiente: Promise<Tema> | null = null;
+const VACIO: Tema = { colores: {}, imagen_version: null, demo: false, url_tienda: "", url_soporte: "", enlaces: { url_tienda: null, url_soporte: null } };
 
-/** Lee el tema guardado y lo aplica (se llama al arrancar la aplicación). */
+let pendiente: Promise<Tema> | null = null;
+let ultimo: Tema | null = null;
+const avisos = new Set<() => void>();
+
+/** Lee el tema guardado y lo aplica (al arrancar y después de cambiar la configuración). */
 export async function cargarTema(): Promise<Tema> {
-  const r = await fetch("/api/sistema/tema");
-  const t: Tema = r.ok
-    ? await r.json()
-    : { colores: {}, imagen_version: null, demo: false, url_tienda: "", url_soporte: "", enlaces: { url_tienda: null, url_soporte: null } };
+  const r = await fetch("/api/sistema/tema").catch(() => null);
+  const t: Tema = r?.ok ? await r.json() : VACIO;
   aplicarTema(t.colores);
   pendiente = Promise.resolve(t);
+  ultimo = t;
+  avisos.forEach((f) => f());
   return t;
 }
 
 /** El último tema leído (sin volver a pedirlo si ya se cargó). */
 export function temaActual(): Promise<Tema> {
   return pendiente ?? cargarTema();
+}
+
+/** El tema en un componente; se actualiza cuando Odai cambia la configuración. */
+export function useTema(): Tema | null {
+  return useSyncExternalStore(
+    (f) => {
+      avisos.add(f);
+      if (!pendiente) void cargarTema();
+      return () => avisos.delete(f);
+    },
+    () => ultimo,
+  );
+}
+
+/** Fondo de la aplicación (lo define Odai para todas las empresas): imagen o color. */
+export function estiloFondoApp(t: Tema | null): Record<string, string> {
+  if (t?.fondo_version) return { backgroundImage: `url(/api/sistema/imagen/fondo?v=${encodeURIComponent(t.fondo_version)})`, backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: "fixed" };
+  if (t?.fondo_color) return { backgroundColor: t.fondo_color };
+  return {};
 }

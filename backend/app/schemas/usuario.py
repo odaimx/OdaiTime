@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr
 
@@ -17,6 +17,7 @@ class EmpresaRef(BaseModel):
     fondo_color: str | None = None
     fondo_version: str | None = None
     demo: bool = False
+    licencia_vence: date | None = None
 
 
 class UsuarioOut(BaseModel):
@@ -30,6 +31,7 @@ class UsuarioOut(BaseModel):
     empresa: EmpresaRef | None
     sucursales: list[SucursalRef]
     ultimo_acceso: datetime | None
+    foto_actualizada: datetime | None = None
 
 
 class UsuarioCreate(BaseModel):

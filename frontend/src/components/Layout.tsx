@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
-import { estiloFondo, get, hoyISO, urlLogo, type Rol, type Tarea } from "../lib/api";
+import { get, hoyISO, urlLogo, type Rol, type Tarea } from "../lib/api";
+import { estiloFondoApp, useTema } from "../lib/tema";
 import { useAuth } from "../lib/auth";
 import { usePortal } from "../lib/portal";
 import Icono, { type NombreIcono } from "./Iconos";
@@ -29,6 +30,7 @@ const FIJO_KEY = "odaitime.menuFijo";
 export default function Layout() {
   const { usuario, refrescar } = useAuth();
   const soporte = useSoporte();
+  const tema = useTema();
   const navegar = useNavigate();
   const portal = usePortal(usuario?.rol === "empleado");
   // Al abrir, vuelve a leer el usuario: trae cambios de la empresa (logo, fondo) hechos en otra sesión.
@@ -180,8 +182,8 @@ export default function Layout() {
           </button>
         </div>
       )}
-      <main style={estiloFondo(usuario.empresa)} className={`min-w-0 transition-[padding] duration-200 ${fijo ? "lg:pl-64" : "lg:pl-16"}`}>
-        <div className="flex min-h-dvh flex-col p-4 sm:p-6 lg:p-8">
+      <main style={estiloFondoApp(tema)} className={`min-w-0 transition-[padding] duration-200 ${fijo ? "lg:pl-64" : "lg:pl-16"}`}>
+        <div className="flex min-h-dvh flex-col px-4 pb-1.5 pt-4 sm:px-6 sm:pt-6 lg:px-8 lg:pt-8">
           {/* Columna flexible: una página puede estirar una sección (p. ej. la imagen de inicio). */}
           <div className="flex flex-1 flex-col">
             <Outlet />

@@ -1,9 +1,10 @@
 import logging
 import uuid
 from datetime import UTC, datetime
+from typing import Annotated
 
 import jwt
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, File, HTTPException, Request, Response, UploadFile, status
 from pydantic import BaseModel, EmailStr, Field
 from redis.asyncio import Redis
 from sqlalchemy import func, select, update
@@ -24,7 +25,7 @@ from app.models import Empleado, Empresa, Sesion, Usuario
 from app.schemas.auth import LoginIn, RefreshIn, TokenOut
 from app.schemas.common import Password
 from app.schemas.usuario import UsuarioOut
-from app.services import accesos, estado_empresa
+from app.services import accesos, estado_empresa, fotos
 
 router = APIRouter(prefix="/auth", tags=["autenticación"])
 log = logging.getLogger(__name__)
@@ -179,13 +180,30 @@ async def me(user: CurrentUser) -> Usuario:
 
 @router.get("/me/foto")
 async def mi_foto(user: CurrentUser, db: DB) -> Response:
-    """Foto (128 px) del empleado ligado al usuario, para el botón del usuario. 404 si no hay."""
-    datos = await db.scalar(select(Empleado.foto_128).where(Empleado.usuario_id == user.id))
+    """Foto (128 px) del usuario; si no subió una, la de su ficha de empleado. 404 si no hay."""
+    datos = await db.scalar(select(Usuario.foto).where(Usuario.id == user.id))
+    if not datos:
+        datos = await db.scalar(select(Empleado.foto_128).where(Empleado.usuario_id == user.id))
     if not datos:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Sin foto")
     return Response(
         datos, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=3600"}
     )
+
+
+@router.put("/me/foto", status_code=status.HTTP_204_NO_CONTENT)
+async def subir_mi_foto(user: CurrentUser, db: DB, archivo: Annotated[UploadFile, File()]) -> None:
+    """Cada usuario cambia su propia foto desde el menú del usuario."""
+    user.foto = (await fotos.procesar(archivo))[128]
+    user.foto_actualizada = datetime.now(UTC)
+    await db.commit()
+
+
+@router.delete("/me/foto", status_code=status.HTTP_204_NO_CONTENT)
+async def quitar_mi_foto(user: CurrentUser, db: DB) -> None:
+    user.foto = None
+    user.foto_actualizada = None
+    await db.commit()
 
 
 # --- Cambiar contraseña (usuario con sesión) ---

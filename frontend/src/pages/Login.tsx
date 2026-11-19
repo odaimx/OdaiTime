@@ -1,13 +1,16 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { ErrorBox } from "../components/ui";
-import { ApiError, AVISO_BLOQUEO, estiloFondo, urlLogo, type TenantInfo } from "../lib/api";
+import { ApiError, AVISO_BLOQUEO, urlLogo, type TenantInfo } from "../lib/api";
+import { estiloFondoApp, useTema } from "../lib/tema";
+import Icono from "../components/Iconos";
 import { useAuth } from "../lib/auth";
 
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const destino = (useLocation().state as { desde?: string } | null)?.desde ?? "/";
+  const tema = useTema();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -75,30 +78,33 @@ export default function Login() {
     }
   }
 
+  const imagenLogin = tema?.login_version ? `/api/sistema/imagen/login?v=${encodeURIComponent(tema.login_version)}` : null;
+  const textoLogin = tema?.login_texto ?? "Checadas, retardos, horas extra y reportes apegados a la Ley Federal del Trabajo, para todas tus sucursales.";
+
   return (
     <div className="flex min-h-screen">
-      <div className="hidden flex-1 flex-col justify-between bg-navy-900 p-12 lg:flex">
-        <img src="/logo.png" alt="ODAI" className="h-10 w-auto self-start" />
-        <div>
-          <h2 className="text-4xl font-semibold leading-tight text-white">
-            Control de asistencia
-            <br />
-            <span className="text-brand-500">claro y en regla.</span>
-          </h2>
-          <p className="mt-4 max-w-md text-slate-300">
-            Checadas, retardos, horas extra y reportes apegados a la Ley Federal del Trabajo, para todas tus sucursales.
-          </p>
+      {/* Panel izquierdo: imagen de Odai o, si no hay, el color del menú. */}
+      <div
+        className="relative hidden flex-1 flex-col justify-between overflow-hidden bg-navy-950 p-12 lg:flex"
+        style={imagenLogin ? { backgroundImage: `url(${imagenLogin})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
+      >
+        {imagenLogin && <div className="absolute inset-0 bg-gradient-to-t from-navy-950/85 via-navy-950/30 to-transparent" />}
+        <span />
+        <div className="relative">
+          <h2 className="text-4xl font-semibold leading-tight text-white">{tema?.login_titulo ?? "Control de asistencia"}</h2>
+          <p className="text-4xl font-semibold leading-tight text-brand-500">{tema?.login_subtitulo ?? "claro y en regla."}</p>
+          {textoLogin && <p className="mt-4 max-w-md whitespace-pre-line text-slate-200">{textoLogin}</p>}
         </div>
-        <p className="text-xs text-slate-500">© {new Date().getFullYear()} Odai · Cancún, México</p>
+        <p className="relative text-xs text-slate-300">© {new Date().getFullYear()} Odai · Cancún, México</p>
       </div>
 
-      <div className="flex flex-1 items-center justify-center bg-slate-50 p-6" style={tenant?.empresa_id ? estiloFondo({ id: tenant.empresa_id, fondo_color: tenant.fondo_color, fondo_version: tenant.fondo_version }) : undefined}>
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-slate-50 p-6" style={estiloFondoApp(tema)}>
         <form onSubmit={recuperando ? recuperar : onSubmit} className="card w-full max-w-sm space-y-5 p-8">
           <div>
-            <img src="/logo.png" alt="ODAI" className="mb-6 h-8 w-auto lg:hidden" />
+            <img src="/logo.png" alt="ODAI" className="mb-6 h-9 w-auto" />
             <h1 className="text-xl font-semibold text-tinta-900">{recuperando ? "Recuperar contraseña" : "Iniciar sesión"}</h1>
             {tenant?.empresa_id && tenant.logo_version && (
-              <img src={urlLogo(tenant.empresa_id, tenant.logo_version)} alt={tenant.nombre ?? ""} className="mb-5 max-h-16 max-w-[12rem] object-contain" />
+              <img src={urlLogo(tenant.empresa_id, tenant.logo_version)} alt={tenant.nombre ?? ""} className="my-3 max-h-16 max-w-[12rem] object-contain" />
             )}
             {tenant?.modo === "tenant" ? (
               <p className="mt-1 text-sm font-medium text-brand-600">{tenant.nombre}</p>
@@ -156,8 +162,83 @@ export default function Login() {
               {enviando ? "Entrando…" : "Entrar"}
             </button>
           )}
+          {!recuperando && tema && Object.values(tema.frases ?? {}).some((n) => n > 0) && <Frases conteo={tema.frases ?? {}} />}
         </form>
       </div>
+    </div>
+  );
+}
+
+
+type Frase = { id: string; tipo: "refran" | "cita"; texto: string; autor: string | null };
+type Preferencia = "ambas" | "refran" | "cita";
+const ETIQUETA: Record<Frase["tipo"], string> = { refran: "Refrán", cita: "Cita bíblica" };
+const PREF = "odaitime.frases";
+
+/** Refranes y citas bíblicas al pie del acceso; la flecha trae otra y el selector elige cuáles. */
+function Frases({ conteo }: { conteo: Record<string, number> }) {
+  const [pref, setPref] = useState<Preferencia>(() => {
+    try {
+      return (localStorage.getItem(PREF) as Preferencia) || "ambas";
+    } catch {
+      return "ambas";
+    }
+  });
+  const [frase, setFrase] = useState<Frase | null>(null);
+
+  const siguiente = useCallback(
+    (tipo: Preferencia, excluir?: string) => {
+      const q = new URLSearchParams({ tipo });
+      if (excluir) q.set("excluir", excluir);
+      fetch(`/api/sistema/frases/aleatoria?${q}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then(setFrase)
+        .catch(() => {});
+    },
+    [],
+  );
+  useEffect(() => siguiente(pref), [pref, siguiente]);
+
+  function elegir(p: Preferencia) {
+    setPref(p);
+    try {
+      localStorage.setItem(PREF, p);
+    } catch {
+      /* sin almacenamiento */
+    }
+  }
+
+  const opciones: [Preferencia, string][] = [
+    ["ambas", "Ambas"],
+    ...(conteo.refran ? ([["refran", "Refranes"]] as [Preferencia, string][]) : []),
+    ...(conteo.cita ? ([["cita", "Citas bíblicas"]] as [Preferencia, string][]) : []),
+  ];
+
+  return (
+    <div className="rounded-lg bg-slate-50 p-4 ring-1 ring-slate-200">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <select className="rounded-md border-0 bg-transparent py-0.5 pl-0 pr-6 text-xs font-medium text-brand-700 focus:ring-0" value={pref} onChange={(e) => elegir(e.target.value as Preferencia)} aria-label="Qué frases ver">
+          {opciones.map(([k, l]) => (
+            <option key={k} value={k}>
+              {l}
+            </option>
+          ))}
+        </select>
+        <button type="button" className="rounded-md p-1 text-slate-500 hover:bg-white hover:text-brand-600" onClick={() => siguiente(pref, frase?.id)} title="Otra frase" aria-label="Otra frase">
+          <Icono nombre="arrow-right" className="h-4 w-4" />
+        </button>
+      </div>
+      {frase ? (
+        <figure>
+          <blockquote className="text-sm italic text-tinta-900">“{frase.texto}”</blockquote>
+          <figcaption className="mt-2 flex items-center justify-between gap-2 text-xs text-slate-500">
+            <span>— {frase.autor || "Anónimo"}</span>
+            <span className="rounded-full bg-white px-2 py-0.5 ring-1 ring-slate-200">{ETIQUETA[frase.tipo]}</span>
+          </figcaption>
+        </figure>
+      ) : (
+        <p className="text-xs text-slate-400">Sin frases de este tipo.</p>
+      )}
     </div>
   );
 }

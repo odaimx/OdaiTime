@@ -4,6 +4,7 @@ import { useSoporte } from "../lib/soporte";
 import { temaActual } from "../lib/tema";
 import { useAuth } from "../lib/auth";
 import { FuentesOficiales } from "./LFT";
+import LogoEmpresa from "./LogoEmpresa";
 import Icono, { type NombreIcono } from "./Iconos";
 
 export interface Ajustes {
@@ -52,6 +53,7 @@ export function PageHeader({
           </div>
           <div className="flex items-center gap-3">
             {action && <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">{action}</div>}
+            <LicenciaBanda />
             <MenuUsuario />
           </div>
         </div>
@@ -99,8 +101,29 @@ export function PageHeader({
 
 
 /** Usuario activo junto al selector de empresa: su ficha, soporte y salir. */
+/**
+ * Licencia de la empresa en la banda, junto al usuario: "Licencia demo" o "Licencia válida" y su
+ * vencimiento. Cambia a naranja 5 días antes de vencer y a rojo 2 días antes.
+ */
+function LicenciaBanda() {
+  const { usuario } = useAuth();
+  const e = usuario?.empresa;
+  if (!e || (usuario.rol !== "admin_empresa" && usuario.rol !== "gerente_sucursal")) return null;
+  const vence = e.licencia_vence ?? null;
+  const dias = vence ? Math.ceil((new Date(`${vence}T23:59:59`).getTime() - Date.now()) / 86_400_000) : null;
+  const color = dias !== null && dias <= 2 ? "text-red-400" : dias !== null && dias <= 5 ? "text-orange-400" : "text-oro-400";
+  const fecha = vence ? new Date(`${vence}T12:00`).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" }) : null;
+  return (
+    <div className={`hidden shrink-0 text-right leading-tight sm:block ${color}`} title={dias !== null && dias <= 5 ? `Faltan ${Math.max(dias, 0)} día(s) para que venza la licencia` : undefined}>
+      <p className="text-sm font-semibold">{e.demo ? "Licencia demo" : "Licencia válida"}</p>
+      <p className="text-xs">{fecha ? `Vence ${fecha}` : "Sin vencimiento"}</p>
+    </div>
+  );
+}
+
 export function MenuUsuario() {
-  const { usuario, logout } = useAuth();
+  const { usuario, logout, refrescar } = useAuth();
+  const [logo, setLogo] = useState(false);
   const [abierto, setAbierto] = useState(false);
   const [ficha, setFicha] = useState(false);
   const [clave, setClave] = useState(false);
@@ -117,7 +140,7 @@ export function MenuUsuario() {
   useEffect(() => {
     if (!usuario) return;
     let url: string | null = null;
-    imagenProtegida("/auth/me/foto")
+    imagenProtegida(`/auth/me/foto?v=${encodeURIComponent(usuario.foto_actualizada ?? "")}`)
       .then((u) => {
         url = u;
         setFoto(u);
@@ -180,6 +203,11 @@ export function MenuUsuario() {
             <button className="menu-item" onClick={() => elegir(() => setClave(true))}>
               <Icono nombre="key-round" className="h-4 w-4" /> Cambiar contraseña
             </button>
+            {usuario.rol === "admin_empresa" && usuario.empresa && (
+              <button className="menu-item" onClick={() => elegir(() => setLogo(true))}>
+                <Icono nombre="image" className="h-4 w-4" /> Logo de la empresa
+              </button>
+            )}
             <a className="menu-item" href={soporte} target="_blank" rel="noopener noreferrer" onClick={() => setAbierto(false)}>
               <Icono nombre="send" className="h-4 w-4" /> Solicitar soporte
             </a>
@@ -191,8 +219,44 @@ export function MenuUsuario() {
         </div>
       )}
       {clave && <CambiarPassword onClose={() => setClave(false)} />}
+      {logo && usuario.empresa && (
+        <Modal title="Logo de la empresa" onClose={() => setLogo(false)}>
+          <LogoEmpresa empresaId={usuario.empresa.id} version={usuario.empresa.logo_version} onCambio={() => refrescar()} />
+        </Modal>
+      )}
       {ficha && (
         <Modal title="Mi ficha" onClose={() => setFicha(false)}>
+          <div className="mb-5 flex items-center gap-4">
+            <ImagenEditable
+              acepta="image/*"
+              onCambiar={async (archivo) => {
+                const datos = new FormData();
+                datos.append("archivo", archivo);
+                await api("/auth/me/foto", { method: "PUT", body: datos });
+                await refrescar();
+              }}
+              onQuitar={
+                foto
+                  ? async () => {
+                      await api("/auth/me/foto", { method: "DELETE" });
+                      await refrescar();
+                    }
+                  : undefined
+              }
+            >
+              <div className="h-24 w-24 overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200">
+                {foto ? (
+                  <img src={foto} alt={usuario.nombre} className="h-full w-full object-cover" />
+                ) : (
+                  <svg viewBox="0 0 64 64" className="h-full w-full" aria-hidden="true">
+                    <circle cx="32" cy="24" r="11" fill="#cbd5e1" />
+                    <path d="M10 60c2-12 11-19 22-19s20 7 22 19" fill="#cbd5e1" />
+                  </svg>
+                )}
+              </div>
+            </ImagenEditable>
+            <p className="text-xs text-slate-500">Pasa el mouse sobre la imagen para cambiar o quitar tu foto.</p>
+          </div>
           <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
             <div>
               <dt className="label">Nombre</dt>

@@ -1,22 +1,24 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { api } from "../lib/api";
-import { aplicarTema, cargarTema, COLORES_ODAI, type Colores, type Enlaces, type Tema as TemaGuardado } from "../lib/tema";
+import { api, descargar } from "../lib/api";
+import { aplicarTema, cargarTema, COLORES_ODAI, temaActual, type Colores, type Enlaces, type Tema as TemaGuardado } from "../lib/tema";
 import CorreoSaliente from "./CorreoSaliente";
 import Icono from "./Iconos";
 import { Ayuda, ErrorBox, Fila, ImagenEditable } from "./ui";
 
-type Pestana = "tema" | "inicio" | "correo" | "enlaces";
+type Pestana = "tema" | "imagenes" | "acceso" | "frases" | "correo" | "enlaces";
 
 /** Configuración general de ODAITIME para todas las empresas (solo superadmin). */
 export default function ConfigSistema() {
   const [pestana, setPestana] = useState<Pestana>("tema");
   return (
     <div className="space-y-5">
-      <div className="flex gap-1 border-b border-slate-200" role="tablist">
+      <div className="flex flex-wrap gap-1 border-b border-slate-200" role="tablist">
         {(
           [
             ["tema", "Colores del tema"],
-            ["inicio", "Imagen de inicio"],
+            ["imagenes", "Fondo e inicio"],
+            ["acceso", "Pantalla de acceso"],
+            ["frases", "Frases"],
             ["correo", "Correo saliente"],
             ["enlaces", "Enlaces de Odai"],
           ] as const
@@ -34,7 +36,9 @@ export default function ConfigSistema() {
         ))}
       </div>
       {pestana === "tema" && <Tema />}
-      {pestana === "inicio" && <ImagenInicio />}
+      {pestana === "imagenes" && <FondoEInicio />}
+      {pestana === "acceso" && <PantallaAcceso />}
+      {pestana === "frases" && <FrasesLogin />}
       {pestana === "correo" && <CorreoSaliente />}
       {pestana === "enlaces" && <EnlacesOdai />}
     </div>
@@ -110,31 +114,238 @@ function Tema() {
   );
 }
 
-function ImagenInicio() {
+type TipoImagen = "inicio" | "fondo" | "login";
+const VERSION: Record<TipoImagen, keyof TemaGuardado> = { inicio: "imagen_version", fondo: "fondo_version", login: "login_version" };
+
+/** Imagen general (inicio, fondo de la app o panel del acceso) con lápiz y bote al pasar el mouse. */
+function ImagenSistema({ tipo, aspecto, vacia }: { tipo: TipoImagen; aspecto: string; vacia: string }) {
   const [version, setVersion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    cargarTema().then((t) => setVersion(t.imagen_version));
-  }, []);
-  async function subir(f: File) {
+    temaActual().then((t) => setVersion((t[VERSION[tipo]] as string | null | undefined) ?? null));
+  }, [tipo]);
+  async function enviar(init: RequestInit) {
     setError(null);
     try {
-      const body = new FormData();
-      body.append("archivo", f);
-      setVersion((await api<{ imagen_version: string | null }>("/sistema/imagen-inicio", { method: "PUT", body })).imagen_version);
+      const t = await api<TemaGuardado>(`/sistema/imagen/${tipo}`, init);
+      setVersion((t[VERSION[tipo]] as string | null | undefined) ?? null);
+      await cargarTema();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+  function subir(f: File) {
+    const body = new FormData();
+    body.append("archivo", f);
+    return enviar({ method: "PUT", body });
+  }
+  return (
+    <div className="space-y-2">
+      <ImagenEditable className="flex w-full" onCambiar={subir} onQuitar={version ? () => enviar({ method: "DELETE" }) : undefined}>
+        <div className={`flex w-full items-center justify-center overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200 ${aspecto}`}>
+          {version ? <img src={`/api/sistema/imagen/${tipo}?v=${encodeURIComponent(version)}`} alt="" className="h-full w-full object-cover" /> : <span className="px-4 text-center text-sm text-slate-400">{vacia}</span>}
+        </div>
+      </ImagenEditable>
+      <ErrorBox message={error} />
+    </div>
+  );
+}
+
+type Apariencia = { fondo_color: string | null; login_titulo: string | null; login_subtitulo: string | null; login_texto: string | null };
+
+/** Guarda la apariencia completa (color de fondo y textos del acceso) cambiando solo lo indicado. */
+async function guardarApariencia(cambios: Partial<Apariencia>) {
+  const t = await temaActual();
+  const actual: Apariencia = { fondo_color: t.fondo_color ?? null, login_titulo: t.login_titulo ?? null, login_subtitulo: t.login_subtitulo ?? null, login_texto: t.login_texto ?? null };
+  await api("/sistema/apariencia", { method: "PUT", body: JSON.stringify({ ...actual, ...cambios }) });
+  await cargarTema();
+}
+
+function FondoEInicio() {
+  const [color, setColor] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    temaActual().then((t) => setColor(t.fondo_color ?? ""));
+  }, []);
+  async function guardarColor(valor: string | null) {
+    setMsg(null);
+    setError(null);
+    try {
+      await guardarApariencia({ fondo_color: valor });
+      setColor(valor ?? "");
+      setMsg("Color de fondo guardado.");
     } catch (e) {
       setError((e as Error).message);
     }
   }
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-slate-600">Aparece en la pantalla de Inicio de todas las empresas.</p>
-      <ImagenEditable className="flex w-full" onCambiar={subir} onQuitar={version ? async () => setVersion((await api<{ imagen_version: string | null }>("/sistema/imagen-inicio", { method: "DELETE" })).imagen_version) : undefined}>
-        <div className="flex aspect-[4/1] items-center justify-center overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200">
-          {version ? <img src={`/api/sistema/imagen-inicio?v=${encodeURIComponent(version)}`} alt="Imagen de inicio" className="h-full w-full object-cover" /> : <span className="text-sm text-slate-400">Sin imagen · pasa el mouse para subirla</span>}
+    <div className="space-y-6">
+      <section className="space-y-2">
+        <h3 className="text-sm font-semibold text-tinta-900">Imagen de inicio</h3>
+        <p className="text-xs text-slate-500">Aparece a todo lo ancho en la pantalla de Inicio de todas las empresas.</p>
+        <ImagenSistema tipo="inicio" aspecto="aspect-[4/1]" vacia="Sin imagen · pasa el mouse para subirla" />
+      </section>
+      <section className="space-y-2">
+        <h3 className="text-sm font-semibold text-tinta-900">Fondo de la aplicación</h3>
+        <p className="text-xs text-slate-500">Se ve detrás de las pantallas y del pie de página de todas las empresas. La imagen tiene prioridad sobre el color.</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <input type="color" className="h-9 w-12 cursor-pointer rounded border border-slate-300 bg-white p-0.5" value={color || "#f8fafc"} onChange={(e) => setColor(e.target.value)} aria-label="Color de fondo" />
+          <span className="font-mono text-xs text-slate-500">{color || "Predeterminado"}</span>
+          <button type="button" className="btn-secondary" onClick={() => guardarColor(color || null)}>
+            <Icono nombre="check" /> Guardar color
+          </button>
+          {color && (
+            <button type="button" className="text-sm text-slate-500 hover:underline" onClick={() => guardarColor(null)}>
+              Usar el predeterminado
+            </button>
+          )}
         </div>
-      </ImagenEditable>
+        {msg && <p className="text-sm text-emerald-700">{msg}</p>}
+        <ErrorBox message={error} />
+        <ImagenSistema tipo="fondo" aspecto="aspect-[3/1]" vacia="Sin imagen de fondo · pasa el mouse para subirla" />
+      </section>
+    </div>
+  );
+}
+
+function PantallaAcceso() {
+  const [textos, setTextos] = useState({ login_titulo: "", login_subtitulo: "", login_texto: "" });
+  const [msg, setMsg] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    temaActual().then((t) => setTextos({ login_titulo: t.login_titulo ?? "", login_subtitulo: t.login_subtitulo ?? "", login_texto: t.login_texto ?? "" }));
+  }, []);
+  async function guardar(e: FormEvent) {
+    e.preventDefault();
+    setMsg(null);
+    setError(null);
+    try {
+      await guardarApariencia({ login_titulo: textos.login_titulo || null, login_subtitulo: textos.login_subtitulo || null, login_texto: textos.login_texto || null });
+      setMsg("Textos guardados.");
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+  return (
+    <div className="space-y-6">
+      <section className="space-y-2">
+        <h3 className="text-sm font-semibold text-tinta-900">Imagen del panel izquierdo</h3>
+        <p className="text-xs text-slate-500">Si no hay imagen, el panel usa el color del menú.</p>
+        <ImagenSistema tipo="login" aspecto="aspect-[16/9] max-w-xl" vacia="Sin imagen · se usa el color del menú" />
+      </section>
+      <form className="max-w-2xl space-y-3" onSubmit={guardar}>
+        <h3 className="text-sm font-semibold text-tinta-900">Textos del panel</h3>
+        <Fila etiqueta="Título" htmlFor="login-titulo">
+          <input id="login-titulo" className="input" maxLength={120} placeholder="Control de asistencia" value={textos.login_titulo} onChange={(e) => setTextos({ ...textos, login_titulo: e.target.value })} />
+        </Fila>
+        <Fila etiqueta="Subtítulo" htmlFor="login-sub">
+          <input id="login-sub" className="input" maxLength={120} placeholder="claro y en regla." value={textos.login_subtitulo} onChange={(e) => setTextos({ ...textos, login_subtitulo: e.target.value })} />
+        </Fila>
+        <Fila etiqueta="Texto" htmlFor="login-texto" ayuda="Puede tener varias líneas.">
+          <textarea id="login-texto" className="input min-h-24" maxLength={600} placeholder="Checadas, retardos, horas extra y reportes…" value={textos.login_texto} onChange={(e) => setTextos({ ...textos, login_texto: e.target.value })} />
+        </Fila>
+        <ErrorBox message={error} />
+        {msg && <p className="text-sm text-emerald-700">{msg}</p>}
+        <div className="flex justify-end">
+          <button className="btn-primary">
+            <Icono nombre="check" /> Guardar textos
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+type Frase = { id: string; tipo: "refran" | "cita"; texto: string; autor: string | null };
+
+/** Refranes y citas bíblicas de la pantalla de acceso: se importan de Excel o CSV. */
+function FrasesLogin() {
+  const [frases, setFrases] = useState<Frase[] | null>(null);
+  const [reemplazar, setReemplazar] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const cargar = () => api<Frase[]>("/sistema/frases").then(setFrases).catch((e) => setError((e as Error).message));
+  useEffect(() => void cargar(), []);
+
+  async function importar(f: File) {
+    setMsg(null);
+    setError(null);
+    try {
+      const body = new FormData();
+      body.append("archivo", f);
+      const r = await api<{ importadas: number; omitidas: number }>(`/sistema/frases/importar?reemplazar=${reemplazar}`, { method: "POST", body });
+      setMsg(`${r.importadas} frase(s) importada(s)${r.omitidas ? `; ${r.omitidas} renglón(es) sin tipo o texto se omitieron` : ""}.`);
+      await cargar();
+      await cargarTema();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+  async function borrar(f: Frase) {
+    await api(`/sistema/frases/${f.id}`, { method: "DELETE" });
+    await cargar();
+    await cargarTema();
+  }
+  async function plantilla() {
+    await descargar("/sistema/frases/plantilla", "plantilla_frases.xlsx");
+  }
+
+  const refranes = frases?.filter((f) => f.tipo === "refran").length ?? 0;
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-slate-600">Se muestran al azar debajo del botón Entrar de la pantalla de acceso. Cada quien elige ver refranes, citas bíblicas o ambas.</p>
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="btn-primary cursor-pointer">
+          <Icono nombre="upload" /> Importar Excel o CSV
+          <input type="file" accept=".xlsx,.csv" className="sr-only" onChange={(e) => e.target.files?.[0] && importar(e.target.files[0])} />
+        </label>
+        <button type="button" className="btn-secondary" onClick={plantilla}>
+          <Icono nombre="download" /> Plantilla
+        </button>
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          <input type="checkbox" checked={reemplazar} onChange={(e) => setReemplazar(e.target.checked)} /> Reemplazar las actuales
+        </label>
+        <span className="ml-auto text-xs text-slate-500">
+          {refranes} refrán(es) · {(frases?.length ?? 0) - refranes} cita(s) bíblica(s)
+        </span>
+      </div>
+      <p className="text-xs text-slate-500">Columnas: Tipo (Refrán o Cita bíblica), Texto y Autor (o la referencia, p. ej. Filipenses 4:13).</p>
+      {msg && <p className="text-sm text-emerald-700">{msg}</p>}
       <ErrorBox message={error} />
+      <div className="max-h-96 overflow-y-auto rounded-lg border border-slate-200">
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 bg-slate-50 text-left text-tinta-900">
+            <tr>
+              <th className="px-3 py-2">Tipo</th>
+              <th className="px-3 py-2">Texto</th>
+              <th className="px-3 py-2">Autor</th>
+              <th className="w-10" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {frases?.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-3 py-6 text-center text-slate-500">
+                  Aún no hay frases. Descarga la plantilla, llénala e impórtala.
+                </td>
+              </tr>
+            )}
+            {frases?.map((f) => (
+              <tr key={f.id}>
+                <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-500">{f.tipo === "refran" ? "Refrán" : "Cita bíblica"}</td>
+                <td className="px-3 py-2 text-tinta-900">{f.texto}</td>
+                <td className="whitespace-nowrap px-3 py-2 text-slate-600">{f.autor ?? "—"}</td>
+                <td className="px-2">
+                  <button type="button" className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Eliminar" aria-label="Eliminar" onClick={() => borrar(f)}>
+                    <Icono nombre="trash" className="h-4 w-4" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
