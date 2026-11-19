@@ -46,6 +46,7 @@ const MEDIOS: { valor: string; etiqueta: string }[] = [
   { valor: "kiosco", etiqueta: "Kiosco" },
   { valor: "movil", etiqueta: "Portal (celular)" },
   { valor: "biometrico", etiqueta: "Reloj biométrico" },
+  { valor: "whatsapp", etiqueta: "WhatsApp" },
 ];
 const lista = (v: string) => v.split(",").filter(Boolean);
 /** Campos de checado del formulario → lo que espera la API. */

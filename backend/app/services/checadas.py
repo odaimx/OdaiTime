@@ -76,7 +76,12 @@ async def config_efectiva(
     return config_por_defecto(empresa_id), "predeterminada"
 
 
-MEDIOS = {"movil": "celular", "kiosco": "kiosco", "biometrico": "reloj biométrico"}
+MEDIOS = {
+    "movil": "celular",
+    "kiosco": "kiosco",
+    "biometrico": "reloj biométrico",
+    "whatsapp": "WhatsApp",
+}
 
 
 def medio_permitido(empleado: Empleado, medio: str, config: ConfigChecadas) -> bool:
@@ -87,6 +92,8 @@ def medio_permitido(empleado: Empleado, medio: str, config: ConfigChecadas) -> b
         return config.permitir_movil
     if medio == "kiosco":
         return config.permitir_kiosco
+    if medio == "whatsapp":
+        return False  # lo decide la configuración de WhatsApp de la empresa
     return True  # reloj biométrico: si está dado de alta, se usa
 
 
@@ -306,6 +313,11 @@ async def guardar_foto(archivo: UploadFile, empresa_id: uuid.UUID) -> str:
         raise error("foto_grande", "La foto supera 3 MB.")
     if not datos:
         raise error("foto_invalida", "La foto está vacía.")
+    return guardar_bytes(datos, ext, empresa_id)
+
+
+def guardar_bytes(datos: bytes, ext: str, empresa_id: uuid.UUID) -> str:
+    """Guarda la foto de una checada y devuelve su ruta relativa."""
     hoy = datetime.now(UTC)
     rel = Path(str(empresa_id)) / f"{hoy:%Y}" / f"{hoy:%m}" / f"{uuid.uuid4()}.{ext}"
     destino = dir_fotos() / rel

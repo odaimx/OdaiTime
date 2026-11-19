@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     fotos_dir: str = "/app/data/fotos"
 
     secret_key: str = "cambia-esto-en-produccion"
+    # WhatsApp Cloud API (Meta).
+    whatsapp_graph_url: str = "https://graph.facebook.com/v21.0"
     access_token_minutes: int = 15
     refresh_token_days: int = 7
 
