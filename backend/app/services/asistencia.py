@@ -142,7 +142,17 @@ def calcular(
     def paga_doble(d: date) -> bool:
         return d in obligatorios or politica.festivo_opcional_pago == "doble"
 
-    # 1) Emparejar entradas y salidas. Cada par pertenece al día local de su entrada.
+    # 1) Emparejar entradas y salidas. Cada par pertenece a la jornada de su entrada: el día
+    # local de la entrada o, si llega durante un turno nocturno que empezó el día anterior
+    # (p. ej. 00:10 en un turno de 23:00 a 07:00), a ese día anterior.
+    def jornada(momento: datetime) -> date:
+        d = momento.astimezone(tz).date()
+        clase, anterior = turno_de(d - timedelta(days=1))
+        if clase == "laborable" and anterior and anterior.bloques:
+            if momento < anterior.bloques[-1][1]:
+                return d - timedelta(days=1)
+        return d
+
     pares: dict[date, list[tuple[datetime, datetime | None]]] = defaultdict(list)
     sueltas: dict[date, int] = defaultdict(int)
     retardos_dia: dict[date, list[int]] = defaultdict(list)
@@ -150,17 +160,17 @@ def calcular(
     for m in sorted(marcas, key=lambda x: x.momento):
         if m.tipo == "entrada":
             if abierta is not None:
-                pares[abierta.momento.astimezone(tz).date()].append((abierta.momento, None))
+                pares[jornada(abierta.momento)].append((abierta.momento, None))
             abierta = m
             if m.retardo:
-                retardos_dia[m.momento.astimezone(tz).date()].append(m.retardo)
+                retardos_dia[jornada(m.momento)].append(m.retardo)
         elif abierta is not None:
-            pares[abierta.momento.astimezone(tz).date()].append((abierta.momento, m.momento))
+            pares[jornada(abierta.momento)].append((abierta.momento, m.momento))
             abierta = None
         else:
             sueltas[m.momento.astimezone(tz).date()] += 1
     if abierta is not None:
-        pares[abierta.momento.astimezone(tz).date()].append((abierta.momento, None))
+        pares[jornada(abierta.momento)].append((abierta.momento, None))
 
     def incidencia_en(d: date) -> str | None:
         return next((i.tipo for i in incidencias if i.inicio <= d <= i.fin), None)
