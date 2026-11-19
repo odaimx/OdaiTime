@@ -10,8 +10,8 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.tenant import url_empresa
-from app.models import Empresa, TokenAcceso, Usuario
-from app.services import correo
+from app.models import Empresa, Rol, TokenAcceso, Usuario
+from app.services import correo, plantillas_correo
 
 HORAS = {"invitacion": 72, "recuperar": 1}
 
@@ -69,30 +69,26 @@ async def enviar_enlace(
     nombre = empresa.nombre if empresa else "ODAITIME"
     token = await crear(db, usuario, tipo)
     enlace = f"{origen(request, empresa)}/restablecer?token={token}"
-    if tipo == "invitacion":
-        enviado = await correo.enviar(
-            db,
-            para=usuario.email,
-            asunto=f"{nombre}: tu acceso al portal de asistencia",
-            nombre_empresa=nombre,
-            titulo=f"Hola, {usuario.nombre.split(' ')[0]}",
-            parrafos=[
-                f"{nombre} te dio acceso al portal de ODAITIME, donde puedes registrar tu asistencia y consultar tu historial.",
-                f"Tu usuario es <strong>{usuario.email}</strong>. Crea tu contraseña con el botón; el enlace vence en {HORAS[tipo]} horas.",
-            ],
-            boton=("Crear mi contraseña", enlace),
-        )
-    else:
-        enviado = await correo.enviar(
-            db,
-            para=usuario.email,
-            asunto=f"{nombre}: recupera tu contraseña",
-            nombre_empresa=nombre,
-            titulo="Recupera tu contraseña",
-            parrafos=[
-                "Recibimos una solicitud para cambiar la contraseña de tu cuenta en ODAITIME.",
-                "Si fuiste tú, usa el botón; el enlace vence en una hora. Si no, ignora este correo: tu contraseña no cambia.",
-            ],
-            boton=("Cambiar mi contraseña", enlace),
-        )
+    clave = tipo
+    if tipo == "invitacion" and usuario.rol == Rol.ADMIN_EMPRESA:
+        clave = "bienvenida_admin"
+    c = plantillas_correo.armar(
+        await plantillas_correo.obtener(db, clave),
+        {
+            "empresa": nombre,
+            "nombre": usuario.nombre.split(" ")[0],
+            "nombre_completo": usuario.nombre,
+            "correo": usuario.email,
+            "horas": str(HORAS[tipo]),
+        },
+    )
+    enviado = await correo.enviar(
+        db,
+        para=usuario.email,
+        asunto=c.asunto,
+        nombre_empresa=nombre,
+        titulo=c.titulo,
+        parrafos=c.parrafos,
+        boton=(c.boton, enlace) if c.boton else ("Abrir", enlace),
+    )
     return enviado, enlace

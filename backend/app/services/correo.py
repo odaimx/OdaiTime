@@ -6,7 +6,9 @@ remitente visible es el nombre de la empresa del destinatario: "Hotel Caribe <no
 """
 
 import asyncio
+import html
 import logging
+import re
 import smtplib
 import ssl
 from email.message import EmailMessage
@@ -56,7 +58,7 @@ def _enviar_sync(c: ConfigCorreo, msg: EmailMessage) -> None:
             s.send_message(msg)
 
 
-def _html(
+def html_correo(
     nombre_empresa: str, titulo: str, parrafos: list[str], boton: tuple[str, str] | None
 ) -> str:
     cuerpo = "".join(f'<p style="margin:0 0 14px">{p}</p>' for p in parrafos)
@@ -97,9 +99,13 @@ async def enviar(
     msg["From"] = formataddr((nombre_empresa, c.remitente))
     msg["To"] = para
     msg["Message-ID"] = make_msgid(domain=c.remitente.split("@")[-1] or None)
-    texto = "\n\n".join(parrafos) + (f"\n\n{boton[0]}: {boton[1]}" if boton else "")
+    # Versión de solo texto: sin etiquetas y con las entidades de vuelta a caracteres.
+    planos = [
+        html.unescape(re.sub(r"<br\s*/?>", "\n", re.sub(r"</?strong>", "", p))) for p in parrafos
+    ]
+    texto = "\n\n".join(planos) + (f"\n\n{html.unescape(boton[0])}: {boton[1]}" if boton else "")
     msg.set_content(texto)
-    msg.add_alternative(_html(nombre_empresa, titulo, parrafos, boton), subtype="html")
+    msg.add_alternative(html_correo(nombre_empresa, titulo, parrafos, boton), subtype="html")
     try:
         await asyncio.to_thread(_enviar_sync, c, msg)
         return True

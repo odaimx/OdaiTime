@@ -273,3 +273,39 @@ async def test_admin_cambia_datos_de_su_empresa(client, superadmin):
     assert (await client.get("/api/auth/me", headers=a)).json()["empresa"][
         "nombre"
     ] == "Hotel Caribe"
+
+
+async def test_plantillas_de_correo_editables(client, superadmin):
+    r = await client.get("/api/correo/plantillas", headers=superadmin)
+    claves = [p["clave"] for p in r.json()["plantillas"]]
+    assert {"invitacion", "bienvenida_admin", "recuperar", "prueba"} <= set(claves)
+    assert "empresa" in r.json()["variables"]
+
+    nueva = {
+        "asunto": "{empresa} te invita",
+        "titulo": "Hola {nombre}",
+        "cuerpo": "Bienvenido a **{empresa}**.\n\nEntra con <tu> correo {correo}.",
+        "boton": "Entrar",
+    }
+    r = await client.put("/api/correo/plantillas/invitacion", headers=superadmin, json=nueva)
+    assert r.status_code == 200 and r.json()["personalizada"] is True
+
+    r = await client.post(
+        "/api/correo/plantillas/invitacion/vista-previa", headers=superadmin, json=nueva
+    )
+    vista = r.json()
+    assert vista["asunto"] == "Hotel Mar te invita"
+    assert "<strong>Hotel Mar</strong>" in vista["html"]
+    assert "&lt;tu&gt;" in vista["html"]  # el texto se escapa: no se puede inyectar HTML
+
+    r = await client.delete("/api/correo/plantillas/invitacion", headers=superadmin)
+    assert r.json()["personalizada"] is False and "{empresa}" in r.json()["asunto"]
+    assert (await client.get("/api/correo/plantillas/nada", headers=superadmin)).status_code in (
+        404,
+        405,
+    )
+
+    # Las empresas no las ven ni las cambian.
+    await crear_empresa(client, superadmin, "Caribe", "admin@caribe.mx")
+    a = auth(await login(client, "admin@caribe.mx"))
+    assert (await client.get("/api/correo/plantillas", headers=a)).status_code == 403

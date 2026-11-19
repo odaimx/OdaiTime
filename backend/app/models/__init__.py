@@ -7,7 +7,7 @@ from app.models.empleado import Empleado
 from app.models.empresa import Empresa
 from app.models.festivo import DiaFestivo, EmpresaFestivo, FestivoDesignado
 from app.models.nomina import ClaveNomina
-from app.models.sistema import ConfigSistema, Frase
+from app.models.sistema import ConfigSistema, Frase, PlantillaCorreo
 from app.models.sucursal import Sucursal
 from app.models.tarea import Tarea
 from app.models.turno import AsignacionTurno, Turno, TurnoDia
@@ -21,6 +21,7 @@ __all__ = [
     "ConfigCorreo",
     "ConfigSistema",
     "Frase",
+    "PlantillaCorreo",
     "ClaveNomina",
     "ConfigChecadas",
     "Dispositivo",

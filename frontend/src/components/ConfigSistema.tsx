@@ -2,10 +2,11 @@ import { useEffect, useState, type FormEvent } from "react";
 import { api, descargar } from "../lib/api";
 import { aplicarTema, cargarTema, COLORES_ODAI, temaActual, type Colores, type Enlaces, type Tema as TemaGuardado } from "../lib/tema";
 import CorreoSaliente from "./CorreoSaliente";
+import PlantillasCorreo from "./PlantillasCorreo";
 import Icono from "./Iconos";
 import { Ayuda, BarraGuardar, ErrorBox, Fila, ImagenEditable } from "./ui";
 
-type Pestana = "tema" | "acceso" | "frases" | "correo" | "enlaces";
+type Pestana = "tema" | "acceso" | "frases" | "correo" | "plantillas" | "enlaces";
 
 /** Configuración general de ODAITIME para todas las empresas (solo superadmin). */
 export default function ConfigSistema() {
@@ -19,6 +20,7 @@ export default function ConfigSistema() {
             ["acceso", "Pantalla de acceso"],
             ["frases", "Frases"],
             ["correo", "Correo saliente"],
+            ["plantillas", "Plantillas de correo"],
             ["enlaces", "Enlaces de Odai"],
           ] as const
         ).map(([k, l]) => (
@@ -38,6 +40,7 @@ export default function ConfigSistema() {
       {pestana === "acceso" && <PantallaAcceso />}
       {pestana === "frases" && <FrasesLogin />}
       {pestana === "correo" && <CorreoSaliente />}
+      {pestana === "plantillas" && <PlantillasCorreo />}
       {pestana === "enlaces" && <EnlacesOdai />}
     </div>
   );
