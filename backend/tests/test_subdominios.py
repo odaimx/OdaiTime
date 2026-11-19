@@ -80,12 +80,13 @@ async def test_login_ligado_al_subdominio(client, superadmin, con_dominio):
         r = await c.post("/api/auth/refresh", json={"refresh_token": refresh})
         assert r.status_code == 401
 
-    # En el panel de Odai: se le indica su dirección.
+    # En el panel de Odai: no entra y no se revela la dirección de su empresa.
     async with en(ADMIN) as c:
         assert (await c.get("/api/tenant")).json()["modo"] == "base"
         r = await c.post("/api/auth/login", json=cred)
-        assert r.status_code == 409
-        assert r.json()["detail"]["url"] == f"https://{a['slug']}.{BASE}"
+        assert r.status_code == 403
+        assert r.json()["detail"]["codigo"] == "usar_subdominio"
+        assert "url" not in r.json()["detail"] and a["slug"] not in r.text
         # El superadmin sí entra por el dominio base y por cualquier subdominio.
         su = {"email": "root@odai.mx", "password": PASSWORD}
         assert (await c.post("/api/auth/login", json=su)).status_code == 200
