@@ -178,7 +178,7 @@ export default function Checar() {
               </span>
             )}
             <p className="text-sm text-slate-500">
-              {c.sucursal.clave} · {c.sucursal.nombre}
+              {c.obra ? `${c.obra.clave} · ${c.obra.nombre}` : `${c.sucursal.clave} · ${c.sucursal.nombre}`}
               {c.distancia_m != null && ` · a ${c.distancia_m} m`}
             </p>
           </>
@@ -216,6 +216,14 @@ export default function Checar() {
               <span className="font-mono text-brand-600">{estado.sucursal.clave}</span> {estado.sucursal.nombre}
             </p>
           </div>
+          {estado.obra && (
+            <div>
+              <p className="text-xs text-slate-500">Obra de hoy</p>
+              <p className="font-medium text-tinta-900">
+                <span className="font-mono text-brand-600">{estado.obra.clave}</span> {estado.obra.nombre}
+              </p>
+            </div>
+          )}
           <div>
             <p className="text-xs text-slate-500">Turno de hoy</p>
             <p className="font-medium text-tinta-900">
@@ -229,7 +237,7 @@ export default function Checar() {
 
       {estado && (
         <div className="space-y-2 text-sm">
-          {estado.requiere.gps && <p className="rounded-xl bg-emerald-50 px-3 py-2 text-emerald-800">Se validará que estés dentro de tu sucursal (ubicación).</p>}
+          {estado.requiere.gps && <p className="rounded-xl bg-emerald-50 px-3 py-2 text-emerald-800">Se validará que estés dentro de {estado.obra ? `la obra ${estado.obra.nombre}` : "tu sucursal"} (ubicación).</p>}
           {estado.requiere.foto && <p className="rounded-xl bg-brand-50 px-3 py-2 text-brand-700">Tu empresa pide una foto al checar.</p>}
           {qr && <p className="rounded-xl bg-accent-500/10 px-3 py-2 text-tinta-900">Código del kiosco leído. Toca el botón para registrar.</p>}
           {estado.festivo_hoy && estado.designado_festivo && <p className="rounded-xl bg-sky-50 px-3 py-2 text-sky-800">Hoy es {estado.festivo_hoy}: estás designado para trabajar.</p>}

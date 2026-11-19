@@ -391,6 +391,7 @@ export interface Checada {
   tiene_foto: boolean;
   empleado: { id: string; numero: string; nombre_completo: string; foto_actualizada: string | null };
   sucursal: SucursalRef;
+  obra?: ObraRef | null;
 }
 
 export const ORIGENES: Record<Checada["origen"], string> = {
@@ -412,6 +413,36 @@ export interface EstadoHoy {
   hora_servidor: string;
   festivo_hoy: string | null;
   designado_festivo: boolean;
+  /** Obra asignada hoy: la ubicación se valida contra ella y no contra la sucursal. */
+  obra?: (ObraRef & { latitud: number | null; longitud: number | null; radio_metros: number }) | null;
+}
+
+export interface ObraRef {
+  id: string;
+  clave: string;
+  nombre: string;
+}
+
+export interface Obra extends ObraRef {
+  sucursal_id: string;
+  sucursal: SucursalRef;
+  direccion: string | null;
+  latitud: number | null;
+  longitud: number | null;
+  radio_metros: number;
+  fecha_inicio: string;
+  fecha_fin: string | null;
+  activa: boolean;
+  /** Empleados asignados hoy. */
+  empleados_asignados: number;
+}
+
+export interface AsignacionObra {
+  id: string;
+  obra: ObraRef;
+  empleado: { id: string; numero: string; nombre_completo: string };
+  fecha_inicio: string;
+  fecha_fin: string | null;
 }
 
 export interface ConfigChecadas {

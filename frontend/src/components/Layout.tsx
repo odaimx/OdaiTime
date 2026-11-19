@@ -15,6 +15,7 @@ const NAV: { to: string; label: string; roles: Rol[]; icon: NombreIcono }[] = [
   { to: "/", label: "Inicio", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "house" },
   { to: "/empresas", label: "Empresas", roles: ["superadmin"], icon: "building" },
   { to: "/sucursales", label: "Sucursales", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "store" },
+  { to: "/obras", label: "Obras", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "hard-hat" },
   { to: "/empleados", label: "Empleados", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "contact-round" },
   { to: "/asistencia", label: "Tarjeta de asistencia", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "clipboard-list" },
   { to: "/checadas", label: "Asistencias", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "fingerprint-pattern" },

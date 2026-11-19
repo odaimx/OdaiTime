@@ -31,16 +31,20 @@ async def test_crear_obra_y_validaciones(client, superadmin):
     r = await client.post(
         "/api/obras",
         headers=a,
-        json={"clave": "OB1", "nombre": "Otra", "sucursal_id": suc["id"],
-              "fecha_inicio": str(HOY)},
+        json={"clave": "OB1", "nombre": "Otra", "sucursal_id": suc["id"], "fecha_inicio": str(HOY)},
     )
     assert r.status_code == 409
 
     r = await client.post(
         "/api/obras",
         headers=a,
-        json={"clave": "OB2", "nombre": "Mal", "sucursal_id": suc["id"],
-              "fecha_inicio": str(HOY), "fecha_fin": str(HOY - timedelta(days=1))},
+        json={
+            "clave": "OB2",
+            "nombre": "Mal",
+            "sucursal_id": suc["id"],
+            "fecha_inicio": str(HOY),
+            "fecha_fin": str(HOY - timedelta(days=1)),
+        },
     )
     assert r.status_code == 422
 
