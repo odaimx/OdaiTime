@@ -231,7 +231,7 @@ export default function Festivos() {
       {mensaje && <p className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{mensaje}</p>}
       <ErrorBox message={!nuevo ? error : null} />
 
-      <div className="mb-3 inline-flex rounded-lg bg-slate-100 p-1 text-sm" role="tablist">
+      <div className="oculto-con-registro mb-3 inline-flex rounded-lg bg-slate-100 p-1 text-sm" role="tablist">
         {(
           [
             ["opcionales", OPCIONALES],
@@ -251,7 +251,7 @@ export default function Festivos() {
         ))}
       </div>
       <Vista vista={vista} />
-      <p className="mt-3 text-xs text-slate-500">
+      <p className="oculto-con-registro mt-3 text-xs text-slate-500">
         Obligatorios: se descansan con goce de salario y solo checa el personal designado; si se trabajan se paga salario doble además del del día (<ArticuloLFT art="75" />), más prima dominical si cae en domingo (
         <ArticuloLFT art="71" />).
       </p>

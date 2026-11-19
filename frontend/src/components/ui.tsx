@@ -589,7 +589,7 @@ export function Ayuda({ texto }: { texto: ReactNode }) {
 /** Fila de formulario como Odoo: etiqueta a la izquierda y campo a la derecha (alinea las columnas). */
 export function Fila({ etiqueta, ayuda, htmlFor, completo, children }: { etiqueta: ReactNode; ayuda?: ReactNode; htmlFor?: string; completo?: boolean; children: ReactNode }) {
   return (
-    <div className={`grid min-h-10 grid-cols-1 items-center gap-x-3 gap-y-1 sm:grid-cols-[9.5rem_minmax(0,1fr)] ${completo ? "md:col-span-2" : ""}`}>
+    <div className={`grid min-h-10 grid-cols-1 items-center gap-x-4 gap-y-1 sm:grid-cols-[11rem_minmax(0,1fr)] ${completo ? "md:col-span-2" : ""}`}>
       <label htmlFor={htmlFor} className="text-sm font-medium text-tinta-900">
         {etiqueta}
         {ayuda && <Ayuda texto={ayuda} />}
@@ -658,7 +658,7 @@ export function ImagenEditable({
 
 /** Rejilla de formulario a dos columnas (igual en todas las ventanas). */
 export function Campos({ children }: { children: ReactNode }) {
-  return <div className="grid grid-cols-1 gap-x-10 gap-y-3 md:grid-cols-2">{children}</div>;
+  return <div className="grid grid-cols-1 gap-x-16 gap-y-3 md:grid-cols-2">{children}</div>;
 }
 
 export interface Domicilio {

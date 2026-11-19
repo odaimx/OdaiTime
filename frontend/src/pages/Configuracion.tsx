@@ -7,6 +7,7 @@ import { useAuth } from "../lib/auth";
 import { areaDeRuta, useBanda } from "../lib/bandas";
 import type { ModeloCategoria } from "../lib/api";
 import ConfigChecadas from "./ConfigChecadas";
+import Dispositivos from "./Dispositivos";
 
 /** Menú Configuración: cada opción es una pantalla propia (antes estaban dentro de listas y formularios). */
 export default function Configuracion() {
@@ -17,8 +18,9 @@ export default function Configuracion() {
   const { pathname } = useLocation();
   const banda = useBanda(areaDeRuta(pathname));
 
-  if (seccion === "checadas" || seccion === "dispositivos" || seccion === "whatsapp") {
-    return <ConfigChecadas key={seccion} seccion={seccion === "checadas" ? "config" : seccion} submenu={banda} />;
+  if (seccion === "dispositivos") return <Dispositivos submenu={banda} />;
+  if (seccion === "checadas" || seccion === "whatsapp") {
+    return <ConfigChecadas key={seccion} seccion={seccion === "checadas" ? "config" : "whatsapp"} submenu={banda} />;
   }
   if (seccion === "reglas") {
     return (

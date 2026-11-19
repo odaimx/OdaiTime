@@ -69,3 +69,21 @@ async def test_kiosco_de_otra_empresa_no_valido(client, superadmin):
         json={"dispositivos_checado": ["00000000-0000-0000-0000-000000000001"]},
     )
     assert r.status_code == 422
+
+
+async def test_editar_dispositivo(client, superadmin):
+    a, _, suc, _ = await _setup(client, superadmin)
+    k, _ = await _kiosco(client, a, suc, "Tablet")
+    r = await client.patch(
+        f"/api/dispositivos/{k['id']}",
+        headers=a,
+        json={"nombre": "Tablet entrada", "tipo": "biometrico", "serie": "ZK-123"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["nombre"] == "Tablet entrada" and r.json()["tipo"] == "biometrico"
+    r = await client.patch(
+        f"/api/dispositivos/{k['id']}",
+        headers=a,
+        json={"sucursal_id": "00000000-0000-0000-0000-000000000001"},
+    )
+    assert r.status_code == 422

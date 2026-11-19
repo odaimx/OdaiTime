@@ -3,10 +3,11 @@ import Bitacora from "../components/Bitacora";
 import Registro, { useFormulario } from "../components/Registro";
 import Icono from "../components/Iconos";
 import { columnaCategorias, filtrosCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
-import Vista, { useAbrirDesdeUrl, useVista, type ConfigVista } from "../components/Vista";
+import Vista, { abrirEn, useAbrirDesdeUrl, useVista, type ConfigVista } from "../components/Vista";
+import { useNavigate } from "react-router";
 import { imprimirSecciones } from "../lib/imprimir";
 import { Badge, Campos, CamposDomicilio, CamposUbicacion, DOMICILIO_VACIO, domicilioApi, domicilioDe, ErrorBox, Fila, PageHeader, Plegable, useEmpresaScope, type Domicilio } from "../components/ui";
-import { api, get, patch, post, ZONAS_MX, type Categoria, type Sucursal } from "../lib/api";
+import { api, get, patch, post, ZONAS_MX, type Categoria, type Dispositivo, type Sucursal } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useBanda } from "../lib/bandas";
 
@@ -241,6 +242,7 @@ export default function Sucursales() {
                 />
               </div>
             )}
+            {editando !== "nueva" && <DispositivosSucursal sucursalId={editando.id} query={query} />}
             {editando !== "nueva" && puedeEditar && (
               <div className="flex justify-end">
                 <button type="button" className="text-sm text-slate-500 hover:text-tinta-900 hover:underline" onClick={() => alternar(editando)}>
@@ -257,5 +259,37 @@ export default function Sucursales() {
         </Registro>
       )}
     </>
+  );
+}
+
+/** Kioscos y relojes de la sucursal: son los medios con los que checan sus empleados. */
+function DispositivosSucursal({ sucursalId, query }: { sucursalId: string; query: string }) {
+  const navegar = useNavigate();
+  const [lista, setLista] = useState<Dispositivo[] | null>(null);
+  useEffect(() => {
+    get<Dispositivo[]>(`/dispositivos${query}`)
+      .then((l) => setLista(l.filter((d) => d.sucursal.id === sucursalId)))
+      .catch(() => setLista(null)); // el gerente no ve los dispositivos
+  }, [sucursalId, query]);
+  if (lista === null) return null;
+  return (
+    <Plegable titulo={`Dispositivos de la sucursal (${lista.length})`} abierto={lista.length > 0}>
+      {lista.length === 0 ? (
+        <p className="text-sm text-slate-500">Sin kioscos ni relojes. Agrégalos en Mi empresa → Dispositivos.</p>
+      ) : (
+        <ul className="divide-y divide-slate-100 text-sm">
+          {lista.map((d) => (
+            <li key={d.id} className="flex items-center justify-between gap-3 py-2">
+              <button type="button" className="enlace-celda font-medium text-tinta-900" onClick={() => abrirEn(navegar, "/configuracion/dispositivos", d.id)}>
+                {d.nombre}
+              </button>
+              <span className="text-xs text-slate-500">
+                {d.tipo === "kiosco" ? "Kiosco" : "Reloj biométrico"} · {!d.activo ? "Desactivado" : d.vinculado ? "Vinculado" : "Sin vincular"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Plegable>
   );
 }

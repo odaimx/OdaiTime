@@ -22,6 +22,7 @@ import {
   patch,
   post,
   subir,
+  type ConfigChecadas,
   type Dispositivo,
   type Empleado,
   type EmpleadoDetalle,
@@ -43,12 +44,6 @@ type Campo = (typeof CAMPOS)[number];
 /** medios: "sucursal" = según su sucursal; si no, lista separada por comas (vacía = ninguno). */
 type Form = Record<Campo, string> & { turno_id: string; pin: string; medios: string; dispositivos: string };
 
-const MEDIOS: { valor: string; etiqueta: string }[] = [
-  { valor: "kiosco", etiqueta: "Kiosco" },
-  { valor: "movil", etiqueta: "Portal (celular)" },
-  { valor: "biometrico", etiqueta: "Reloj biométrico" },
-  { valor: "whatsapp", etiqueta: "WhatsApp" },
-];
 const lista = (v: string) => v.split(",").filter(Boolean);
 /** Campos de checado del formulario → lo que espera la API. */
 const mediosApi = (f: Form) => ({
@@ -78,6 +73,7 @@ export default function Empleados() {
   const navegar = useNavigate();
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
   const [dispositivos, setDispositivos] = useState<Dispositivo[]>([]);
+  const [configSucursal, setConfigSucursal] = useState<ConfigChecadas | null>(null);
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
   const [turnos, setTurnos] = useState<Turno[]>([]);
   const [presentes, setPresentes] = useState<Set<string>>(new Set());
@@ -90,6 +86,13 @@ export default function Empleados() {
   const [avisoPortal, setAvisoPortal] = useState<string | null>(null);
   const [vista, setVista] = useState<Vista>("detalle");
   const { form, setForm, cargar: cargarForm, sucio, descartar } = useFormulario<Form>(vacio());
+  // Medios de checado de la sucursal del formulario (los que toma el empleado por omisión).
+  useEffect(() => {
+    if (!form.sucursal_id) return setConfigSucursal(null);
+    get<ConfigChecadas>(`/checadas/config${query}${query ? "&" : "?"}sucursal_id=${form.sucursal_id}`)
+      .then(setConfigSucursal)
+      .catch(() => setConfigSucursal(null));
+  }, [form.sucursal_id, query]);
   const [extra, setExtra] = useState({ turno_id: "", fecha: hoyISO(), motivo: "", email: "", password: "" });
   const [error, setError] = useState<string | null>(null);
   const [importando, setImportando] = useState(false);
@@ -384,8 +387,8 @@ export default function Empleados() {
     }
   }
 
-  async function crear(ev: FormEvent) {
-    ev.preventDefault();
+  async function crear(ev?: FormEvent): Promise<boolean> {
+    ev?.preventDefault();
     setError(null);
     try {
       const { turno_id, pin, medios: _m, dispositivos: _d, ...datos } = form;
@@ -400,12 +403,14 @@ export default function Empleados() {
       cargar();
       mostrar(creado);
       setVista("detalle");
+      return true;
     } catch (err) {
       const l = errorLicencia(err);
       if (l) {
         setNuevo(false);
         setAviso(l);
       } else setError((err as Error).message);
+      return false;
     }
   }
 
@@ -447,16 +452,15 @@ export default function Empleados() {
       salida.push(izq[i] ?? <div key={`i${i}`} className="hidden md:block" />);
       salida.push(der[i] ?? <div key={`d${i}`} className="hidden md:block" />);
     }
-    return <div className="grid grid-cols-1 gap-x-10 gap-y-2 md:grid-cols-2">{salida}</div>;
+    return <div className="grid grid-cols-1 gap-x-16 gap-y-3 md:grid-cols-2">{salida}</div>;
   };
 
   /**
    * Dos columnas en una sola rejilla: la foto ocupa los primeros renglones de la segunda columna
    * y los campos de la derecha siguen justo debajo (sin renglones vacíos).
    */
-  const dosColumnas = (foto: ReactNode, izq: ReactNode[], der: ReactNode[]) => (
-    <div className="grid grid-cols-1 gap-x-10 gap-y-2 md:grid-flow-row-dense md:grid-cols-2">
-      <div className="flex items-start md:col-start-2 md:row-span-3 md:justify-end">{foto}</div>
+  const dosColumnas = (izq: ReactNode[], der: ReactNode[]) => (
+    <div className="grid grid-cols-1 gap-x-16 gap-y-3 md:grid-flow-row-dense md:grid-cols-2">
       {izq.map((c, i) => (
         <div key={`i${i}`} className="md:col-start-1">
           {c}
@@ -474,7 +478,7 @@ export default function Empleados() {
    * Campos del expediente en dos pestañas. `foto` va arriba en la segunda columna y `derecha`
    * son renglones extra de la segunda columna (estado, accesos, portal).
    */
-  const camposExpediente = (conTurno: boolean, foto: ReactNode, derecha: ReactNode[] = []) => (
+  const camposExpediente = (conTurno: boolean, derecha: ReactNode[] = []) => (
     <div className="space-y-4">
       <div className="flex gap-1 border-b border-slate-200" role="tablist">
         {(
@@ -499,7 +503,6 @@ export default function Empleados() {
       {pestana === "generales" ? (
         <>
           {dosColumnas(
-            foto,
             [
               fila("numero", "Número *", { required: true, maxLength: 20 }),
               fila("nombre", "Nombre(s) *", { required: true }),
@@ -519,7 +522,14 @@ export default function Empleados() {
                 }
                 htmlFor="emp-sucursal"
               >
-                <select id="emp-sucursal" className="input" required value={form.sucursal_id} onChange={set("sucursal_id")}>
+                <select
+                  id="emp-sucursal"
+                  className="input"
+                  required
+                  value={form.sucursal_id}
+                  // Al cambiar de sucursal toma los medios de checado de la nueva sucursal.
+                  onChange={(e) => setForm({ ...form, sucursal_id: e.target.value, medios: "sucursal", dispositivos: "" })}
+                >
                   <option value="">Selecciona…</option>
                   {sucursalesActivas.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -563,13 +573,7 @@ export default function Empleados() {
                   onChange={(e) => setForm({ ...form, pin: e.target.value.replace(/\D/g, "") })}
                 />
               </Fila>,
-              <Fila
-                key="medios"
-                etiqueta="Medios de checado"
-                ayuda="Por dónde registra su asistencia. «Según su sucursal» usa la configuración de checadas de su sucursal (o la general)."
-              >
-                <MediosChecado form={form} setForm={setForm} dispositivos={dispositivos} />
-              </Fila>,
+              ...camposChecado(form, setForm, dispositivos, configSucursal),
             ],
           )}
         </>
@@ -659,36 +663,52 @@ ${
 
       {/* Alta */}
       {nuevo && (
-        <Modal title="Nuevo empleado" onClose={() => setNuevo(false)} ancho="lg">
+        <Registro
+          titulo={[form.nombre, form.apellido_paterno, form.apellido_materno].filter(Boolean).join(" ") || "Nuevo empleado"}
+          subtitulo="Alta de empleado"
+          imagen={
+            <ImagenEditable onCambiar={elegirFotoNueva} onCamara={() => setCamaraFoto(true)} onQuitar={previa ? () => elegirFotoNueva(null) : undefined}>
+              <span className="marco-foto inline-flex h-28 w-28">
+                {previa ? (
+                  <img src={previa} alt="Foto del empleado" className="h-full w-full rounded-md object-cover" />
+                ) : (
+                  <svg viewBox="0 0 64 64" className="h-full w-full rounded-md bg-slate-100" aria-hidden="true">
+                    <circle cx="32" cy="24" r="11" fill="#cbd5e1" />
+                    <path d="M10 60c2-12 11-19 22-19s20 7 22 19" fill="#cbd5e1" />
+                  </svg>
+                )}
+              </span>
+            </ImagenEditable>
+          }
+          imprimir={false}
+          sucio
+          autoguardar={false}
+          onGuardar={() => crear()}
+          onCerrar={() => setNuevo(false)}
+        >
           <form onSubmit={crear} className="space-y-4">
-            {camposExpediente(
-              true,
-              <ImagenEditable onCambiar={elegirFotoNueva} onCamara={() => setCamaraFoto(true)} onQuitar={previa ? () => elegirFotoNueva(null) : undefined}>
-                <span className="marco-foto inline-flex h-24 w-24">
-                  {previa ? (
-                    <img src={previa} alt="Foto del empleado" className="h-full w-full rounded-md object-cover" />
-                  ) : (
-                    <svg viewBox="0 0 64 64" className="h-full w-full rounded-md bg-slate-100" aria-hidden="true">
-                      <circle cx="32" cy="24" r="11" fill="#cbd5e1" />
-                      <path d="M10 60c2-12 11-19 22-19s20 7 22 19" fill="#cbd5e1" />
-                    </svg>
-                  )}
-                </span>
-              </ImagenEditable>,
-            )}
+            {camposExpediente(true)}
             <ErrorBox message={error} />
-            {botones(() => setNuevo(false))}
+            <button type="submit" className="sr-only">
+              Guardar
+            </button>
           </form>
-        </Modal>
+        </Registro>
       )}
 
       {/* Detalle y acciones */}
       {sel && (
         <Registro
-          titulo={
-            <>
-              {sel.nombre_completo} <span className="font-normal text-slate-500">· {sel.sucursal.nombre}</span>
-            </>
+          titulo={sel.nombre_completo}
+          subtitulo={[sel.puesto, sel.sucursal.nombre].filter(Boolean).join(" · ")}
+          imagen={
+            <ImagenEditable
+              onCambiar={guardarFoto}
+              onCamara={() => setCamaraFoto(true)}
+              onQuitar={sel.foto_version ? () => ejecutar(() => api<EmpleadoDetalle>(`/empleados/${sel.id}/foto${query}`, { method: "DELETE" })) : undefined}
+            >
+              <Avatar empleadoId={sel.id} nombre={sel.nombre_completo} version={sel.foto_version} query={query} tam={112} />
+            </ImagenEditable>
           }
           imprimir={false}
           acciones={[
@@ -713,25 +733,11 @@ ${
               <form className="space-y-4" onSubmit={(ev) => (ev.preventDefault(), guardarFicha())}>
                 {camposExpediente(
                   false,
-                  <ImagenEditable
-                    onCambiar={guardarFoto}
-                    onCamara={() => setCamaraFoto(true)}
-                    onQuitar={sel.foto_version ? () => ejecutar(() => api<EmpleadoDetalle>(`/empleados/${sel.id}/foto${query}`, { method: "DELETE" })) : undefined}
-                  >
-                    <Avatar empleadoId={sel.id} nombre={sel.nombre_completo} version={sel.foto_version} query={query} tam={96} />
-                  </ImagenEditable>,
                   [
                     <Fila key="estado" etiqueta="Estado">
                       <span className="flex flex-wrap items-center gap-2">
                         <Badge ok={sel.activo}>{sel.activo ? "Activo" : `Baja ${fechaCorta(sel.fecha_baja)}`}</Badge>
                         {!sel.activo && sel.motivo_baja && <span className="text-xs text-slate-500">{sel.motivo_baja}</span>}
-                      </span>
-                    </Fila>,
-                    <Fila key="accesos" etiqueta="Accesos" ayuda="Formas en que esta persona puede registrar o consultar su asistencia.">
-                      <span className="flex flex-wrap gap-1">
-                        {sel.tiene_pin && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">PIN de kiosco</span>}
-                        {sel.portal && <span className="rounded-full bg-accent-500/10 px-2 py-0.5 text-xs font-medium text-accent-500">Portal</span>}
-                        {!sel.tiene_pin && !sel.portal && <span className="text-xs text-slate-400">Ninguno</span>}
                       </span>
                     </Fila>,
                     <Fila
@@ -1009,49 +1015,69 @@ function PuntoPresencia({ presente, activo, className = "" }: { presente: boolea
   );
 }
 
-/** Casillas de medios de checado y, si checa en kiosco o reloj, en cuáles. */
-function MediosChecado({ form, setForm, dispositivos }: { form: Form; setForm: (f: Form) => void; dispositivos: Dispositivo[] }) {
-  const propios = form.medios !== "sucursal";
-  const medios = propios ? lista(form.medios) : [];
-  const elegidos = lista(form.dispositivos);
-  const tipos = medios.filter((m) => m === "kiosco" || m === "biometrico");
-  const aplicables = dispositivos.filter((d) => tipos.includes(d.tipo));
-  const alternar = (valor: string, en: string[]) => (en.includes(valor) ? en.filter((x) => x !== valor) : [...en, valor]).join(",");
-  return (
-    <div className="space-y-2 text-sm">
-      <label className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          checked={!propios}
-          onChange={(e) => setForm({ ...form, medios: e.target.checked ? "sucursal" : "kiosco", dispositivos: e.target.checked ? "" : form.dispositivos })}
-        />
-        Según su sucursal
+/**
+ * Checado del empleado: los dispositivos (kioscos y relojes) se eligen de una lista; el portal
+ * (celular) y WhatsApp son casillas porque no dependen de un dispositivo. Mientras no se toque,
+ * muestra lo de su sucursal (medios = "sucursal").
+ */
+function camposChecado(form: Form, setForm: (f: Form) => void, dispositivos: Dispositivo[], config: ConfigChecadas | null): ReactNode[] {
+  const deSucursal = form.medios === "sucursal";
+  const propios = dispositivos.filter((d) => d.sucursal.id === form.sucursal_id && (d.tipo === "biometrico" || config?.permitir_kiosco !== false));
+  const ef = deSucursal
+    ? { disp: propios.map((d) => d.id), movil: !!config?.permitir_movil, whatsapp: false }
+    : { disp: lista(form.dispositivos), movil: lista(form.medios).includes("movil"), whatsapp: lista(form.medios).includes("whatsapp") };
+  const guardar = (c: Partial<typeof ef>) => {
+    const n = { ...ef, ...c };
+    const tipos = new Set(dispositivos.filter((d) => n.disp.includes(d.id)).map((d) => d.tipo));
+    const medios = [...(tipos.has("kiosco") ? ["kiosco"] : []), ...(tipos.has("biometrico") ? ["biometrico"] : []), ...(n.movil ? ["movil"] : []), ...(n.whatsapp ? ["whatsapp"] : [])];
+    setForm({ ...form, medios: medios.join(","), dispositivos: n.disp.join(",") });
+  };
+  const ayudaSuc = deSucursal ? " Ahora muestra lo de su sucursal; cámbialo si esta persona checa distinto." : "";
+  return [
+    <Fila key="disp" etiqueta="Dispositivos" ayuda={`Kioscos y relojes donde puede checar.${ayudaSuc}`}>
+      <SelectorDispositivos todos={dispositivos} sucursalId={form.sucursal_id} valor={ef.disp} onCambio={(disp) => guardar({ disp })} />
+    </Fila>,
+    <Fila key="movil" etiqueta="Portal (celular)" ayuda="Checa desde su celular con el portal (necesita acceso al portal).">
+      <label className="inline-flex items-center gap-2 text-sm text-tinta-900">
+        <input type="checkbox" className="h-4 w-4 accent-brand-500" checked={ef.movil} onChange={(e) => guardar({ movil: e.target.checked })} />
+        Puede checar desde su celular
       </label>
-      {propios && (
+    </Fila>,
+    <Fila key="wa" etiqueta="WhatsApp" ayuda="Checa enviando su ubicación al WhatsApp de la empresa (usa el teléfono de su ficha).">
+      <label className="inline-flex items-center gap-2 text-sm text-tinta-900">
+        <input type="checkbox" className="h-4 w-4 accent-brand-500" checked={ef.whatsapp} onChange={(e) => guardar({ whatsapp: e.target.checked })} />
+        Puede checar por WhatsApp
+      </label>
+    </Fila>,
+  ];
+}
+
+/** Lista desplegable con casillas: los dispositivos de su sucursal primero. */
+function SelectorDispositivos({ todos, sucursalId, valor, onCambio }: { todos: Dispositivo[]; sucursalId: string; valor: string[]; onCambio: (ids: string[]) => void }) {
+  const [abierto, setAbierto] = useState(false);
+  const orden = [...todos].sort((a, b) => Number(b.sucursal.id === sucursalId) - Number(a.sucursal.id === sucursalId) || a.nombre.localeCompare(b.nombre));
+  const elegidos = todos.filter((d) => valor.includes(d.id));
+  const texto = elegidos.length ? elegidos.map((d) => d.nombre).join(", ") : todos.length ? "Ninguno" : "Sin dispositivos dados de alta";
+  return (
+    <div className="relative">
+      <button type="button" className="input flex items-center justify-between gap-2 text-left" onClick={() => setAbierto((a) => !a)} disabled={!todos.length}>
+        <span className={`truncate ${elegidos.length ? "" : "text-slate-400"}`}>{texto}</span>
+        <Icono nombre="chevron-down" className="h-4 w-4 shrink-0 text-slate-400" />
+      </button>
+      {abierto && (
         <>
-          <div className="flex flex-wrap gap-x-4 gap-y-1">
-            {MEDIOS.map((m) => (
-              <label key={m.valor} className="flex items-center gap-2">
-                <input type="checkbox" checked={medios.includes(m.valor)} onChange={() => setForm({ ...form, medios: alternar(m.valor, medios) })} />
-                {m.etiqueta}
+          <div className="fixed inset-0 z-30" onClick={() => setAbierto(false)} />
+          <div className="popover left-0 top-11 max-h-64 w-full overflow-y-auto p-1">
+            {orden.map((d) => (
+              <label key={d.id} className="menu-item cursor-pointer">
+                <input type="checkbox" className="h-4 w-4 accent-brand-500" checked={valor.includes(d.id)} onChange={() => onCambio(valor.includes(d.id) ? valor.filter((x) => x !== d.id) : [...valor, d.id])} />
+                <span className="flex-1 truncate">{d.nombre}</span>
+                <span className="text-xs text-slate-400">
+                  {d.tipo === "biometrico" ? "Reloj" : "Kiosco"} · {d.sucursal.clave}
+                </span>
               </label>
             ))}
           </div>
-          {!medios.length && <p className="text-xs text-amber-700">Sin medios marcados no podrá checar.</p>}
-          {aplicables.length > 0 && (
-            <div className="rounded-lg border border-slate-200 p-2">
-              <p className="mb-1 text-xs text-slate-500">¿En cuáles? (ninguno marcado = en cualquiera)</p>
-              {aplicables.map((d) => (
-                <label key={d.id} className="flex items-center gap-2 py-0.5">
-                  <input type="checkbox" checked={elegidos.includes(d.id)} onChange={() => setForm({ ...form, dispositivos: alternar(d.id, elegidos) })} />
-                  <span>{d.nombre}</span>
-                  <span className="text-xs text-slate-400">
-                    {d.tipo === "biometrico" ? "Reloj" : "Kiosco"} · {d.sucursal.clave}
-                  </span>
-                </label>
-              ))}
-            </div>
-          )}
         </>
       )}
     </div>

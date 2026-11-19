@@ -171,6 +171,9 @@ class DispositivoIn(BaseModel):
 class DispositivoUpdate(BaseModel):
     nombre: Nombre | None = None
     activo: bool | None = None
+    sucursal_id: uuid.UUID | None = None
+    tipo: Literal["kiosco", "biometrico"] | None = None
+    serie: str | None = Field(default=None, max_length=60)
 
 
 class DispositivoOut(BaseModel):
