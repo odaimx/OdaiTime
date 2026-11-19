@@ -24,7 +24,7 @@ export default function PiePagina() {
   }, [esSuper]);
 
   return (
-    <footer className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-slate-300/70 pt-1.5 text-xs font-medium text-slate-700">
+    <footer className="relative z-10 mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-slate-300/70 pt-1.5 text-xs font-medium text-slate-700">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span>© {new Date().getFullYear()} ODAI. Todos los derechos reservados.</span>
         {esSuper && ready && (

@@ -14,8 +14,8 @@ export default function Inicio() {
     <>
       <PageHeader icono="house" title={`Hola, ${usuario.nombre.split(" ")[0]}`} subtitle={`${ROLES[usuario.rol]}${usuario.empresa ? ` · ${usuario.empresa.nombre}` : ""}`} />
       {imagen && (
-        // Llena todo el espacio libre hasta la línea del pie de página.
-        <div className="relative -mx-4 -mb-3 -mt-5 min-h-64 flex-1 sm:-mx-6 lg:-mx-8">
+        // Llena todo el espacio libre y pasa por detrás del pie (que es transparente).
+        <div className="relative -mx-4 -mb-[2.6rem] -mt-5 min-h-64 flex-1 sm:-mx-6 lg:-mx-8">
           <img src={`/api/sistema/imagen-inicio?v=${encodeURIComponent(imagen)}`} alt="" className="absolute inset-0 h-full w-full object-cover" />
         </div>
       )}

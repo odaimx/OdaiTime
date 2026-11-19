@@ -19,9 +19,9 @@ const NAV: { to: string; label: string; roles: Rol[]; icon: NombreIcono }[] = [
   { to: "/asistencia", label: "Tarjeta de asistencia", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "clipboard-list" },
   { to: "/checadas", label: "Asistencias", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "fingerprint-pattern" },
   { to: "/actividades", label: "Actividades", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "calendar-check" },
-  { to: "/reportes", label: "Exportaciones", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "file-chart-column" },
   { to: "/turnos", label: "Turnos", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "calendar-clock" },
   { to: "/festivos", label: "Días festivos", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "calendar-heart" },
+  { to: "/reportes", label: "Exportaciones", roles: ["superadmin", "admin_empresa", "gerente_sucursal"], icon: "file-chart-column" },
   { to: "/usuarios", label: "Usuarios", roles: ["superadmin", "admin_empresa"], icon: "users" },
   { to: "/mi-empresa", label: "Mi empresa", roles: ["superadmin", "admin_empresa"], icon: "building" },
 ];

@@ -352,6 +352,13 @@ function FrasesLogin() {
     await cargar();
     await cargarTema();
   }
+  async function borrarTodas() {
+    if (!confirm(`¿Borrar las ${frases?.length ?? 0} frases? No se puede deshacer.`)) return;
+    await api("/sistema/frases", { method: "DELETE" });
+    setMsg("Se borraron todas las frases.");
+    await cargar();
+    await cargarTema();
+  }
   async function plantilla() {
     await descargar("/sistema/frases/plantilla", "plantilla_frases.xlsx");
   }
@@ -371,6 +378,11 @@ function FrasesLogin() {
         <label className="flex items-center gap-2 text-sm text-slate-600">
           <input type="checkbox" checked={reemplazar} onChange={(e) => setReemplazar(e.target.checked)} /> Reemplazar las actuales
         </label>
+        {!!frases?.length && (
+          <button type="button" className="inline-flex items-center gap-1 text-sm text-red-600 hover:underline" onClick={borrarTodas}>
+            <Icono nombre="trash" className="h-4 w-4" /> Borrar todas
+          </button>
+        )}
         <span className="ml-auto text-xs text-slate-500">
           {cuenta("frase")} frase(s) · {cuenta("proverbio")} proverbio(s) · {cuenta("cita")} cita(s) bíblica(s)
         </span>

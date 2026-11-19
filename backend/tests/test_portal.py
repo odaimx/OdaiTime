@@ -204,6 +204,9 @@ async def test_frases_apariencia_y_foto(client, superadmin):
     assert cita["autor"] == "Filipenses 4:13"
     otra = (await client.get(f"/api/sistema/frases/aleatoria?excluir={cita['id']}")).json()
     assert otra["tipo"] in ("proverbio", "frase")
+    assert (await client.delete("/api/sistema/frases", headers=superadmin)).status_code == 204
+    assert (await client.get("/api/sistema/tema")).json()["frases"] == {}
+    await client.post("/api/sistema/frases/importar", headers=superadmin, files=archivo)
 
     r = await client.put(
         "/api/sistema/apariencia",
@@ -247,10 +250,15 @@ async def test_admin_cambia_datos_de_su_empresa(client, superadmin):
     r = await client.patch(
         "/api/tenant/empresa",
         headers=a,
-        json={"nombre": "Hotel Caribe", "razon_social": "Hotel Caribe SA de CV", "rfc": None},
+        json={
+            "nombre": "Hotel Caribe",
+            "razon_social": "Hotel Caribe SA de CV",
+            "rfc": None,
+            "direccion": "Av. Tulum 123, Cancún",
+        },
     )
     assert r.status_code == 200, r.text
-    assert r.json()["nombre"] == "Hotel Caribe"
+    assert r.json()["nombre"] == "Hotel Caribe" and r.json()["direccion"].startswith("Av. Tulum")
     assert (await client.get("/api/auth/me", headers=a)).json()["empresa"][
         "nombre"
     ] == "Hotel Caribe"

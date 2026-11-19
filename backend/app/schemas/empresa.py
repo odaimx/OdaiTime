@@ -30,6 +30,7 @@ class EmpresaBase(BaseModel):
     nombre: Nombre
     razon_social: str | None = None
     rfc: RFC | None = None
+    direccion: str | None = Field(default=None, max_length=300)
 
 
 class AdminInicial(BaseModel):
@@ -52,6 +53,7 @@ class EmpresaUpdate(BaseModel):
     slug: Slug | None = None
     razon_social: str | None = None
     rfc: RFC | None = None
+    direccion: str | None = Field(default=None, max_length=300)
     activa: bool | None = None
     max_empleados: int | None = Field(default=None, ge=1, le=100000)
     licencia_vence: date | None = None

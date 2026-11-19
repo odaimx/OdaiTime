@@ -331,6 +331,12 @@ async def importar_frases(
     return {"importadas": len(nuevas), "omitidas": omitidas}
 
 
+@router.delete("/frases", status_code=status.HTTP_204_NO_CONTENT, dependencies=_SUPER)
+async def borrar_todas_las_frases(db: DB) -> None:
+    await db.execute(delete(Frase))
+    await db.commit()
+
+
 @router.delete("/frases/{frase_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=_SUPER)
 async def borrar_frase(frase_id: uuid.UUID, db: DB) -> None:
     frase = await db.get(Frase, frase_id)
