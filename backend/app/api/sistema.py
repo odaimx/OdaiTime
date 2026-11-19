@@ -75,6 +75,7 @@ def _out(c: ConfigSistema | None, frases: dict[str, int] | None = None) -> TemaO
             demo=cfg.demo,
             url_tienda=cfg.licencia_url_compra,
             url_soporte=cfg.url_soporte,
+            frases=frases or {},
         )
     return TemaOut(
         colores=Colores(**(c.colores or {})),
