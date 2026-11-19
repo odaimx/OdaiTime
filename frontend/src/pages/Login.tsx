@@ -94,7 +94,8 @@ export default function Login() {
         {imagenLogin && <div className="absolute inset-0 bg-gradient-to-t from-navy-950/85 via-navy-950/30 to-transparent" />}
         <span />
         {/* Textos en la parte baja del panel; el color de cada renglón lo elige Odai. */}
-        <div className="relative mt-auto">
+        {/* Los tres renglones comparten el mismo ancho: el título y el subtítulo cortan donde corta el texto. */}
+        <div className="relative mt-auto max-w-2xl">
           {tema?.login_titulo && (
             <h2 className="text-4xl font-semibold leading-tight text-white" style={{ color: colores.titulo ?? undefined }}>
               {tema.login_titulo}
@@ -106,7 +107,7 @@ export default function Login() {
             </p>
           )}
           {textoLogin && (
-            <p className="mt-4 max-w-2xl whitespace-pre-line text-slate-200" style={{ color: colores.texto ?? undefined }}>
+            <p className="mt-4 whitespace-pre-line text-slate-200" style={{ color: colores.texto ?? undefined }}>
               {textoLogin}
             </p>
           )}
