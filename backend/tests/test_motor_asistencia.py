@@ -186,3 +186,63 @@ def test_festivo_opcional_segun_politica():
 
     conceptos = {c["clave"]: c["cantidad"] for c in conceptos_nomina(r)}
     assert conceptos["FLAB"] == 2 and conceptos["FALT"] == 3  # lun, mar y vie
+
+
+def turno_noche(d: date):
+    """Todos los días de 20:00 a 04:00 del día siguiente (8 h)."""
+    return "laborable", DiaTurno([(dt(d, 20), dt(d + timedelta(1), 4))], 480)
+
+
+def test_turno_nocturno_que_cruza_medianoche():
+    mar = LUN + timedelta(1)
+    marcas = [
+        # Lunes: entra 19:55 y sale 04:05 del martes.
+        Marca(dt(LUN, 19, 55), "entrada"),
+        Marca(dt(mar, 4, 5), "salida"),
+        # Martes: llega tarde, ya de madrugada del miércoles (00:30), sale 04:00.
+        Marca(dt(mar + timedelta(1), 0, 30), "entrada", retardo=270),
+        Marca(dt(mar + timedelta(1), 4), "salida"),
+    ]
+    dias, r = calcular(
+        desde=LUN,
+        hasta=mar + timedelta(1),
+        tz=TZ,
+        turno_de=turno_noche,
+        marcas=marcas,
+        incidencias=[],
+        festivos={},
+        politica=Politica(),
+        ingreso=date(2025, 1, 1),
+    )
+    assert dias[0].trabajado_min == 8 * 60 + 10 and dias[0].estado == "asistencia"
+    # La llegada de las 00:30 es del turno del martes (no una falta el martes y asistencia
+    # el miércoles).
+    assert dias[1].estado == "asistencia" and dias[1].trabajado_min == 210
+    assert dias[1].retardos == 1
+    assert dias[2].estado == "falta" and not dias[2].entradas
+    assert r.faltas == 1
+
+
+def test_jornada_de_checada_nocturna():
+    from types import SimpleNamespace
+
+    from app.services.checadas import jornada_de
+
+    dia = SimpleNamespace(
+        dia_semana=0,
+        entrada=time(23),
+        salida=time(7),
+        comida_minutos=0,
+        entrada2=None,
+        salida2=None,
+    )
+    dias = [SimpleNamespace(**{**dia.__dict__, "dia_semana": i}) for i in range(7)]
+    turno = SimpleNamespace(nombre="Noche", tolerancia_minutos=10, dias=dias)
+    emp = SimpleNamespace(turno_en=lambda d: SimpleNamespace(turno=turno))
+
+    d, t = jornada_de(emp, dt(LUN + timedelta(1), 0, 10), TZ)
+    assert d == LUN and t.inicio == dt(LUN, 23)
+    d, t = jornada_de(emp, dt(LUN, 22, 50), TZ)
+    assert d == LUN and t.inicio == dt(LUN, 23)
+    d, _ = jornada_de(emp, dt(LUN + timedelta(1), 8), TZ)
+    assert d == LUN + timedelta(1)

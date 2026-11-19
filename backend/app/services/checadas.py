@@ -216,6 +216,17 @@ def turno_del_dia(empleado: Empleado, dia: date, tz: ZoneInfo) -> TurnoHoy | Non
     return TurnoHoy(turno.nombre, turno.tolerancia_minutos, d, rangos)
 
 
+def jornada_de(empleado: Empleado, momento: datetime, tz: ZoneInfo) -> tuple[date, TurnoHoy | None]:
+    """(día de la jornada, turno) de una entrada. Si cae dentro de un turno que empezó el día
+    anterior y cruza la medianoche (p. ej. llega 00:10 a un turno de 23:00 a 07:00), la
+    jornada es la del día anterior."""
+    d = momento.astimezone(tz).date()
+    anterior = turno_del_dia(empleado, d - timedelta(days=1), tz)
+    if anterior and momento < anterior.fin:
+        return d - timedelta(days=1), anterior
+    return d, turno_del_dia(empleado, d, tz)
+
+
 async def ultima_checada(db: AsyncSession, empleado_id: uuid.UUID) -> Checada | None:
     return await db.scalar(
         select(Checada)
@@ -388,10 +399,9 @@ async def registrar(
 
     tipo = siguiente_tipo(ultima, momento)
     tz = zona(sucursal)
-    local = momento.astimezone(tz)
+    dia, turno = jornada_de(empleado, momento, tz)
     if tipo == "entrada":
-        await validar_festivo(db, empleado, local.date())
-    turno = turno_del_dia(empleado, local.date(), tz)
+        await validar_festivo(db, empleado, dia)
     if tipo == "entrada" and turno and not offline:
         apertura = turno.inicio - timedelta(minutes=config.minutos_antes_entrada)
         if momento < apertura:

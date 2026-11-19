@@ -83,8 +83,9 @@ async def hoy(user: CurrentUser, db: DB) -> EstadoHoy:
     tz = svc.zona(sucursal)
     ahora = datetime.now(UTC)
     local = ahora.astimezone(tz)
-    turno = svc.turno_del_dia(empleado, local.date(), tz)
-    inicio_dia = datetime.combine(local.date(), time.min, tz)
+    # En turno nocturno, de madrugada sigue mostrando el turno (y las checadas) de anoche.
+    jornada, turno = svc.jornada_de(empleado, ahora, tz)
+    inicio_dia = datetime.combine(jornada, time.min, tz)
     hoy_checadas = await db.scalars(
         select(Checada)
         .where(Checada.empleado_id == empleado.id, Checada.momento >= inicio_dia)

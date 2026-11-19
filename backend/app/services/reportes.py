@@ -66,6 +66,13 @@ class Movimiento:
     fecha: date  # fecha del movimiento (o fin del periodo para totales)
 
 
+def _hora_dia(m, fecha, tz) -> str:
+    """HH:MM; con "(+1)" si cae al día siguiente de la jornada (turno nocturno)."""
+    local = m.astimezone(tz)
+    dias = (local.date() - fecha).days
+    return f"{local:%H:%M}" + (f" (+{dias})" if dias > 0 else "")
+
+
 def horas(minutos: int) -> float:
     return round(minutos / 60, 2)
 
@@ -238,8 +245,8 @@ def reporte_detalle(empresa: Empresa, desde: date, hasta: date, periodo: Periodo
                     DIAS_SEMANA[d.fecha.weekday()],
                     ESTADOS.get(d.estado, d.estado),
                     d.festivo or "",
-                    ", ".join(f"{m.astimezone(tz):%H:%M}" for m in d.entradas),
-                    ", ".join(f"{m.astimezone(tz):%H:%M}" for m in d.salidas),
+                    ", ".join(_hora_dia(m, d.fecha, tz) for m in d.entradas),
+                    ", ".join(_hora_dia(m, d.fecha, tz) for m in d.salidas),
                     horas(d.esperado_min),
                     horas(d.trabajado_min),
                     d.retardo_min or "",

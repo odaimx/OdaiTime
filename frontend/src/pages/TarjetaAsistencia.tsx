@@ -336,7 +336,9 @@ export default function TarjetaAsistencia() {
                       <td className="py-2 pr-2 text-xs tabular-nums text-slate-600">
                         {d.entradas.map((e, i) => (
                           <span key={e} className="block">
-                            {hora(e, tz)} – {d.salidas[i] ? hora(d.salidas[i], tz) : "?"}
+                            {hora(e, tz)}
+                            {masDias(e, d.fecha, tz)} – {d.salidas[i] ? hora(d.salidas[i], tz) : "?"}
+                            {d.salidas[i] && masDias(d.salidas[i], d.fecha, tz)}
                           </span>
                         ))}
                       </td>
@@ -512,4 +514,11 @@ function SelectorPeriodo({
       )}
     </div>
   );
+}
+
+/** " (+1)" si la hora cae al día siguiente de la jornada (turno nocturno). */
+function masDias(iso: string, fecha: string, tz: string | undefined): string {
+  const local = new Date(iso).toLocaleDateString("en-CA", { timeZone: tz });
+  const n = Math.round((new Date(`${local}T12:00`).getTime() - new Date(`${fecha}T12:00`).getTime()) / 86_400_000);
+  return n > 0 ? ` (+${n})` : "";
 }
