@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import Registro from "./Registro";
 import Icono, { type NombreIcono } from "./Iconos";
 import { api, diasHasta, get, hoyISO, patch, post, type Ref, type ResumenTarea, type Tarea, type TipoTarea } from "../lib/api";
-import { ErrorBox, Modal } from "./ui";
+import { ErrorBox } from "./ui";
 
 /**
  * Actividades programadas al estilo Odoo:
@@ -259,17 +260,21 @@ export function FormActividad({
     asignado_id: f.asignado_id || null,
   });
 
-  async function guardar(e: FormEvent) {
-    e.preventDefault();
+  async function guardar(e?: FormEvent): Promise<boolean> {
+    e?.preventDefault();
     setError(null);
     try {
       if (tarea) await patch(`/tareas/${tarea.id}${query}`, datos());
       else await post(`/tareas${query}`, { ...datos(), modelo, registro_id: registroId });
       onGuardado();
+      return true;
     } catch (err) {
       setError((err as Error).message);
+      return false;
     }
   }
+  const inicial = useRef(JSON.stringify(f));
+  const sucio = !tarea || JSON.stringify(f) !== inicial.current;
 
   async function terminar() {
     if (!tarea) return;
@@ -285,13 +290,25 @@ export function FormActividad({
   }
 
   return (
-    <Modal title={tarea ? "Actividad" : "Programar una actividad"} onClose={onCerrar}>
+    <Registro
+      flotante
+      titulo={tarea ? f.resumen || TIPOS[f.tipo].label : "Programar una actividad"}
+      subtitulo={tarea?.registro_nombre ? `Sobre: ${tarea.registro_nombre}` : undefined}
+      sucio={sucio}
+      autoguardar={!!tarea}
+      onGuardar={() => guardar()}
+      onCerrar={onCerrar}
+      botones={
+        tarea &&
+        !tarea.hecha_en && (
+          <button type="button" onClick={terminar} title="Marcar como hecha" aria-label="Marcar como hecha" className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50">
+            <Icono nombre="check" className="h-5 w-5" />
+          </button>
+        )
+      }
+      acciones={tarea ? [{ etiqueta: "Eliminar", icono: "trash", onClick: borrar, peligro: true }] : []}
+    >
       <form onSubmit={guardar} className="space-y-4" onClick={(e) => e.stopPropagation()}>
-        {tarea?.registro_nombre && (
-          <p className="text-sm text-slate-500">
-            Sobre: <span className="font-medium text-tinta-900">{tarea.registro_nombre}</span>
-          </p>
-        )}
         <div className="flex flex-wrap gap-2">
           {(Object.keys(TIPOS) as TipoTarea[]).map((k) => (
             <button
@@ -347,27 +364,15 @@ export function FormActividad({
           </p>
         )}
         <ErrorBox message={error} />
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            {tarea && (
-              <button type="button" className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Eliminar" aria-label="Eliminar" onClick={borrar}>
-                <Icono nombre="trash" className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-          <div className="flex gap-3">
-            {tarea && !tarea.hecha_en && (
-              <button type="button" className="btn-secondary text-emerald-700" onClick={terminar}>
-                ✓ Marcar como hecha
-              </button>
-            )}
+        {!tarea && (
+          <div className="flex justify-end">
             <button type="submit" className="btn-primary">
-              {tarea ? "Guardar" : "Programar"}
+              Programar
             </button>
           </div>
-        </div>
+        )}
       </form>
-    </Modal>
+    </Registro>
   );
 }
 

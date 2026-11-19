@@ -173,9 +173,9 @@
 @media (min-width: 640px) {
   .ventana-form div:has(> label.label):not(:has(> label.label ~ label.label)) {
     display: grid;
-    grid-template-columns: 9.5rem minmax(0, 1fr);
+    grid-template-columns: 11rem minmax(0, 1fr);
     align-items: center;
-    column-gap: 0.75rem;
+    column-gap: 1rem;
     row-gap: 0.25rem;
   }
   .ventana-form div:has(> label.label) > label.label {
@@ -188,10 +188,16 @@
 @media (min-width: 768px) {
   .ventana-form .grid:has(> div > label.label) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: 2.5rem;
+    column-gap: 4rem;
   }
   /* Ningún campo ocupa las dos columnas: todos del mismo ancho. */
   .ventana-form .grid:has(> div > label.label) > [class*="col-span-"] {
     grid-column: auto;
   }
+}
+
+/* Con un formulario abierto (estilo Odoo) se oculta la lista y lo que la acompaña. */
+body.registro-abierto .vista-modulo,
+body.registro-abierto .oculto-con-registro {
+  display: none;
 }

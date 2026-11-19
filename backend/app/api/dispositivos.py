@@ -105,9 +105,17 @@ async def actualizar(
 ) -> DispositivoOut:
     emp = empresa_scope(user, empresa_id)
     d = await _get(db, dispositivo_id, emp)
-    antes = bitacora.snapshot(d, ("nombre", "activo"))
-    for campo, valor in data.model_dump(exclude_unset=True).items():
-        if valor is not None:
+    campos = ("nombre", "activo", "tipo", "serie")
+    antes = bitacora.snapshot(d, campos)
+    cambios = data.model_dump(exclude_unset=True)
+    if cambios.get("sucursal_id") and cambios["sucursal_id"] != d.sucursal_id:
+        suc = await db.get(Sucursal, cambios["sucursal_id"])
+        if suc is None or suc.empresa_id != emp:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Sucursal no válida")
+        d.sucursal = suc
+    cambios.pop("sucursal_id", None)
+    for campo, valor in cambios.items():
+        if valor is not None or campo == "serie":
             setattr(d, campo, valor)
     await bitacora.cambios(
         db,
@@ -116,7 +124,7 @@ async def actualizar(
         registro_id=d.id,
         usuario=user,
         antes=antes,
-        despues=bitacora.snapshot(d, ("nombre", "activo")),
+        despues=bitacora.snapshot(d, campos),
     )
     await db.commit()
     return DispositivoOut.de(d)

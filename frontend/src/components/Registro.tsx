@@ -41,10 +41,35 @@ interface Props {
   onImprimir?: () => void;
   /** Agrega "Imprimir" (copia de la ventana). Se apaga cuando la pantalla tiene su propio reporte. */
   imprimir?: boolean;
+  /** Botones junto a la nube de guardar (p. ej. «Hecho» en una actividad). */
+  botones?: ReactNode;
+  /**
+   * Ventana flotante (para formularios que se abren desde otro formulario, como una actividad).
+   * Por omisión el registro se abre como en Odoo: debajo del menú, en el lugar de la lista y de su ancho.
+   */
+  flotante?: boolean;
+  /** Guardar solo al cerrar o al cambiar de registro (en un alta nueva, cerrar descarta). */
+  autoguardar?: boolean;
+  /** Imagen a la derecha del título (foto del empleado, logo), como en Odoo. */
+  imagen?: ReactNode;
   children: ReactNode;
 }
 
-export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio = false, onGuardar, onDescartar, onCerrar, acciones = [], imprimir = true, onImprimir, children }: Props) {
+/** Cuántos registros abiertos en la página (mientras haya uno, se oculta la lista). */
+let abiertos = 0;
+
+export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio = false, onGuardar, onDescartar, onCerrar, acciones = [], imprimir = true, onImprimir, botones, flotante = false, autoguardar = true, imagen, children }: Props) {
+  // Como en Odoo: el formulario reemplaza a la lista, debajo del encabezado y del mismo ancho.
+  useEffect(() => {
+    if (flotante) return;
+    abiertos++;
+    document.body.classList.add("registro-abierto");
+    window.scrollTo({ top: 0 });
+    return () => {
+      abiertos--;
+      if (!abiertos) document.body.classList.remove("registro-abierto");
+    };
+  }, [flotante]);
   const [menu, setMenu] = useState(false);
   const cuerpo = useRef<HTMLDivElement>(null);
   const opciones: AccionRegistro[] = [...acciones, ...(imprimir ? [{ etiqueta: "Imprimir", icono: "printer" as NombreIcono, onClick: onImprimir ?? (() => cuerpo.current && imprimirFormulario(cuerpo.current, textoDe(titulo), textoDe(subtitulo))), separar: acciones.length > 0 }] : [])];
@@ -81,8 +106,8 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
   );
 
   const cerrar = useCallback(async () => {
-    if (await guardar()) onCerrar();
-  }, [guardar, onCerrar]);
+    if (!autoguardar || (await guardar())) onCerrar();
+  }, [guardar, onCerrar, autoguardar]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -136,9 +161,11 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
   const conFlechas = indice !== undefined && total !== undefined && total > 1 && onIr;
   const etiqueta = { guardado: "Guardado", sucio: "Cambios sin guardar", guardando: "Guardando…", error: "No se pudo guardar" }[estado];
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-navy-900/40 p-3 pt-6 sm:p-4 sm:pt-12" onMouseDown={cerrar}>
-      <div className={`registro-hoja ventana-form card flex max-h-[calc(100dvh-3rem)] w-full flex-col overflow-hidden sm:max-h-[calc(100dvh-7rem)] max-w-6xl`} onMouseDown={(e) => e.stopPropagation()}>
+  const hoja = (
+      <div
+        className={`registro-hoja ventana-form card flex w-full flex-col ${flotante ? "max-h-[calc(100dvh-3rem)] max-w-6xl overflow-hidden sm:max-h-[calc(100dvh-7rem)]" : ""}`}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <div className="no-imprimir flex shrink-0 items-center gap-2 rounded-t-xl border-b border-slate-200 bg-slate-100/70 px-4 py-2.5 sm:px-5">
           {menuAcciones}
           {onGuardar && (
@@ -161,6 +188,7 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
               <span className={`hidden text-xs sm:inline ${estado === "error" || sucio ? "text-red-600" : "text-emerald-600"}`}>{etiqueta}</span>
             </>
           )}
+          {botones}
 
           <div className="ml-auto flex items-center gap-1">
             {conFlechas && (
@@ -182,14 +210,22 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
           </div>
         </div>
 
-        <div ref={cuerpo} className="min-h-0 overflow-y-auto p-5 pb-12 sm:p-8 sm:pb-14">
-          <div className="mb-5">
-            <h2 className="text-xl font-semibold text-tinta-900 sm:text-2xl">{titulo}</h2>
-            {subtitulo && <div className="mt-1 text-sm text-slate-500">{subtitulo}</div>}
+        <div ref={cuerpo} className={`p-5 pb-12 sm:p-8 sm:pb-14 ${flotante ? "min-h-0 overflow-y-auto" : ""}`}>
+          <div className="mb-6 flex items-start justify-between gap-6">
+            <div className="min-w-0">
+              <h2 className="text-2xl font-semibold text-tinta-900 sm:text-3xl">{titulo}</h2>
+              {subtitulo && <div className="mt-1 text-sm text-slate-500">{subtitulo}</div>}
+            </div>
+            {imagen && <div className="shrink-0">{imagen}</div>}
           </div>
           {children}
         </div>
       </div>
+  );
+  if (!flotante) return hoja;
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-navy-900/40 p-3 pt-6 sm:p-4 sm:pt-12" onMouseDown={cerrar}>
+      {hoja}
     </div>
   );
 }

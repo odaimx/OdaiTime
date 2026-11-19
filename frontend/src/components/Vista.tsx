@@ -205,7 +205,8 @@ export function useVista<T>(config: ConfigVista<T>, datos: T[]) {
   const pk = `odaitime.vista.${config.id}`;
   const fk = `odaitime.favoritos.${config.id}`;
   const [prefs, setPrefs] = useState<Prefs>(() => {
-    const modo: Prefs["modo"] = config.kanban && (window.innerWidth < 640 || config.modoInicial === "kanban") ? "kanban" : "lista";
+    // Todas las listas abren en kanban (si tienen tarjeta); "lista" solo si la pantalla lo pide.
+    const modo: Prefs["modo"] = config.kanban && (window.innerWidth < 640 || config.modoInicial !== "lista") ? "kanban" : "lista";
     const guardadas = leer<Prefs>(pk, { modo, ocultas: [], visibles: [], ordenCols: [], orden: config.ordenInicial ?? null, porPagina: 80 });
     // Cada vez que se entra desde el menú se abre en su vista normal (lista o kanban), no en la
     // última usada (p. ej. el calendario); columnas, orden y registros por página sí se recuerdan.
@@ -367,7 +368,7 @@ export default function Vista<T>({ vista }: { vista: EstadoVista<T> }) {
   const { resumen, recargar } = useResumenActividades(act?.modelo, act?.query ?? "", act?.listo ?? true);
 
   return (
-    <div>
+    <div className="vista-modulo">
       <BarraControl vista={vista} />
       {(config.tarjetas?.length || config.panel) && <Tarjetas vista={vista} />}
       {prefs.modo === "calendario" && act ? (
