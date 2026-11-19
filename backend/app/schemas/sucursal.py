@@ -2,10 +2,10 @@ import uuid
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.common import Nombre, ZonaHoraria
+from app.schemas.common import Domicilio, Nombre, ZonaHoraria
 
 
-class SucursalBase(BaseModel):
+class SucursalBase(Domicilio):
     clave: str = Field(min_length=1, max_length=20, pattern=r"^[A-Za-z0-9_-]+$")
     nombre: Nombre
     zona_horaria: ZonaHoraria = "America/Mexico_City"
@@ -19,7 +19,7 @@ class SucursalCreate(SucursalBase):
     pass
 
 
-class SucursalUpdate(BaseModel):
+class SucursalUpdate(Domicilio):
     clave: str | None = Field(
         default=None, min_length=1, max_length=20, pattern=r"^[A-Za-z0-9_-]+$"
     )

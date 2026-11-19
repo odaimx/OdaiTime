@@ -69,7 +69,7 @@ async def test_checar_en_obra_usa_su_ubicacion(client, superadmin):
     r = await client.post("/api/checadas", headers=e, data=CERCA)
     assert r.status_code == 422
     assert r.json()["detail"]["codigo"] == "fuera_de_rango"
-    assert "obra" in r.json()["detail"]["mensaje"]
+    assert "zona" in r.json()["detail"]["mensaje"]
 
     r = await client.post("/api/checadas", headers=e, data=LEJOS)
     assert r.status_code == 201, r.text

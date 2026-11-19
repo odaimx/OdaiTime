@@ -28,6 +28,8 @@ class Colores(BaseModel):
     titulos: str | None = Field(default=None, pattern=HEX)  # beige: títulos y menú lateral
     texto: str | None = Field(default=None, pattern=HEX)  # texto principal
     texto_suave: str | None = Field(default=None, pattern=HEX)  # texto secundario
+    lista: str | None = Field(default=None, pattern=HEX)  # banda de títulos de las listas
+    submenu: str | None = Field(default=None, pattern=HEX)  # pestañas debajo del título
 
 
 class Enlaces(BaseModel):

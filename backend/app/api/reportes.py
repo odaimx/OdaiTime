@@ -172,7 +172,7 @@ async def obras_xlsx(
     return _archivo(
         contenido,
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        f"horas_por_obra_{desde:%Y%m%d}_{hasta:%Y%m%d}.xlsx",
+        f"horas_por_zona_{desde:%Y%m%d}_{hasta:%Y%m%d}.xlsx",
     )
 
 

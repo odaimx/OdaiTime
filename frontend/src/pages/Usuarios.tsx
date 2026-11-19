@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import Registro, { useFormulario } from "../components/Registro";
 import Icono from "../components/Iconos";
-import { columnaCategorias, filtrosCategorias, GestorCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
+import { columnaCategorias, filtrosCategorias, SelectorCategorias, useCategorias } from "../components/Categorias";
 import Vista, { useAbrirDesdeUrl, useVista, type ConfigVista } from "../components/Vista";
 import { imprimirSecciones } from "../lib/imprimir";
 import { Badge, ErrorBox, PageHeader, useEmpresaScope } from "../components/ui";
@@ -83,7 +83,6 @@ export default function Usuarios() {
   }
 
   const cats = useCategorias("usuario", query, listo);
-  const [gestorCats, setGestorCats] = useState(false);
   const config: ConfigVista<Usuario> = {
     id: "usuarios",
     tituloReporte: "Usuarios",
@@ -160,16 +159,11 @@ export default function Usuarios() {
   return (
     <>
       <PageHeader
-        submenu={[
-          { etiqueta: "Usuarios", activo: true },
-          { etiqueta: "Categorías", onClick: () => setGestorCats(true) },
-        ]}
         icono="users"
         title="Usuarios"
         subtitle="Quién entra a ODAITIME y qué puede ver"
         action={selector}
       />
-      {gestorCats && <GestorCategorias modelo="usuario" query={query} puedeEditar={true} onCerrar={() => setGestorCats(false)} onCambio={cats.recargar} />}
 
       {avisos.length > 0 && (
         <div className="mb-4 space-y-1 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">

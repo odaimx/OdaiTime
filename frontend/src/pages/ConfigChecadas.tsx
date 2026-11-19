@@ -34,8 +34,16 @@ function Opcion({ checked, onChange, titulo, children, extra }: { checked: boole
   );
 }
 
-export default function ConfigChecadas({ incrustado = false, scope }: { incrustado?: boolean; scope?: { query: string; empresaId: string | null } } = {}) {
-  const [pestana, setPestana] = useState<"config" | "dispositivos" | "whatsapp">("config");
+type Seccion = "config" | "dispositivos" | "whatsapp";
+const TITULOS: Record<Seccion, [string, string]> = {
+  config: ["Checadas", "Elige cómo checan tus empleados y qué se valida. Cada sucursal puede usar la configuración general o una propia."],
+  dispositivos: ["Dispositivos", "Kioscos y relojes biométricos de la empresa."],
+  whatsapp: ["WhatsApp", "Número de WhatsApp Business para checar por WhatsApp."],
+};
+
+export default function ConfigChecadas({ incrustado = false, scope, seccion }: { incrustado?: boolean; scope?: { query: string; empresaId: string | null }; seccion?: Seccion } = {}) {
+  const [pestanaPropia, setPestana] = useState<Seccion>("config");
+  const pestana = seccion ?? pestanaPropia;
   const { usuario } = useAuth();
   const esAdmin = usuario?.rol === "superadmin" || usuario?.rol === "admin_empresa";
   const propio = useEmpresaScope();
@@ -116,11 +124,11 @@ export default function ConfigChecadas({ incrustado = false, scope }: { incrusta
   return (
     <>
       {!incrustado && <PageHeader icono="settings"
-        title="Configuración de asistencias"
-        subtitle="Elige cómo checan tus empleados y qué se valida. Cada sucursal puede usar la configuración general o una propia."
+        title={seccion ? TITULOS[seccion][0] : "Configuración de asistencias"}
+        subtitle={TITULOS[pestana][1]}
         action={selector}
       />}
-      <div className="mb-5 flex gap-1 border-b border-slate-200" role="tablist">
+      <div className={`mb-5 flex gap-1 border-b border-slate-200 ${seccion ? "hidden" : ""}`} role="tablist">
         {(
           [
             ["config", "Configuración"],

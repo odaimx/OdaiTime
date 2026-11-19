@@ -27,7 +27,16 @@ export interface Usuario {
   foto_actualizada?: string | null;
 }
 
-export interface Sucursal extends SucursalRef {
+/** Domicilio desglosado; `direccion` lo arma el servidor. */
+export interface DomicilioApi {
+  calle?: string | null;
+  colonia?: string | null;
+  codigo_postal?: string | null;
+  ciudad?: string | null;
+  entidad?: string | null;
+}
+
+export interface Sucursal extends SucursalRef, DomicilioApi {
   empresa_id: string;
   zona_horaria: string;
   direccion: string | null;
@@ -37,7 +46,7 @@ export interface Sucursal extends SucursalRef {
   activa: boolean;
 }
 
-export interface Empresa {
+export interface Empresa extends DomicilioApi {
   id: string;
   nombre: string;
   razon_social: string | null;
@@ -428,7 +437,7 @@ export interface ObraRef {
   nombre: string;
 }
 
-export interface Obra extends ObraRef {
+export interface Obra extends ObraRef, DomicilioApi {
   sucursal_id: string;
   sucursal: SucursalRef;
   direccion: string | null;

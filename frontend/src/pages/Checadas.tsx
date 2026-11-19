@@ -6,7 +6,6 @@ import FotoChecada from "../components/FotoChecada";
 import Icono from "../components/Iconos";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
 import { Badge, ErrorBox, Modal, PageHeader, useEmpresaScope, Plegable } from "../components/ui";
-import ConfigChecadas from "./ConfigChecadas";
 import { fechaHora, get, hoyISO, ORIGENES, patch, post, type Checada, type Empleado, type Sucursal } from "../lib/api";
 
 const haceDias = (n: number) => {
@@ -79,7 +78,6 @@ export default function Checadas() {
     onAbrir: abrir,
     fuentes: "registro de jornada: art. 132, fracción XXXIV",
     tituloReporte: `Asistencias · ${filtros.desde} al ${filtros.hasta}`,
-    ajustes: { titulo: "Asistencias", ancho: "xl", contenido: <ConfigChecadas incrustado scope={{ query, empresaId }} /> },
     acciones: listo && (
       <button
         className="btn-primary"
@@ -126,7 +124,7 @@ export default function Checadas() {
       { clave: "dia", titulo: "Día", agrupable: true, visible: false, valor: (c) => c.momento.slice(0, 10) },
       { clave: "origen", titulo: "Origen", agrupable: true, valor: (c) => ORIGENES[c.origen] },
       { clave: "sucursal", titulo: "Sucursal", buscable: true, agrupable: true, valor: (c) => c.sucursal.nombre, render: (c) => <span className="font-mono text-xs font-semibold text-brand-600">{c.sucursal.clave}</span> },
-      { clave: "obra", titulo: "Obra", buscable: true, agrupable: true, valor: (c) => (c.obra ? c.obra.nombre : "Sin obra"), render: (c) => (c.obra ? <span title={c.obra.nombre} className="font-mono text-xs font-semibold text-brand-600">{c.obra.clave}</span> : <span className="text-slate-300">—</span>) },
+      { clave: "obra", titulo: "Zona", buscable: true, agrupable: true, valor: (c) => (c.obra ? c.obra.nombre : "Sin zona"), render: (c) => (c.obra ? <span title={c.obra.nombre} className="font-mono text-xs font-semibold text-brand-600">{c.obra.clave}</span> : <span className="text-slate-300">—</span>) },
       {
         clave: "obs",
         titulo: "Observaciones",

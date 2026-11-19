@@ -3,13 +3,13 @@ from datetime import date
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.common import Nombre
+from app.schemas.common import Domicilio, Nombre
 from app.schemas.sucursal import SucursalRef
 
 Clave = Field(min_length=1, max_length=20, pattern=r"^[A-Za-z0-9_-]+$")
 
 
-class ObraBase(BaseModel):
+class ObraBase(Domicilio):
     clave: str = Clave
     nombre: Nombre
     sucursal_id: uuid.UUID
@@ -25,7 +25,7 @@ class ObraCreate(ObraBase):
     pass
 
 
-class ObraUpdate(BaseModel):
+class ObraUpdate(Domicilio):
     clave: str | None = Field(
         default=None, min_length=1, max_length=20, pattern=r"^[A-Za-z0-9_-]+$"
     )

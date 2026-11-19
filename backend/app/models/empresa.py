@@ -4,9 +4,10 @@ from sqlalchemy import Date, DateTime, LargeBinary, String
 from sqlalchemy.orm import Mapped, deferred, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
+from app.models.domicilio import DomicilioMixin
 
 
-class Empresa(UUIDPkMixin, TimestampMixin, Base):
+class Empresa(DomicilioMixin, UUIDPkMixin, TimestampMixin, Base):
     """Cliente del SaaS (tenant). Todo dato operativo cuelga de una empresa."""
 
     __tablename__ = "empresas"

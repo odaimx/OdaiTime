@@ -12,8 +12,9 @@ from sqlalchemy.exc import IntegrityError
 from app.api.deps import DB, CurrentUser, empresa_scope, require_roles
 from app.core.tenant import base_domain, tenant_de, tenant_de_host
 from app.models import Empresa
+from app.models.domicilio import CAMPOS_DOMICILIO
 from app.models.usuario import Rol
-from app.schemas.common import RFC, Nombre
+from app.schemas.common import RFC, Domicilio, Nombre
 from app.services import estado_empresa, fotos
 
 router = APIRouter(prefix="/tenant", tags=["subdominio"])
@@ -195,14 +196,14 @@ async def quitar_fondo(user: CurrentUser, db: DB, empresa_id: uuid.UUID | None =
 # --- Datos básicos de la empresa (los cambia su administrador) ---
 
 
-class MiEmpresaIn(BaseModel):
+class MiEmpresaIn(Domicilio):
     nombre: Nombre
     razon_social: str | None = Field(default=None, max_length=250)
     rfc: RFC | None = None
     direccion: str | None = Field(default=None, max_length=300)
 
 
-class MiEmpresaOut(BaseModel):
+class MiEmpresaOut(Domicilio):
     id: uuid.UUID
     nombre: str
     razon_social: str | None
@@ -219,6 +220,7 @@ def _mi_empresa(e: Empresa) -> MiEmpresaOut:
         razon_social=e.razon_social,
         rfc=e.rfc,
         direccion=e.direccion,
+        **{c: getattr(e, c) for c in CAMPOS_DOMICILIO},
         slug=e.slug,
         logo_version=e.logo_version,
     )
@@ -246,6 +248,8 @@ async def guardar_mi_empresa(
     e.razon_social = (data.razon_social or "").strip() or None
     e.rfc = data.rfc or None
     e.direccion = (data.direccion or "").strip() or None
+    for c in CAMPOS_DOMICILIO:
+        setattr(e, c, getattr(data, c))
     try:
         await db.commit()
     except IntegrityError:
