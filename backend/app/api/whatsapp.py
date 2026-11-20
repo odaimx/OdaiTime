@@ -25,7 +25,7 @@ from sqlalchemy import func, select
 from app.api.deps import DB, CurrentUser, empresa_scope, require_roles
 from app.core.cifrado import cifrar, descifrar
 from app.core.config import get_settings
-from app.models import Checada, ConfigWhatsApp, Empleado, Rol
+from app.models import Checada, ConfigSistema, ConfigWhatsApp, Empleado, Rol
 from app.services import bitacora, obras
 from app.services import checadas as svc
 from app.services import whatsapp as wa
@@ -69,6 +69,12 @@ class ConfigOut(BaseModel):
     verify_token: str | None
 
 
+def _webhook_url(cfg: ConfigWhatsApp, request: Request) -> str:
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    host = request.headers.get("x-forwarded-host", request.headers.get("host", request.url.netloc))
+    return f"{proto}://{host}/api/whatsapp/webhook/{cfg.id}"
+
+
 def _salida(cfg: ConfigWhatsApp | None, request: Request) -> ConfigOut:
     if cfg is None:
         return ConfigOut(
@@ -82,8 +88,6 @@ def _salida(cfg: ConfigWhatsApp | None, request: Request) -> ConfigOut:
             webhook_url=None,
             verify_token=None,
         )
-    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
-    host = request.headers.get("x-forwarded-host", request.headers.get("host", request.url.netloc))
     return ConfigOut(
         activo=cfg.activo,
         todos=cfg.todos,
@@ -92,7 +96,7 @@ def _salida(cfg: ConfigWhatsApp | None, request: Request) -> ConfigOut:
         numero=cfg.numero,
         tiene_token=bool(cfg.token),
         tiene_secreto=bool(cfg.app_secret),
-        webhook_url=f"{proto}://{host}/api/whatsapp/webhook/{cfg.id}",
+        webhook_url=_webhook_url(cfg, request),
         verify_token=cfg.verify_token,
     )
 
@@ -177,6 +181,141 @@ async def prueba(
     if not ok:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"WhatsApp respondió: {error}")
     return {"enviado": True}
+
+
+# --- Registro integrado de Meta (Tech Provider) ---
+#
+# Odai registra UNA app en Meta como Tech Provider. El cliente toca «Conectar con WhatsApp»,
+# inicia sesión con su Facebook en el popup de Meta, elige o crea su número y su cuenta de
+# WhatsApp Business, y Meta nos devuelve un código. Aquí se cambia por el token del cliente,
+# se suscribe el webhook propio de su empresa y se registra el número. El cliente ya no copia
+# tokens ni secretos; Meta le sigue cobrando a él.
+
+
+class ProveedorIn(BaseModel):
+    app_id: str | None = Field(default=None, max_length=40, pattern=r"^\d*$")
+    config_id: str | None = Field(default=None, max_length=40, pattern=r"^\d*$")
+    app_secret: str | None = Field(default=None, max_length=200)  # vacío = se conserva
+
+
+def _version() -> str:
+    return get_settings().whatsapp_graph_url.rstrip("/").rsplit("/", 1)[-1]
+
+
+async def _sistema(db: DB) -> ConfigSistema:
+    c = await db.get(ConfigSistema, 1)
+    if c is None:
+        c = ConfigSistema(id=1, colores={})
+        db.add(c)
+    return c
+
+
+def _proveedor(c: ConfigSistema) -> dict:
+    return {
+        "app_id": c.meta_app_id,
+        "config_id": c.meta_config_id,
+        "tiene_secreto": bool(c.meta_app_secret),
+        "version": _version(),
+    }
+
+
+@router.get("/proveedor", dependencies=[Depends(require_roles(Rol.SUPERADMIN))])
+async def leer_proveedor(db: DB) -> dict:
+    """App de Meta de Odai (la configura el superadmin con los datos del trámite)."""
+    return _proveedor(await _sistema(db))
+
+
+@router.put("/proveedor", dependencies=[Depends(require_roles(Rol.SUPERADMIN))])
+async def guardar_proveedor(data: ProveedorIn, db: DB) -> dict:
+    c = await _sistema(db)
+    c.meta_app_id = data.app_id or None
+    c.meta_config_id = data.config_id or None
+    if data.app_secret:
+        c.meta_app_secret = cifrar(data.app_secret.strip())
+    await db.commit()
+    return _proveedor(c)
+
+
+@router.get("/registro", dependencies=[Depends(require_roles(*_ADMIN))])
+async def datos_registro(db: DB) -> dict:
+    """Lo que necesita el botón «Conectar con WhatsApp» (sin secretos)."""
+    c = await db.get(ConfigSistema, 1)
+    listo = bool(c and c.meta_app_id and c.meta_config_id and c.meta_app_secret)
+    return {
+        "disponible": listo,
+        "app_id": c.meta_app_id if listo else None,
+        "config_id": c.meta_config_id if listo else None,
+        "version": _version(),
+    }
+
+
+class RegistroIn(BaseModel):
+    code: str = Field(min_length=10, max_length=1000)
+    waba_id: str = Field(min_length=5, max_length=40, pattern=r"^\d+$")
+    phone_number_id: str = Field(min_length=5, max_length=40, pattern=r"^\d+$")
+
+
+@router.post("/registro", response_model=ConfigOut, dependencies=[Depends(require_roles(*_ADMIN))])
+async def completar_registro(
+    data: RegistroIn,
+    user: CurrentUser,
+    db: DB,
+    request: Request,
+    empresa_id: uuid.UUID | None = None,
+) -> ConfigOut:
+    emp = empresa_scope(user, empresa_id)
+    sistema = await db.get(ConfigSistema, 1)
+    if not (sistema and sistema.meta_app_id and sistema.meta_app_secret):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "El registro integrado aún no está disponible"
+        )
+    otro = await db.scalar(
+        select(ConfigWhatsApp.id).where(
+            ConfigWhatsApp.phone_number_id == data.phone_number_id,
+            ConfigWhatsApp.empresa_id != emp,
+        )
+    )
+    if otro:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Ese número ya lo usa otra empresa")
+    cfg = await _config(db, emp)
+    if cfg is None:
+        cfg = ConfigWhatsApp(empresa_id=emp, verify_token=secrets.token_urlsafe(24))
+        db.add(cfg)
+        await db.flush()  # id para la URL del webhook
+    app_secret = descifrar(sistema.meta_app_secret)
+    try:
+        r = await wa.registro_integrado(
+            app_id=sistema.meta_app_id,
+            app_secret=app_secret,
+            code=data.code,
+            waba_id=data.waba_id,
+            phone_number_id=data.phone_number_id,
+            webhook_url=_webhook_url(cfg, request),
+            verify_token=cfg.verify_token,
+            pin=f"{secrets.randbelow(1_000_000):06d}",
+        )
+    except wa.ErrorMeta as e:
+        await db.rollback()
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Meta respondió: {e}") from None
+    cfg.phone_number_id = data.phone_number_id
+    cfg.waba_id = data.waba_id
+    cfg.numero = (r.get("numero") or "")[:20] or None
+    cfg.token = cifrar(r["token"])
+    cfg.app_secret = cifrar(app_secret)  # firma del webhook: es el secreto de la app de Odai
+    cfg.activo = True
+    await bitacora.registrar(
+        db,
+        empresa_id=emp,
+        modelo="config_whatsapp",
+        registro_id=emp,
+        usuario=user,
+        tipo="cambio",
+        mensaje="WhatsApp conectado con el registro de Meta"
+        + (f" ({cfg.numero})" if cfg.numero else ""),
+    )
+    await db.commit()
+    await db.refresh(cfg)
+    return _salida(cfg, request)
 
 
 # --- Webhook (Meta) ---

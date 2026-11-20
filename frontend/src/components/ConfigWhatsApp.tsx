@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Ayuda, ErrorBox } from "./ui";
 import { api, get, post } from "../lib/api";
+import { registrarConMeta, type DatosRegistro } from "../lib/metaRegistro";
 
 interface Config {
   activo: boolean;
@@ -21,14 +22,38 @@ export default function ConfigWhatsApp({ query }: { query: string }) {
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [tel, setTel] = useState("");
+  const [registro, setRegistro] = useState<(DatosRegistro & { disponible: boolean }) | null>(null);
+  const [conectando, setConectando] = useState(false);
+  const [manual, setManual] = useState(false);
 
   function cargar(c: Config) {
     setCfg(c);
     setForm({ activo: c.activo, todos: c.todos, phone_number_id: c.phone_number_id ?? "", waba_id: c.waba_id ?? "", numero: c.numero ?? "", token: "", app_secret: "" });
   }
   useEffect(() => {
-    get<Config>(`/whatsapp/config${query}`).then(cargar);
+    get<Config>(`/whatsapp/config${query}`).then((c) => {
+      cargar(c);
+      setManual(!!c.phone_number_id); // ya configurado a mano: se muestra el formulario
+    });
+    get<DatosRegistro & { disponible: boolean }>("/whatsapp/registro").then(setRegistro).catch(() => setRegistro(null));
   }, [query]);
+
+  /** Registro integrado: popup de Meta → el servidor cambia el código por el token y registra el número. */
+  async function conectar() {
+    if (!registro?.disponible) return;
+    setError(null);
+    setOk(null);
+    setConectando(true);
+    try {
+      const r = await registrarConMeta(registro);
+      cargar(await post<Config>(`/whatsapp/registro${query}`, r));
+      setOk("¡Listo! Tu número de WhatsApp quedó conectado y el checado por WhatsApp está activo.");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setConectando(false);
+    }
+  }
 
   async function guardar(ev: FormEvent) {
     ev.preventDefault();
@@ -67,7 +92,24 @@ export default function ConfigWhatsApp({ query }: { query: string }) {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {registro?.disponible && (
+        <div className="flex flex-wrap items-center gap-4 rounded-xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
+          <div className="min-w-0 flex-1 text-sm text-emerald-900">
+            <p className="font-semibold">{cfg.activo && cfg.numero ? `Conectado: ${cfg.numero}` : "Conecta tu número en un minuto"}</p>
+            <p>Inicia sesión con tu Facebook, elige o da de alta tu número de WhatsApp Business y listo: no tienes que copiar tokens ni configurar el webhook.</p>
+          </div>
+          <button type="button" className="btn-primary" disabled={conectando} onClick={conectar}>
+            {conectando ? "Conectando…" : cfg.activo && cfg.numero ? "Conectar otro número" : "Conectar con WhatsApp"}
+          </button>
+        </div>
+      )}
+      {registro?.disponible && !manual && (
+        <button type="button" className="text-sm text-brand-600 hover:underline" onClick={() => setManual(true)}>
+          Configurar a mano (avanzado)
+        </button>
+      )}
+
+      <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${registro?.disponible && !manual ? "hidden" : ""}`}>
         <div>
           <label className="label">
             Identificador del número (Phone number ID)
@@ -99,7 +141,7 @@ export default function ConfigWhatsApp({ query }: { query: string }) {
         </div>
       </div>
 
-      {cfg.webhook_url && (
+      {cfg.webhook_url && (!registro?.disponible || manual) && (
         <div className="space-y-2 rounded-lg bg-slate-50 p-3 text-sm">
           <p className="font-medium text-tinta-900">Webhook: pégalo en tu app de Meta (WhatsApp → Configuración) y suscríbete a «messages».</p>
           {[

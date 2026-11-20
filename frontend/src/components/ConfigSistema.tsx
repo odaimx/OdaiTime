@@ -1,12 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { api, descargar } from "../lib/api";
+import { api, descargar, get } from "../lib/api";
 import { aplicarTema, cargarTema, COLORES_ODAI, temaActual, type Colores, type Enlaces, type Tema as TemaGuardado } from "../lib/tema";
 import CorreoSaliente from "./CorreoSaliente";
 import PlantillasCorreo from "./PlantillasCorreo";
 import Icono from "./Iconos";
-import { Ayuda, BarraGuardar, ErrorBox, Fila, ImagenEditable } from "./ui";
+import { Ayuda, BarraGuardar, Campos, ErrorBox, Fila, ImagenEditable } from "./ui";
 
-export type Pestana = "tema" | "acceso" | "frases" | "correo" | "plantillas" | "enlaces";
+export type Pestana = "tema" | "acceso" | "frases" | "correo" | "plantillas" | "enlaces" | "whatsapp";
 export const SECCIONES_SISTEMA: [Pestana, string][] = [
   ["tema", "Colores del tema"],
   ["acceso", "Pantalla de acceso"],
@@ -14,6 +14,7 @@ export const SECCIONES_SISTEMA: [Pestana, string][] = [
   ["correo", "Correo saliente"],
   ["plantillas", "Plantillas de correo"],
   ["enlaces", "Enlaces de Odai"],
+  ["whatsapp", "WhatsApp (Meta)"],
 ];
 
 /** Configuración general de ODAITIME para todas las empresas (solo superadmin). */
@@ -31,6 +32,7 @@ export default function ConfigSistema({ seccion }: { seccion?: Pestana } = {}) {
             ["correo", "Correo saliente"],
             ["plantillas", "Plantillas de correo"],
             ["enlaces", "Enlaces de Odai"],
+            ["whatsapp", "WhatsApp (Meta)"],
           ] as const
         ).map(([k, l]) => (
           <button
@@ -51,6 +53,7 @@ export default function ConfigSistema({ seccion }: { seccion?: Pestana } = {}) {
       {pestana === "correo" && <CorreoSaliente />}
       {pestana === "plantillas" && <PlantillasCorreo />}
       {pestana === "enlaces" && <EnlacesOdai />}
+      {pestana === "whatsapp" && <AppMeta />}
     </div>
   );
 }
@@ -503,6 +506,62 @@ function EnlacesOdai() {
       </p>
       <ErrorBox message={error} />
       {msg && <p className="text-sm text-emerald-700">{msg}</p>}
+    </form>
+  );
+}
+
+
+/** App de Meta de Odai como Tech Provider: con ella las empresas conectan su WhatsApp con un botón. */
+function AppMeta() {
+  const [d, setD] = useState<{ app_id: string | null; config_id: string | null; tiene_secreto: boolean; version: string } | null>(null);
+  const [form, setForm] = useState({ app_id: "", config_id: "", app_secret: "" });
+  const [msg, setMsg] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const cargar = (x: NonNullable<typeof d>) => {
+    setD(x);
+    setForm({ app_id: x.app_id ?? "", config_id: x.config_id ?? "", app_secret: "" });
+  };
+  useEffect(() => {
+    get<NonNullable<typeof d>>("/whatsapp/proveedor").then(cargar).catch((e) => setError((e as Error).message));
+  }, []);
+  async function guardar(e: FormEvent) {
+    e.preventDefault();
+    setMsg(null);
+    setError(null);
+    try {
+      cargar(await api<NonNullable<typeof d>>("/whatsapp/proveedor", { method: "PUT", body: JSON.stringify({ ...form, app_secret: form.app_secret || null }) }));
+      setMsg("Guardado.");
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+  if (!d) return <ErrorBox message={error} />;
+  const listo = !!(d.app_id && d.config_id && d.tiene_secreto);
+  return (
+    <form onSubmit={guardar} className="space-y-4">
+      <p className="text-sm text-slate-600">
+        Datos de la app de Odai en Meta for Developers, una vez aprobada como <strong>Tech Provider</strong>. Con ellos, cada empresa conecta su número de WhatsApp Business desde
+        Mi empresa › Configuración › WhatsApp con el botón «Conectar con WhatsApp» (registro integrado), sin copiar tokens. Meta le sigue cobrando a cada empresa.
+      </p>
+      <p className={`rounded-lg px-3 py-2 text-sm ${listo ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>
+        {listo ? "Registro integrado disponible para las empresas." : "Aún no disponible: faltan datos de la app."} · Graph API {d.version}
+      </p>
+      <Campos>
+        <Fila etiqueta="App ID" htmlFor="meta-app" ayuda="developers.facebook.com › tu app › Configuración › Básica.">
+          <input id="meta-app" className="input font-mono" inputMode="numeric" value={form.app_id} onChange={(e) => setForm({ ...form, app_id: e.target.value.replace(/\D/g, "") })} />
+        </Fila>
+        <Fila etiqueta="Configuration ID" htmlFor="meta-config" ayuda="Facebook Login para empresas › Configuraciones: la del registro integrado de WhatsApp.">
+          <input id="meta-config" className="input font-mono" inputMode="numeric" value={form.config_id} onChange={(e) => setForm({ ...form, config_id: e.target.value.replace(/\D/g, "") })} />
+        </Fila>
+        <Fila etiqueta="App secret" htmlFor="meta-secret" ayuda="Se guarda cifrado; nunca se envía al navegador. Sirve para cambiar el código por el token y validar la firma del webhook.">
+          <input id="meta-secret" className="input font-mono" type="password" autoComplete="off" placeholder={d.tiene_secreto ? "•••••• (guardado; escribe para cambiarlo)" : ""} value={form.app_secret} onChange={(e) => setForm({ ...form, app_secret: e.target.value })} />
+        </Fila>
+      </Campos>
+      <ErrorBox message={error} />
+      {msg && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{msg}</p>}
+      <div className="flex justify-end">
+        <button className="btn-primary">Guardar</button>
+      </div>
     </form>
   );
 }
