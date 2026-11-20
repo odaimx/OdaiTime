@@ -5,7 +5,7 @@ import Icono from "../components/Iconos";
 import Vista, { useAbrirDesdeUrl, useVista, type ConfigVista } from "../components/Vista";
 import { imprimirSecciones } from "../lib/imprimir";
 import Registro, { useFormulario } from "../components/Registro";
-import { Badge, ErrorBox, PageHeader, useEmpresaScope, Plegable } from "../components/ui";
+import { Badge, Campos, ErrorBox, Fila, PageHeader, useEmpresaScope, Plegable } from "../components/ui";
 import { api, DIAS, DIAS_CORTOS, get, horas, hhmm, JORNADAS, patch, post, type TipoJornada, type Turno } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -281,40 +281,50 @@ export default function Turnos() {
           onGuardar={puedeEditar ? guardar : undefined}
           onDescartar={descartar}
           onCerrar={() => setEditando(null)}
-        >
-          <form onSubmit={(e: FormEvent) => (e.preventDefault(), guardar())} className="space-y-4">
-            {editando !== "nuevo" && editando.advertencias.length > 0 && !sucio && (
-              <ul className="space-y-1 rounded-lg bg-amber-50 p-3 text-xs text-amber-800 ring-1 ring-amber-200">
+          nota={
+            editando !== "nuevo" &&
+            editando.advertencias.length > 0 &&
+            !sucio && (
+              <ul className="space-y-1 rounded-lg bg-amber-50 p-3 text-amber-800 ring-1 ring-amber-200">
                 {editando.advertencias.map((a) => (
                   <li key={a}>
                     ⚠ <TextoLFT texto={a} />
                   </li>
                 ))}
               </ul>
-            )}
+            )
+          }
+        >
+          <form onSubmit={(e: FormEvent) => (e.preventDefault(), guardar())} className="space-y-4">
             <fieldset disabled={!puedeEditar} className="space-y-4">
-            <div>
-              <label className="label">Nombre</label>
-              <input className="input" required placeholder="Matutino recepción" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <label className="label">
-                  Tipo de jornada <span className="font-normal text-slate-500">(<ArticuloLFT art="60" /> y <ArticuloLFT art="61" />)</span>
-                </label>
-                <select className="input" value={form.tipo_jornada} onChange={(e) => setForm({ ...form, tipo_jornada: e.target.value as TipoJornada })}>
+            <Campos>
+              <Fila etiqueta="Nombre" htmlFor="tur-nombre">
+                <input id="tur-nombre" className="input" required placeholder="Matutino recepción" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
+              </Fila>
+              <Fila
+                etiqueta="Tipo de jornada"
+                htmlFor="tur-jornada"
+                ayuda={
+                  <>
+                    Diurna, nocturna o mixta (<ArticuloLFT art="60" /> y <ArticuloLFT art="61" />).
+                  </>
+                }
+              >
+                <select id="tur-jornada" className="input" value={form.tipo_jornada} onChange={(e) => setForm({ ...form, tipo_jornada: e.target.value as TipoJornada })}>
                   {(Object.keys(JORNADAS) as TipoJornada[]).map((k) => (
                     <option key={k} value={k}>
                       {JORNADAS[k].label} — máx. {JORNADAS[k].max}
                     </option>
                   ))}
                 </select>
-              </div>
-              <div>
-                <label className="label">Tolerancia de retardo (min)</label>
-                <input className="input" type="number" min={0} max={120} value={form.tolerancia} onChange={(e) => setForm({ ...form, tolerancia: e.target.value })} />
-              </div>
-            </div>
+              </Fila>
+              <Fila etiqueta="Tolerancia de retardo (min)" htmlFor="tur-tol">
+                <input id="tur-tol" className="input" type="number" min={0} max={120} value={form.tolerancia} onChange={(e) => setForm({ ...form, tolerancia: e.target.value })} />
+              </Fila>
+              <Fila etiqueta="Total semanal">
+                <span className="text-sm text-tinta-900">{editando === "nuevo" ? "—" : horas(editando.minutos_semana)}</span>
+              </Fila>
+            </Campos>
 
             <div>
               <div className="mb-1 flex items-center justify-between">

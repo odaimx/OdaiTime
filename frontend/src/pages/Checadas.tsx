@@ -5,7 +5,7 @@ import Registro from "../components/Registro";
 import FotoChecada from "../components/FotoChecada";
 import Icono from "../components/Iconos";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
-import { Badge, ErrorBox, Modal, PageHeader, useEmpresaScope, Plegable } from "../components/ui";
+import { Badge, Campos, ErrorBox, Fila, Modal, PageHeader, useEmpresaScope, Plegable } from "../components/ui";
 import { fechaHora, get, hoyISO, ORIGENES, patch, post, type Checada, type Empleado, type Sucursal } from "../lib/api";
 import { useBanda } from "../lib/bandas";
 
@@ -55,10 +55,14 @@ export default function Checadas() {
     setSel(c);
   }
 
-  async function corregir(e: FormEvent) {
-    e.preventDefault();
-    if (!sel) return;
+  async function corregir(e?: FormEvent): Promise<boolean> {
+    e?.preventDefault();
+    if (!sel) return false;
     setError(null);
+    if (corr.motivo.trim().length < 3) {
+      setError("Escribe el motivo de la corrección (al menos 3 letras).");
+      return false;
+    }
     try {
       const cambios: Record<string, string> = { motivo: corr.motivo };
       if (corr.tipo !== sel.tipo) cambios.tipo = corr.tipo;
@@ -69,8 +73,10 @@ export default function Checadas() {
       setCorr((x) => ({ ...x, motivo: "" }));
       setRev((n) => n + 1);
       cargar();
+      return true;
     } catch (err) {
       setError((err as Error).message);
+      return false;
     }
   }
 
@@ -245,71 +251,61 @@ export default function Checadas() {
 
       {sel && (
         <Registro
-          titulo={`${sel.tipo === "entrada" ? "Entrada" : "Salida"} · ${sel.empleado.nombre_completo}`}
+          titulo={sel.empleado.nombre_completo}
+          subtitulo={`${sel.tipo === "entrada" ? "Entrada" : "Salida"} · ${fechaHora(sel.momento)}`}
+          imagen={sel.tiene_foto ? <FotoChecada checadaId={sel.id} query={query} className="h-36 w-28" /> : undefined}
           indice={Math.max(enOrden.findIndex((x) => x.id === sel.id), 0)}
           total={enOrden.length}
           onIr={(i) => abrir(enOrden[i])}
+          sucio={corr.tipo !== sel.tipo || corr.momento !== localInput(sel.momento) || corr.estado !== sel.estado}
+          autoguardar={false}
+          onGuardar={() => corregir()}
+          onDescartar={() => abrir(sel)}
           onCerrar={() => setSel(null)}
         >
-          <div className="space-y-5">
-            <div className="flex flex-wrap gap-4">
-              {sel.tiene_foto && <FotoChecada checadaId={sel.id} query={query} className="h-40 w-32" />}
-              <dl className="grid flex-1 grid-cols-2 gap-3 text-sm">
-                <div>
-                  <dt className="text-xs text-slate-500">Fecha y hora</dt>
-                  <dd className="font-medium text-tinta-900">{fechaHora(sel.momento)}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-slate-500">Origen</dt>
-                  <dd className="font-medium text-tinta-900">{ORIGENES[sel.origen]}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-slate-500">Sucursal</dt>
-                  <dd className="font-medium text-tinta-900">
-                    {sel.sucursal.clave} — {sel.sucursal.nombre}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-slate-500">Distancia</dt>
-                  <dd className="font-medium text-tinta-900">{sel.distancia_m != null ? `${sel.distancia_m} m` : "—"}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-slate-500">Estado</dt>
-                  <dd>
-                    <Badge ok={sel.estado === "valida"}>{sel.estado === "valida" ? "Válida" : "Anulada"}</Badge>
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-slate-500">Retardo</dt>
-                  <dd className="font-medium text-tinta-900">{sel.retardo_minutos ? `${sel.retardo_minutos} min` : "—"}</dd>
-                </div>
-              </dl>
-            </div>
-
-            <form onSubmit={corregir} className="space-y-3 rounded-lg bg-slate-50 p-4">
-              <p className="text-sm font-medium text-tinta-900">Corregir</p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <select className="input" aria-label="Tipo" value={corr.tipo} onChange={(e) => setCorr({ ...corr, tipo: e.target.value })}>
+          <form onSubmit={corregir} className="space-y-5">
+            <Campos>
+              <Fila etiqueta="Tipo" htmlFor="ch-tipo">
+                <select id="ch-tipo" className="input" value={corr.tipo} onChange={(e) => setCorr({ ...corr, tipo: e.target.value })}>
                   <option value="entrada">Entrada</option>
                   <option value="salida">Salida</option>
                 </select>
-                <input type="datetime-local" className="input" aria-label="Fecha y hora" value={corr.momento} onChange={(e) => setCorr({ ...corr, momento: e.target.value })} />
-                <select className="input" aria-label="Estado" value={corr.estado} onChange={(e) => setCorr({ ...corr, estado: e.target.value })}>
+              </Fila>
+              <Fila etiqueta="Origen">
+                <span className="text-sm text-tinta-900">{ORIGENES[sel.origen]}</span>
+              </Fila>
+              <Fila etiqueta="Fecha y hora" htmlFor="ch-momento">
+                <input id="ch-momento" type="datetime-local" className="input" value={corr.momento} onChange={(e) => setCorr({ ...corr, momento: e.target.value })} />
+              </Fila>
+              <Fila etiqueta="Sucursal">
+                <span className="text-sm text-tinta-900">
+                  {sel.sucursal.clave} — {sel.sucursal.nombre}
+                </span>
+              </Fila>
+              <Fila etiqueta="Estado" htmlFor="ch-estado">
+                <select id="ch-estado" className="input" value={corr.estado} onChange={(e) => setCorr({ ...corr, estado: e.target.value })}>
                   <option value="valida">Válida</option>
                   <option value="anulada">Anulada</option>
                 </select>
-              </div>
-              <input className="input" required minLength={3} placeholder="Motivo de la corrección (obligatorio)" value={corr.motivo} onChange={(e) => setCorr({ ...corr, motivo: e.target.value })} />
-              <ErrorBox message={error} />
-              <div className="flex justify-end">
-                <button className="btn-primary">Guardar corrección</button>
-              </div>
-            </form>
-
+              </Fila>
+              <Fila etiqueta="Distancia">
+                <span className="text-sm text-tinta-900">{sel.distancia_m != null ? `${sel.distancia_m} m` : "—"}</span>
+              </Fila>
+              <Fila etiqueta="Motivo del cambio" htmlFor="ch-motivo" ayuda="Obligatorio para corregir una checada; queda en el historial.">
+                <input id="ch-motivo" className="input" placeholder="Obligatorio si corriges" value={corr.motivo} onChange={(e) => setCorr({ ...corr, motivo: e.target.value })} />
+              </Fila>
+              <Fila etiqueta="Retardo">
+                <span className="text-sm text-tinta-900">{sel.retardo_minutos ? `${sel.retardo_minutos} min` : "—"}</span>
+              </Fila>
+            </Campos>
+            <ErrorBox message={error} />
+            <button type="submit" className="sr-only">
+              Guardar
+            </button>
             <Plegable titulo="Historial de cambios">
               <Bitacora modelo="checada" registroId={sel.id} query={query} recargar={rev} />
             </Plegable>
-          </div>
+          </form>
         </Registro>
       )}
     </>

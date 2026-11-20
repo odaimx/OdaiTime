@@ -52,13 +52,15 @@ interface Props {
   autoguardar?: boolean;
   /** Imagen a la derecha del título (foto del empleado, logo), como en Odoo. */
   imagen?: ReactNode;
+  /** Textos de ayuda o avisos: siempre al final del formulario. */
+  nota?: ReactNode;
   children: ReactNode;
 }
 
 /** Cuántos registros abiertos en la página (mientras haya uno, se oculta la lista). */
 let abiertos = 0;
 
-export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio = false, onGuardar, onDescartar, onCerrar, acciones = [], imprimir = true, onImprimir, botones, flotante = false, autoguardar = true, imagen, children }: Props) {
+export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio = false, onGuardar, onDescartar, onCerrar, acciones = [], imprimir = true, onImprimir, botones, flotante = false, autoguardar = true, imagen, nota, children }: Props) {
   // Como en Odoo: el formulario reemplaza a la lista, debajo del encabezado y del mismo ancho.
   useEffect(() => {
     if (flotante) return;
@@ -219,6 +221,7 @@ export default function Registro({ titulo, subtitulo, indice, total, onIr, sucio
             {imagen && <div className="shrink-0">{imagen}</div>}
           </div>
           {children}
+          {nota && <div className="mt-8 border-t border-slate-200 pt-4 text-xs text-slate-500">{nota}</div>}
         </div>
       </div>
   );
