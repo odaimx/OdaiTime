@@ -1,6 +1,7 @@
 from app.models.acceso import ConfigCorreo, TokenAcceso
 from app.models.actividad import Actividad
 from app.models.asistencia import Incidencia, PoliticaAsistencia
+from app.models.aviso import AvisoAceptado
 from app.models.categoria import Categoria, CategoriaRegistro
 from app.models.celular import CelularVinculado
 from app.models.checada import Checada, ConfigChecadas, Dispositivo
@@ -20,6 +21,7 @@ from app.models.whatsapp import ConfigWhatsApp
 __all__ = [
     "Actividad",
     "Categoria",
+    "AvisoAceptado",
     "CelularVinculado",
     "CategoriaRegistro",
     "Checada",

@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func, select
 
 from app.api.deps import DB, CurrentUser, empresa_scope, require_roles, sucursales_permitidas
-from app.models import CelularVinculado, Empleado, Rol, Usuario
+from app.models import AvisoAceptado, CelularVinculado, Empleado, Rol, Usuario
 from app.services import bitacora
 
 router = APIRouter(tags=["celulares"])
@@ -130,3 +130,22 @@ async def quitar(
         mensaje=f"Celular desvinculado ({c.equipo or 'sin nombre'})",
     )
     await db.commit()
+
+
+@router.get("/empleados/{empleado_id}/aviso", dependencies=[Depends(require_roles(*_GESTION))])
+async def aviso_del_empleado(
+    empleado_id: uuid.UUID, user: CurrentUser, db: DB, empresa_id: uuid.UUID | None = None
+) -> dict | None:
+    """Última aceptación del aviso de privacidad (constancia para la ficha)."""
+    emp = empresa_scope(user, empresa_id)
+    q = select(AvisoAceptado).where(
+        AvisoAceptado.empresa_id == emp, AvisoAceptado.empleado_id == empleado_id
+    )
+    if (permitidas := sucursales_permitidas(user)) is not None:
+        q = q.join(Empleado, Empleado.id == AvisoAceptado.empleado_id).where(
+            Empleado.sucursal_id.in_(permitidas)
+        )
+    a = await db.scalar(q.order_by(AvisoAceptado.created_at.desc()).limit(1))
+    if a is None:
+        return None
+    return {"version": a.version, "medio": a.medio, "ip": a.ip, "aceptado_en": a.created_at}

@@ -146,6 +146,7 @@ class EstadoHoy(BaseModel):
     hora_servidor: datetime
     festivo_hoy: str | None = None
     designado_festivo: bool = False
+    aviso_aceptado: bool = True  # aviso de privacidad vigente aceptado
 
 
 Motivo = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=300)]

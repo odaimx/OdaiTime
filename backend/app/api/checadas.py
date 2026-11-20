@@ -3,14 +3,33 @@ from datetime import UTC, date, datetime, time, timedelta
 from typing import Annotated
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 
 from app.api.deps import DB, CurrentUser, empresa_scope, require_roles, sucursales_permitidas
 from app.core.config import get_settings
-from app.models import Checada, ConfigChecadas, Dispositivo, Empleado, Rol, Sucursal, Usuario
+from app.models import (
+    Checada,
+    ConfigChecadas,
+    Dispositivo,
+    Empleado,
+    Empresa,
+    Rol,
+    Sucursal,
+    Usuario,
+)
 from app.schemas.checada import (
     Accion,
     ChecadaOut,
@@ -25,6 +44,7 @@ from app.schemas.checada import (
     SucursalChecar,
     TurnoHoyOut,
 )
+from app.services import aviso as aviso_svc
 from app.services import bitacora
 from app.services import checadas as svc
 from app.services import festivos as festivos_svc
@@ -81,6 +101,24 @@ async def hoy(user: CurrentUser, db: DB) -> EstadoHoy:
     return await estado_hoy(db, await _mi_empleado(db, user))
 
 
+@router.get("/aviso", dependencies=[Depends(require_roles(Rol.EMPLEADO))])
+async def ver_aviso(user: CurrentUser, db: DB) -> dict:
+    """Responsable, domicilio y versión del aviso de privacidad de su empresa."""
+    empleado = await _mi_empleado(db, user)
+    return aviso_svc.datos(await db.get(Empresa, empleado.empresa_id))
+
+
+@router.post(
+    "/aviso",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_roles(Rol.EMPLEADO))],
+)
+async def aceptar_aviso(user: CurrentUser, db: DB, request: Request) -> None:
+    """El empleado acepta el aviso de privacidad desde el portal."""
+    await aviso_svc.registrar(db, await _mi_empleado(db, user), medio="portal", request=request)
+    await db.commit()
+
+
 async def estado_hoy(db: DB, empleado: Empleado) -> EstadoHoy:
     """Lo que ve el empleado en su pantalla de checado (portal o celular vinculado)."""
     sucursal = empleado.sucursal
@@ -102,6 +140,7 @@ async def estado_hoy(db: DB, empleado: Empleado) -> EstadoHoy:
     festivo = await festivos_svc.festivo_del_dia(db, empleado.empresa_id, local.date())
     obra = await obras_svc.obra_del_dia(db, empleado.id, local.date())
     return EstadoHoy(
+        aviso_aceptado=await aviso_svc.aceptado(db, empleado.id),
         obra=ObraChecar.model_validate(obra, from_attributes=True) if obra else None,
         festivo_hoy=festivo,
         designado_festivo=bool(festivo)

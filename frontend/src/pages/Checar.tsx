@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
+import AvisoPrivacidad, { type DatosAviso } from "../components/AvisoPrivacidad";
 import Camara from "../components/Camara";
 import EscanerQR from "../components/EscanerQR";
 import PantallaChecado, { ACCIONES, type Accion } from "../components/PantallaChecado";
 import Icono, { type NombreIcono } from "../components/Iconos";
 import { ErrorBox, FotoUsuario, PageHeader } from "../components/ui";
-import { ApiError, comprimir, get, hora, postForm, type Checada, type EstadoHoy } from "../lib/api";
+import { ApiError, api, comprimir, get, hora, postForm, type Checada, type EstadoHoy } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 type Posicion = { latitud: string; longitud: string; precision: string };
@@ -78,6 +79,7 @@ export default function Checar() {
   const [pendientes, setPendientes] = useState(leerCola().length);
   const [metodo, setMetodo] = useState<Metodo | null>(null);
   const [accion, setAccion] = useState<Accion | null>(null);
+  const [datosAviso, setDatosAviso] = useState<DatosAviso | null>(null);
 
   const cargar = useCallback(() => {
     get<EstadoHoy>("/checadas/hoy")
@@ -109,6 +111,20 @@ export default function Checar() {
     setPendientes(restantes.length);
     cargar();
   }, [cargar]);
+
+  // Aviso de privacidad pendiente: se muestra antes de los botones.
+  useEffect(() => {
+    if (estado?.aviso_aceptado === false && !datosAviso) get<DatosAviso>("/checadas/aviso").then(setDatosAviso).catch(() => null);
+  }, [estado, datosAviso]);
+
+  async function aceptarAviso() {
+    try {
+      await api("/checadas/aviso", { method: "POST" });
+      cargar();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
 
   useEffect(() => {
     cargar();
@@ -258,6 +274,8 @@ export default function Checar() {
 
         {!estado ? (
           <p className="text-center text-sm text-slate-500">Cargando…</p>
+        ) : estado.aviso_aceptado === false ? (
+          <AvisoPrivacidad datos={datosAviso} empresa={usuario?.empresa?.nombre} onAceptar={aceptarAviso} />
         ) : descanso ? (
           <div className="card space-y-2 p-6 text-center">
             <p className="text-lg font-semibold text-tinta-900">Hoy es día de descanso</p>

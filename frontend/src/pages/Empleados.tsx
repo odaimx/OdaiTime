@@ -579,6 +579,9 @@ export default function Empleados() {
                     <Fila key="celulares" etiqueta="Celulares" ayuda="Celulares vinculados en /marcar para checar sin usuario. Uno nuevo no puede checar hasta que lo apruebes.">
                       <CelularesEmpleado empleadoId={sel.id} query={query} />
                     </Fila>,
+                    <Fila key="aviso" etiqueta="Aviso de privacidad" ayuda="Constancia de que el empleado aceptó el aviso de privacidad al checar (LFPDPPP).">
+                      <ConstanciaAviso empleadoId={sel.id} query={query} />
+                    </Fila>,
                   ]
                 : []),
             ],
@@ -1128,6 +1131,26 @@ function CelularesEmpleado({ empleadoId, query }: { empleadoId: string; query: s
       ))}
       {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
+  );
+}
+
+const MEDIO_AVISO: Record<string, string> = { qr: "QR del kiosco", celular: "su celular", portal: "el portal" };
+
+/** Cuándo y por dónde aceptó el aviso de privacidad. */
+function ConstanciaAviso({ empleadoId, query }: { empleadoId: string; query: string }) {
+  const [c, setC] = useState<{ version: string; medio: string; ip: string | null; aceptado_en: string } | null | undefined>(undefined);
+  useEffect(() => {
+    get<{ version: string; medio: string; ip: string | null; aceptado_en: string } | null>(`/empleados/${empleadoId}/aviso${query}`)
+      .then(setC)
+      .catch(() => setC(null));
+  }, [empleadoId, query]);
+  if (c === undefined) return <span className="text-sm text-slate-400">Cargando…</span>;
+  if (c === null) return <span className="text-sm text-amber-700">Aún no lo acepta (se le pide la primera vez que cheque).</span>;
+  return (
+    <span className="text-sm text-tinta-900" title={c.ip ? `IP ${c.ip}` : undefined}>
+      Aceptado el {new Date(c.aceptado_en).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })} desde {MEDIO_AVISO[c.medio] ?? c.medio}
+      <span className="text-slate-400"> · versión {c.version}</span>
+    </span>
   );
 }
 
