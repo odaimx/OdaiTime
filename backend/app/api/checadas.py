@@ -189,9 +189,14 @@ async def checar(
     foto: Annotated[UploadFile | None, File()] = None,
     accion: Annotated[Accion | None, Form()] = None,
 ) -> ChecadaOut:
+    empleado = await _mi_empleado(db, user)
+    if not await aviso_svc.aceptado(db, empleado.id):
+        raise svc.error(
+            "aviso_requerido", "Lee y acepta el aviso de privacidad para checar.", http=428
+        )
     checada = await checar_movil(
         db,
-        await _mi_empleado(db, user),
+        empleado,
         latitud=latitud,
         longitud=longitud,
         precision=precision,
