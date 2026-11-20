@@ -188,7 +188,7 @@
 @media (min-width: 768px) {
   .ventana-form .grid:has(> div > label.label) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: 4rem;
+    column-gap: 6rem;
   }
   /* Ningún campo ocupa las dos columnas: todos del mismo ancho. */
   .ventana-form .grid:has(> div > label.label) > [class*="col-span-"] {

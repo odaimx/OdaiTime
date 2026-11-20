@@ -15,6 +15,7 @@ export interface Ajustes {
 
 export interface ItemSubmenu {
   etiqueta: string;
+  icono?: NombreIcono;
   activo?: boolean;
   onClick?: () => void;
   /** Si tiene opciones, abre un menú desplegable. */
@@ -68,6 +69,7 @@ export function PageHeader({
                   m.activo ? "border-brand-500 text-tinta-900" : "border-transparent text-slate-600 hover:border-slate-300 hover:text-tinta-900"
                 }`}
               >
+                {m.icono && <Icono nombre={m.icono} className="h-4 w-4" />}
                 {m.etiqueta}
                 {m.opciones && <Icono nombre="chevron-down" className="h-3.5 w-3.5" />}
               </button>
@@ -658,7 +660,7 @@ export function ImagenEditable({
 
 /** Rejilla de formulario a dos columnas (igual en todas las ventanas). */
 export function Campos({ children }: { children: ReactNode }) {
-  return <div className="grid grid-cols-1 gap-x-16 gap-y-3 md:grid-cols-2">{children}</div>;
+  return <div className="grid grid-cols-1 gap-x-24 gap-y-3 md:grid-cols-2">{children}</div>;
 }
 
 export interface Domicilio {

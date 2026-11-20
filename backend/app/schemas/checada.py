@@ -128,6 +128,7 @@ class EstadoHoy(BaseModel):
     turno: TurnoHoyOut | None
     siguiente_tipo: str
     permitir_movil: bool
+    permitir_kiosco: bool = False  # checa en el kiosco (número + PIN en la tablet)
     permitir_offline: bool
     requiere: Requisitos
     checadas_hoy: list[ChecadaOut]

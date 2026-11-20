@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import Camara from "../components/Camara";
+import Icono, { type NombreIcono } from "../components/Iconos";
 import { ErrorBox, FotoUsuario, PageHeader } from "../components/ui";
 import { ApiError, comprimir, get, hora, postForm, type Checada, type EstadoHoy } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -56,6 +57,75 @@ function ubicar(): Promise<Posicion> {
   });
 }
 
+type Metodo = "celular" | "qr" | "kiosco";
+const METODOS: Record<Metodo, { etiqueta: string; icono: NombreIcono }> = {
+  celular: { etiqueta: "Celular", icono: "smartphone" },
+  qr: { etiqueta: "QR del kiosco", icono: "qr-code" },
+  kiosco: { etiqueta: "Kiosco", icono: "monitor" },
+};
+
+/** Lector del QR del kiosco con la cámara (en navegadores con BarcodeDetector, como Chrome en Android). */
+function EscanerQR({ onLeido }: { onLeido: (valor: string) => void }) {
+  const video = useRef<HTMLVideoElement>(null);
+  const [problema, setProblema] = useState<"soporte" | "camara" | null>(null);
+  useEffect(() => {
+    const Detector = (window as unknown as { BarcodeDetector?: new (o: { formats: string[] }) => { detect: (v: HTMLVideoElement) => Promise<{ rawValue: string }[]> } }).BarcodeDetector;
+    if (!Detector || !navigator.mediaDevices?.getUserMedia) {
+      setProblema("soporte");
+      return;
+    }
+    const detector = new Detector({ formats: ["qr_code"] });
+    let flujo: MediaStream | null = null;
+    let vivo = true;
+    let t = 0;
+    navigator.mediaDevices
+      .getUserMedia({ video: { facingMode: "environment" } })
+      .then((s) => {
+        flujo = s;
+        if (!vivo || !video.current) return s.getTracks().forEach((x) => x.stop());
+        video.current.srcObject = s;
+        void video.current.play();
+        const leer = async () => {
+          if (!vivo || !video.current) return;
+          try {
+            const r = await detector.detect(video.current);
+            if (r[0]?.rawValue) return onLeido(r[0].rawValue);
+          } catch {
+            /* sigue intentando */
+          }
+          t = window.setTimeout(leer, 300);
+        };
+        void leer();
+      })
+      .catch(() => setProblema("camara"));
+    return () => {
+      vivo = false;
+      clearTimeout(t);
+      flujo?.getTracks().forEach((x) => x.stop());
+    };
+  }, [onLeido]);
+
+  if (problema)
+    return (
+      <div className="card space-y-2 p-6 text-center">
+        <p className="text-lg font-semibold text-tinta-900">Escanea el QR del kiosco</p>
+        <p className="text-sm text-slate-600">
+          {problema === "camara" ? "Permite el acceso a la cámara para leer el código, o " : ""}
+          Abre la cámara de tu teléfono y apunta al código de la tablet de tu sucursal; se abrirá esta app lista para checar.
+        </p>
+      </div>
+    );
+  return (
+    <div className="space-y-2 text-center">
+      <div className="relative mx-auto aspect-square w-full max-w-xs overflow-hidden rounded-3xl bg-black">
+        <video ref={video} className="h-full w-full object-cover" playsInline muted />
+        <div className="pointer-events-none absolute inset-8 rounded-2xl border-4 border-white/80" />
+      </div>
+      <p className="text-sm text-slate-600">Apunta al QR de la tablet de tu sucursal.</p>
+    </div>
+  );
+}
+
 export default function Checar() {
   const { usuario } = useAuth();
   const [params, setParams] = useSearchParams();
@@ -66,6 +136,7 @@ export default function Checar() {
   const [resultado, setResultado] = useState<{ checada?: Checada; offline?: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendientes, setPendientes] = useState(leerCola().length);
+  const [metodo, setMetodo] = useState<Metodo | null>(null);
 
   const cargar = useCallback(() => {
     get<EstadoHoy>("/checadas/hoy")
@@ -195,109 +266,129 @@ export default function Checar() {
     );
   }
 
+  // Métodos de checado del empleado: cada uno en su pantalla, elegido en la banda de arriba.
+  const metodos: Metodo[] = !estado
+    ? []
+    : [
+        ...(estado.permitir_movil && !estado.requiere.qr ? (["celular"] as const) : []),
+        ...(estado.permitir_movil ? (["qr"] as const) : []),
+        ...(estado.permitir_kiosco ? (["kiosco"] as const) : []),
+      ];
+  const actual: Metodo | null = qr ? "celular" : metodo && metodos.includes(metodo) ? metodo : (metodos[0] ?? null);
+  const descanso = !!estado?.festivo_hoy && !estado.designado_festivo;
+
+  function leido(valor: string) {
+    let codigo: string | null = null;
+    try {
+      codigo = new URL(valor).searchParams.get("qr");
+    } catch {
+      codigo = null;
+    }
+    if (!codigo) return setError("Ese código no es el QR de un kiosco de ODAITIME.");
+    setError(null);
+    setParams({ qr: codigo }, { replace: true });
+  }
+
   return (
     <>
-    <PageHeader icono="fingerprint-pattern" title="Checar" />
-    <div className="mx-auto max-w-md space-y-4">
-      <div className="flex flex-col items-center rounded-3xl bg-navy-900 p-6 text-center text-white">
-        <FotoUsuario className="mb-4 h-36 w-36" />
-        <p className="text-sm text-slate-300">Hola, {usuario?.nombre.split(" ")[0]}</p>
-        <p className="mt-1 text-5xl font-bold tracking-tight tabular-nums">
-          {ahora.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", timeZone: tz })}
-          <span className="text-2xl text-slate-400">:{String(ahora.getSeconds()).padStart(2, "0")}</span>
-        </p>
-        <p className="mt-1 text-sm capitalize text-slate-300">{ahora.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", timeZone: tz })}</p>
-      </div>
+      <PageHeader
+        icono="fingerprint-pattern"
+        title="Checar"
+        submenu={
+          metodos.length > 1
+            ? metodos.map((m) => ({ etiqueta: METODOS[m].etiqueta, icono: METODOS[m].icono, activo: actual === m, onClick: () => (setMetodo(m), qr && setParams({}, { replace: true })) }))
+            : undefined
+        }
+      />
+      <div className="mx-auto max-w-md space-y-4">
+        <div className="flex items-center gap-4 rounded-3xl bg-navy-900 p-4 text-white">
+          <FotoUsuario className="h-20 w-20" />
+          <div className="min-w-0">
+            <p className="truncate text-sm text-slate-300">Hola, {usuario?.nombre.split(" ")[0]}</p>
+            <p className="text-4xl font-bold tracking-tight tabular-nums">
+              {ahora.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", timeZone: tz })}
+              <span className="text-lg text-slate-400">:{String(ahora.getSeconds()).padStart(2, "0")}</span>
+            </p>
+            <p className="text-xs capitalize text-slate-300">{ahora.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", timeZone: tz })}</p>
+          </div>
+        </div>
 
-      {estado && (
-        <div className="card space-y-3 p-4">
-          <div>
-            <p className="text-xs text-slate-500">Sucursal</p>
-            <p className="font-medium text-tinta-900">
-              <span className="font-mono text-brand-600">{estado.sucursal.clave}</span> {estado.sucursal.nombre}
+        <ErrorBox message={error} />
+
+        {!estado ? (
+          <p className="text-center text-sm text-slate-500">Cargando…</p>
+        ) : descanso ? (
+          <div className="card space-y-2 p-6 text-center">
+            <p className="text-lg font-semibold text-tinta-900">Hoy es día de descanso</p>
+            <p className="text-sm text-slate-600">{estado.festivo_hoy}. No necesitas checar. Solo registra asistencia el personal que la empresa designó para trabajar.</p>
+          </div>
+        ) : actual === "celular" ? (
+          <div className="flex flex-col items-center gap-3 py-2">
+            {qr && <p className="rounded-xl bg-accent-500/10 px-3 py-2 text-sm text-tinta-900">Código del kiosco leído. Toca el botón para registrar.</p>}
+            <button
+              onClick={iniciar}
+              disabled={paso === "enviando"}
+              className="flex h-48 w-48 flex-col items-center justify-center gap-2 rounded-full border-[10px] border-brand-100 bg-brand-500 text-white shadow-xl shadow-brand-500/30 transition active:scale-95 disabled:opacity-60"
+            >
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                {estado.siguiente_tipo === "salida" ? <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /> : <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" />}
+              </svg>
+              <span className="text-xl font-bold">{paso === "enviando" ? "Registrando…" : estado.siguiente_tipo === "salida" ? "Registrar salida" : "Registrar entrada"}</span>
+            </button>
+            <p className="text-center text-xs text-slate-500">
+              {[estado.requiere.gps && `Se valida tu ubicación en ${estado.obra ? `la zona ${estado.obra.nombre}` : "tu sucursal"}`, estado.requiere.foto && "se toma una foto"].filter(Boolean).join(" y ")}
             </p>
           </div>
-          {estado.obra && (
-            <div>
-              <p className="text-xs text-slate-500">Zona de hoy</p>
-              <p className="font-medium text-tinta-900">
-                <span className="font-mono text-brand-600">{estado.obra.clave}</span> {estado.obra.nombre}
-              </p>
+        ) : actual === "qr" ? (
+          <EscanerQR onLeido={leido} />
+        ) : actual === "kiosco" ? (
+          <div className="card space-y-3 p-6 text-center">
+            <Icono nombre="monitor" className="mx-auto h-10 w-10 text-brand-500" />
+            <p className="text-lg font-semibold text-tinta-900">Checa en el kiosco de tu sucursal</p>
+            <p className="text-sm text-slate-600">
+              En la tablet escribe tu número de empleado <strong className="font-mono text-tinta-900">{estado.empleado.numero}</strong> y tu PIN.
+            </p>
+          </div>
+        ) : (
+          <p className="card p-6 text-center text-slate-600">No tienes un medio de checado asignado. Pregunta a tu administrador.</p>
+        )}
+
+        {estado && (
+          <div className="card grid grid-cols-2 gap-3 p-4 text-sm">
+            <div className="min-w-0">
+              <p className="text-xs text-slate-500">{estado.obra ? "Zona de hoy" : "Sucursal"}</p>
+              <p className="truncate font-medium text-tinta-900">{estado.obra ? estado.obra.nombre : estado.sucursal.nombre}</p>
             </div>
-          )}
-          <div>
-            <p className="text-xs text-slate-500">Turno de hoy</p>
-            <p className="font-medium text-tinta-900">
-              {estado.turno
-                ? `${estado.turno.nombre} · ${estado.turno.bloques.map((b) => `${hora(b.entrada, tz)} – ${hora(b.salida, tz)}`).join(" y ")}`
-                : "Hoy no tienes turno asignado"}
-            </p>
+            <div className="min-w-0">
+              <p className="text-xs text-slate-500">Turno de hoy</p>
+              <p className="truncate font-medium text-tinta-900">{estado.turno ? estado.turno.bloques.map((b) => `${hora(b.entrada, tz)}–${hora(b.salida, tz)}`).join(" y ") : "Sin turno"}</p>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {estado && (
-        <div className="space-y-2 text-sm">
-          {estado.requiere.gps && <p className="rounded-xl bg-emerald-50 px-3 py-2 text-emerald-800">Se validará que estés dentro de {estado.obra ? `la zona ${estado.obra.nombre}` : "tu sucursal"} (ubicación).</p>}
-          {estado.requiere.foto && <p className="rounded-xl bg-brand-50 px-3 py-2 text-brand-700">Tu empresa pide una foto al checar.</p>}
-          {qr && <p className="rounded-xl bg-accent-500/10 px-3 py-2 text-tinta-900">Código del kiosco leído. Toca el botón para registrar.</p>}
-          {estado.festivo_hoy && estado.designado_festivo && <p className="rounded-xl bg-sky-50 px-3 py-2 text-sky-800">Hoy es {estado.festivo_hoy}: estás designado para trabajar.</p>}
-          {pendientes > 0 && <p className="rounded-xl bg-amber-50 px-3 py-2 text-amber-800">{pendientes} checada(s) guardada(s) sin conexión; se enviarán al reconectar.</p>}
-        </div>
-      )}
+        {pendientes > 0 && <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">{pendientes} checada(s) guardada(s) sin conexión; se enviarán al reconectar.</p>}
 
-      <ErrorBox message={error} />
-
-      {estado?.festivo_hoy && !estado.designado_festivo ? (
-        <div className="card space-y-2 p-6 text-center">
-          <p className="text-lg font-semibold text-tinta-900">Hoy es día de descanso</p>
-          <p className="text-sm text-slate-600">
-            {estado.festivo_hoy}. No necesitas checar. Solo registra asistencia el personal que la empresa designó para trabajar.
-          </p>
-        </div>
-      ) : estado && !estado.permitir_movil && !qr ? (
-        <p className="card p-6 text-center text-slate-600">En tu sucursal se checa en el kiosco de la entrada.</p>
-      ) : necesitaQr ? (
-        <div className="card space-y-3 p-6 text-center">
-          <p className="text-lg font-semibold text-tinta-900">Escanea el QR del kiosco</p>
-          <p className="text-sm text-slate-600">Abre la cámara de tu teléfono y apunta al código de la tablet de tu sucursal. Se abrirá esta app lista para checar.</p>
-        </div>
-      ) : (
-        <div className="flex flex-col items-center py-4">
-          <button
-            onClick={iniciar}
-            disabled={!estado || paso === "enviando"}
-            className="flex h-52 w-52 flex-col items-center justify-center gap-2 rounded-full border-[10px] border-brand-100 bg-brand-500 text-white shadow-xl shadow-brand-500/30 transition active:scale-95 disabled:opacity-60"
-          >
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              {estado?.siguiente_tipo === "salida" ? <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /> : <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" />}
-            </svg>
-            <span className="text-xl font-bold">{paso === "enviando" ? "Registrando…" : estado?.siguiente_tipo === "salida" ? "Registrar salida" : "Registrar entrada"}</span>
-          </button>
-        </div>
-      )}
-
-      {estado && (
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Hoy</p>
-          {estado.checadas_hoy.length === 0 ? (
-            <p className="text-sm text-slate-400">Aún no tienes registros.</p>
-          ) : (
-            <ul className="card divide-y divide-slate-100">
-              {estado.checadas_hoy.map((c) => (
-                <li key={c.id} className="flex items-center justify-between px-4 py-3 text-sm">
-                  <span className="font-medium capitalize text-tinta-900">{c.tipo}</span>
-                  <span className="tabular-nums text-slate-600">
-                    {hora(c.momento, tz)}
-                    {c.offline && <span className="ml-2 text-xs text-amber-700">sin conexión</span>}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-    </div>
+        {estado && (
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Hoy</p>
+            {estado.checadas_hoy.length === 0 ? (
+              <p className="text-sm text-slate-400">Aún no tienes registros.</p>
+            ) : (
+              <ul className="card divide-y divide-slate-100">
+                {estado.checadas_hoy.map((c) => (
+                  <li key={c.id} className="flex items-center justify-between px-4 py-3 text-sm">
+                    <span className="font-medium capitalize text-tinta-900">{c.tipo}</span>
+                    <span className="tabular-nums text-slate-600">
+                      {hora(c.momento, tz)}
+                      {c.offline && <span className="ml-2 text-xs text-amber-700">sin conexión</span>}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
     </>
   );
 }

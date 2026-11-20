@@ -452,7 +452,7 @@ export default function Empleados() {
       salida.push(izq[i] ?? <div key={`i${i}`} className="hidden md:block" />);
       salida.push(der[i] ?? <div key={`d${i}`} className="hidden md:block" />);
     }
-    return <div className="grid grid-cols-1 gap-x-16 gap-y-3 md:grid-cols-2">{salida}</div>;
+    return <div className="grid grid-cols-1 gap-x-24 gap-y-3 md:grid-cols-2">{salida}</div>;
   };
 
   /**
@@ -460,7 +460,7 @@ export default function Empleados() {
    * y los campos de la derecha siguen justo debajo (sin renglones vacíos).
    */
   const dosColumnas = (izq: ReactNode[], der: ReactNode[]) => (
-    <div className="grid grid-cols-1 gap-x-16 gap-y-3 md:grid-flow-row-dense md:grid-cols-2">
+    <div className="grid grid-cols-1 gap-x-24 gap-y-3 md:grid-flow-row-dense md:grid-cols-2">
       {izq.map((c, i) => (
         <div key={`i${i}`} className="md:col-start-1">
           {c}
