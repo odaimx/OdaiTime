@@ -30,7 +30,8 @@ async def limpiar_bd():
                 "tareas, claves_nomina, festivo_designados, empresa_festivos, "
                 "solicitudes_vacaciones, incidencias, "
                 "politica_asistencia, "
-                "actividades, checadas, asignaciones_obra, obras, dispositivos, config_checadas, "
+                "actividades, celulares_vinculados, checadas, asignaciones_obra, obras, "
+                "dispositivos, config_checadas, "
                 "asignaciones_turno, empleados, turno_dias, turnos, sesiones, "
                 "usuario_sucursales, usuarios, sucursales, empresas CASCADE"
             )

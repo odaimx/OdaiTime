@@ -6,6 +6,7 @@ from app.api import (
     asistencia,
     auth,
     categorias,
+    celulares,
     checadas,
     correo,
     dispositivos,
@@ -17,6 +18,7 @@ from app.api import (
     kiosco,
     licencia,
     obras,
+    publico,
     reportes,
     sistema,
     sucursales,
@@ -71,5 +73,7 @@ for r in (
     obras.router,
     vacaciones.router,
     whatsapp.router,
+    publico.router,
+    celulares.router,
 ):
     app.include_router(r, prefix="/api")

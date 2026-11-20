@@ -78,7 +78,11 @@ def _snap(c: Checada) -> dict:
 
 @router.get("/hoy", response_model=EstadoHoy, dependencies=[Depends(require_roles(Rol.EMPLEADO))])
 async def hoy(user: CurrentUser, db: DB) -> EstadoHoy:
-    empleado = await _mi_empleado(db, user)
+    return await estado_hoy(db, await _mi_empleado(db, user))
+
+
+async def estado_hoy(db: DB, empleado: Empleado) -> EstadoHoy:
+    """Lo que ve el empleado en su pantalla de checado (portal o celular vinculado)."""
     sucursal = empleado.sucursal
     config, _ = await svc.config_efectiva(db, empleado.empresa_id, sucursal.id)
     tz = svc.zona(sucursal)
@@ -146,13 +150,44 @@ async def checar(
     foto: Annotated[UploadFile | None, File()] = None,
     accion: Annotated[Accion | None, Form()] = None,
 ) -> ChecadaOut:
-    empleado = await _mi_empleado(db, user)
+    checada = await checar_movil(
+        db,
+        await _mi_empleado(db, user),
+        latitud=latitud,
+        longitud=longitud,
+        precision=precision,
+        qr=qr,
+        offline=offline,
+        momento=momento,
+        foto=foto,
+        accion=accion,
+    )
+    return ChecadaOut.de(checada)
+
+
+async def checar_movil(
+    db: DB,
+    empleado: Empleado,
+    *,
+    latitud: float | None,
+    longitud: float | None,
+    precision: int | None,
+    qr: str | None = None,
+    offline: bool = False,
+    momento: datetime | None = None,
+    foto: UploadFile | None = None,
+    accion: str | None = None,
+    foto_obligatoria: bool = False,
+    por_ubicacion: bool = False,
+) -> Checada:
+    """Checada desde el celular (portal o celular vinculado): valida medio, QR, GPS y foto."""
     sucursal = empleado.sucursal
     dispositivo_id = None
 
     # Con el QR de un kiosco, la checada es en la sucursal de ese kiosco.
     config, _ = await svc.config_efectiva(db, empleado.empresa_id, sucursal.id)
-    if qr or config.validar_qr:
+    # El celular vinculado checa por ubicación: no usa el QR y el GPS es obligatorio.
+    if qr or (config.validar_qr and not por_ubicacion):
         dispositivo_id = svc.validar_qr(qr, ahora=momento if offline else None)
         kiosco = await db.scalar(
             select(Dispositivo).where(
@@ -178,13 +213,13 @@ async def checar(
         obra = await obras_svc.obra_del_dia(db, empleado.id, hoy)
     lugar = obra or sucursal
     distancia = None
-    if config.validar_gps:
+    if config.validar_gps or por_ubicacion:
         distancia = svc.validar_gps(lugar, latitud, longitud, precision)
     elif latitud is not None and longitud is not None and lugar.latitud is not None:
         distancia = round(svc.distancia_m(latitud, longitud, lugar.latitud, lugar.longitud))
 
-    if svc.requiere_foto(config, "movil") and foto is None:
-        raise svc.error("foto_requerida", "Tu empresa pide una foto para checar.")
+    if (foto_obligatoria or svc.requiere_foto(config, "movil")) and foto is None:
+        raise svc.error("foto_requerida", "Se necesita tu selfie para checar.")
 
     checada = await svc.registrar(
         db,
@@ -205,8 +240,8 @@ async def checar(
     if foto is not None:
         checada.foto = await svc.guardar_foto(foto, empleado.empresa_id)
     await db.commit()
-    await db.refresh(checada, attribute_names=["empleado", "sucursal"])
-    return ChecadaOut.de(checada)
+    await db.refresh(checada, attribute_names=["empleado", "sucursal", "obra"])
+    return checada
 
 
 class PortalOut(BaseModel):
