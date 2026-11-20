@@ -4,8 +4,8 @@ import Camara from "../components/Camara";
 import AvisoPrivacidad, { type DatosAviso } from "../components/AvisoPrivacidad";
 import EscanerQR from "../components/EscanerQR";
 import Icono from "../components/Iconos";
-import PantallaChecado, { ACCIONES, type Accion, type MarcaHoy } from "../components/PantallaChecado";
-import { comprimir, urlLogo, type EstadoHoy, type TenantInfo } from "../lib/api";
+import PantallaChecado, { ACCIONES, AvisoChecado, distanciaM, EncabezadoEmpresa, Reloj, type Accion, type Bloque, type EstadoGps, type MarcaHoy } from "../components/PantallaChecado";
+import { comprimir, type EstadoHoy, type TenantInfo } from "../lib/api";
 
 /**
  * Checado público (sin usuario ni contraseña), en una sola dirección: /marcar.
@@ -99,29 +99,14 @@ function resultadoDe(r: { tipo: string; comida?: boolean; momento: string; retar
 
 function FotoCirculo({ src, nombre }: { src: string | null; nombre: string }) {
   return src ? (
-    <img src={src} alt="" className="h-16 w-16 rounded-full object-cover ring-2 ring-white" />
+    <img src={src} alt="" className="h-20 w-20 rounded-2xl object-cover ring-4 ring-slate-100" />
   ) : (
-    <span className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-100 text-2xl font-bold text-brand-700">{nombre.slice(0, 1).toUpperCase() || "?"}</span>
+    <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-brand-100 text-3xl font-bold text-brand-700">{nombre.slice(0, 1).toUpperCase() || "?"}</span>
   );
 }
 
 function Aviso({ resultado, onCerrar }: { resultado: Resultado; onCerrar: () => void }) {
-  useEffect(() => {
-    const t = setTimeout(onCerrar, resultado.ok ? 5000 : 7000);
-    return () => clearTimeout(t);
-  }, [resultado, onCerrar]);
-  return (
-    <div role="status" className={`card flex items-center gap-3 p-4 ${resultado.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800"}`}>
-      <Icono nombre={resultado.ok ? "check" : "triangle-exclamation-point"} className="h-7 w-7 shrink-0" />
-      <div className="min-w-0 flex-1">
-        <p className="font-semibold">{resultado.texto}</p>
-        {resultado.detalle && <p className="text-sm opacity-80">{resultado.detalle}</p>}
-      </div>
-      <button type="button" onClick={onCerrar} className="rounded p-1 opacity-60 hover:opacity-100" aria-label="Cerrar">
-        <Icono nombre="x" className="h-5 w-5" />
-      </button>
-    </div>
-  );
+  return <AvisoChecado ok={resultado.ok} texto={resultado.texto} detalle={resultado.detalle} onCerrar={onCerrar} />;
 }
 
 /** Campo de PIN: solo dígitos, oculto. */
@@ -149,6 +134,9 @@ interface Identificado {
   sesion: string;
   empleado: { nombre: string; nombre_completo: string; numero: string; puesto: string | null };
   foto: string | null;
+  sucursal: string;
+  gps: { metros: number; radio: number };
+  turno: Bloque[];
   checadas: MarcaHoy[];
   acciones: { accion: Accion; habilitada: boolean }[];
 }
@@ -234,19 +222,23 @@ function ConQR({ qr, onQr, aviso, onAviso }: { qr: string | null; onQr: (qr: str
 
   if (accion) return <Camara titulo={`${ACCIONES[accion].titulo}: centra tu rostro`} onFoto={enviar} onCancelar={() => setAccion(null)} />;
 
+  const cerrar = () => setResultado(null);
   return (
     <div className="space-y-4">
-      {resultado && <Aviso resultado={resultado} onCerrar={() => setResultado(null)} />}
+      {resultado && !quien && <Aviso resultado={resultado} onCerrar={cerrar} />}
       {quien ? (
         <>
           <PantallaChecado
             nombre={quien.empleado.nombre_completo}
-            subtitulo={quien.empleado.puesto ?? `No. ${quien.empleado.numero}`}
+            subtitulo={quien.sucursal}
+            gps={quien.gps}
             foto={<FotoCirculo src={quien.foto} nombre={quien.empleado.nombre} />}
             marcas={quien.checadas}
             acciones={quien.acciones}
+            bloques={quien.turno}
             ahora={ahora}
             ocupado={ocupado}
+            aviso={resultado && <Aviso resultado={resultado} onCerrar={cerrar} />}
             onAccion={setAccion}
           />
           <button type="button" className="btn-secondary w-full" onClick={terminar}>
@@ -289,6 +281,7 @@ function ConQR({ qr, onQr, aviso, onAviso }: { qr: string | null; onQr: (qr: str
 interface EstadoCelular {
   estado: "pendiente" | "aprobado" | "revocado";
   nombre: string;
+  foto: string | null;
   hoy: EstadoHoy | null;
 }
 
@@ -329,6 +322,21 @@ function ConCelular({ slug, aviso, onAviso }: { slug: string | null; aviso: stri
     const t = setInterval(() => setAhora(new Date()), 30_000);
     return () => clearInterval(t);
   }, []);
+
+  // GPS en vivo: distancia al centro de la cerca (obra asignada hoy o sucursal).
+  const [gps, setGps] = useState<EstadoGps>(null);
+  const cerca = estado?.hoy ? (estado.hoy.obra?.latitud != null ? estado.hoy.obra : estado.hoy.sucursal) : null;
+  useEffect(() => {
+    if (!cerca || cerca.latitud == null || cerca.longitud == null) return setGps(null);
+    if (!navigator.geolocation) return setGps({ error: "Tu teléfono no permite obtener la ubicación." });
+    setGps("buscando");
+    const id = navigator.geolocation.watchPosition(
+      (p) => setGps({ metros: distanciaM(p.coords.latitude, p.coords.longitude, cerca.latitud!, cerca.longitud!), radio: cerca.radio_metros }),
+      (e) => setGps({ error: e.code === e.PERMISSION_DENIED ? "Permite la ubicación en tu navegador." : "Sin señal de GPS." }),
+      { enableHighAccuracy: true, maximumAge: 10_000, timeout: 20_000 },
+    );
+    return () => navigator.geolocation.clearWatch(id);
+  }, [cerca?.latitud, cerca?.longitud, cerca?.radio_metros]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mientras está pendiente, revisa cada 20 s si ya lo aprobaron.
   useEffect(() => {
@@ -444,13 +452,16 @@ function ConCelular({ slug, aviso, onAviso }: { slug: string | null; aviso: stri
       <>
         <PantallaChecado
           nombre={hoy.empleado.nombre_completo}
-          subtitulo={hoy.obra?.nombre ?? hoy.sucursal.nombre}
-          foto={<FotoCirculo src={null} nombre={estado.nombre} />}
+          subtitulo={hoy.obra ? `Zona ${hoy.obra.nombre}` : hoy.sucursal.nombre}
+          gps={gps}
+          foto={<FotoCirculo src={estado.foto} nombre={estado.nombre} />}
           marcas={hoy.checadas_hoy.filter((c) => c.estado === "valida").map((c) => ({ tipo: c.tipo, momento: c.momento, comida: c.comida }))}
           acciones={acciones}
+          bloques={hoy.turno?.bloques}
           tz={hoy.sucursal.zona_horaria}
           ahora={ahora}
           ocupado={ocupado}
+          aviso={resultado && <Aviso resultado={resultado} onCerrar={() => setResultado(null)} />}
           onAccion={elegir}
         />
         {!hoy.permitir_movil && <p className="text-center text-sm text-amber-700">Tu empresa no tiene habilitado el checado por celular para ti.</p>}
@@ -461,7 +472,7 @@ function ConCelular({ slug, aviso, onAviso }: { slug: string | null; aviso: stri
 
   return (
     <div className="space-y-4">
-      {resultado && <Aviso resultado={resultado} onCerrar={() => setResultado(null)} />}
+      {resultado && !(estado?.estado === "aprobado" && estado.hoy) && <Aviso resultado={resultado} onCerrar={() => setResultado(null)} />}
       {cuerpo}
       {pedirPin && accion && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" role="dialog" aria-modal="true">
@@ -545,16 +556,23 @@ export default function Marcar() {
     [params, setParams],
   );
 
+  const [ahora, setAhora] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setAhora(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Botones apilados: Mi celular arriba y Kiosco abajo.
   const pestaña = (m: Modo, etiqueta: string, icono: "qr-code" | "smartphone") => (
     <button
       type="button"
       onClick={() => setModo(m)}
-      className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
-        modo === m ? "bg-white text-tinta-900 shadow" : "text-slate-500 hover:text-slate-700"
+      className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition ${
+        modo === m ? "bg-brand-500 text-white shadow" : "bg-white text-slate-600 ring-1 ring-slate-200 hover:text-tinta-900"
       }`}
       aria-pressed={modo === m}
     >
-      <Icono nombre={icono} className="h-5 w-5" />
+      <Icono nombre={icono} className="h-5 w-5 shrink-0" />
       {etiqueta}
     </button>
   );
@@ -600,23 +618,18 @@ export default function Marcar() {
   return (
     <div className="min-h-screen bg-slate-100">
       <div className="mx-auto w-full max-w-lg space-y-4 p-4 sm:py-8">
-        <header className="flex items-center gap-3">
-          {tenant?.empresa_id && tenant.logo_version ? (
-            <img src={urlLogo(tenant.empresa_id, tenant.logo_version)} alt="" className="h-10 max-w-[8rem] object-contain" />
+        <EncabezadoEmpresa nombre={tenant?.nombre ?? "Checar asistencia"} empresaId={tenant?.empresa_id} logoVersion={tenant?.logo_version} detalle="Registro de asistencia" />
+        <div className="flex items-center justify-between gap-4">
+          {aceptado && tenant?.modo !== "base" ? (
+            <nav className="flex w-40 shrink-0 flex-col gap-2">
+              {pestaña("celular", "Mi celular", "smartphone")}
+              {pestaña("qr", "Kiosco (QR)", "qr-code")}
+            </nav>
           ) : (
-            <img src="/logo.png" alt="ODAI" className="h-8" />
+            <span />
           )}
-          <div className="min-w-0">
-            <p className="truncate font-semibold text-tinta-900">{tenant?.nombre ?? "Checar asistencia"}</p>
-            <p className="text-xs text-slate-500">Registro de asistencia</p>
-          </div>
-        </header>
-        {aceptado && tenant?.modo !== "base" && (
-          <nav className="flex gap-1 rounded-xl bg-slate-200 p-1">
-            {pestaña("qr", "Kiosco (QR)", "qr-code")}
-            {pestaña("celular", "Mi celular", "smartphone")}
-          </nav>
-        )}
+          <Reloj ahora={ahora} />
+        </div>
         {contenido}
         <p className="pt-2 text-center text-xs text-slate-400">
           ¿Quieres ver tu historial o pedir vacaciones?{" "}

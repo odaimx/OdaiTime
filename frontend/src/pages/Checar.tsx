@@ -290,6 +290,7 @@ export default function Checar() {
               foto={<FotoUsuario className="h-16 w-16" />}
               marcas={estado.checadas_hoy.filter((c) => c.estado === "valida")}
               acciones={estado.acciones ?? []}
+              bloques={estado.turno?.bloques}
               tz={tz}
               ahora={ahora}
               ocupado={paso === "enviando"}
