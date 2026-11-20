@@ -10,9 +10,12 @@ export default function Inicio() {
   const { usuario } = useAuth();
   const tema = useTema();
   const [alertas, setAlertas] = useState<AlertaIncapacidad[]>([]);
+  const [celulares, setCelulares] = useState<{ pendientes: number; empleados: { id: string; nombre: string }[] } | null>(null);
   const gestion = !!usuario?.empresa && usuario.rol !== "empleado";
   useEffect(() => {
-    if (gestion) get<AlertaIncapacidad[]>("/asistencia/incapacidades/alertas").then(setAlertas).catch(() => setAlertas([]));
+    if (!gestion) return;
+    get<AlertaIncapacidad[]>("/asistencia/incapacidades/alertas").then(setAlertas).catch(() => setAlertas([]));
+    get<{ pendientes: number; empleados: { id: string; nombre: string }[] }>("/celulares/pendientes").then(setCelulares).catch(() => setCelulares(null));
   }, [gestion]);
   if (!usuario) return null;
   const imagen = tema?.imagen_version;
@@ -24,6 +27,15 @@ export default function Inicio() {
         <Link to="/vacaciones?vista=incapacidades" className="relative z-10 mb-4 block rounded-lg bg-orange-50 px-4 py-3 text-sm text-orange-900 ring-1 ring-orange-200 hover:bg-orange-100">
           ⚠️ <strong>{alertas.length} aviso(s) de incapacidades</strong>: {alertas[0].mensaje}
           {alertas.length > 1 && " …"} <span className="underline">Ver</span>
+        </Link>
+      )}
+      {celulares && celulares.pendientes > 0 && (
+        <Link
+          to={`/empleados?abrir=${encodeURIComponent(celulares.empleados[0]?.id ?? "")}`}
+          className="relative z-10 mb-4 block rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200 hover:bg-amber-100"
+        >
+          📱 <strong>{celulares.pendientes === 1 ? "1 celular por aprobar" : `${celulares.pendientes} celulares por aprobar`}</strong>: {celulares.empleados.map((e) => e.nombre).join(", ")}
+          {celulares.pendientes > celulares.empleados.length && " …"} <span className="underline">Revisar en su ficha</span>
         </Link>
       )}
       {imagen && (

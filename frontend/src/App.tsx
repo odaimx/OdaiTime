@@ -15,6 +15,7 @@ import Inicio from "./pages/Inicio";
 import InicioPortal from "./pages/InicioPortal";
 import Kiosco from "./pages/Kiosco";
 import Login from "./pages/Login";
+import Marcar from "./pages/Marcar";
 import Reportes from "./pages/Reportes";
 import Restablecer from "./pages/Restablecer";
 import MisRegistros from "./pages/MisRegistros";
@@ -47,6 +48,7 @@ export default function App() {
     return (
       <Routes>
         <Route path="/kiosco" element={<Kiosco />} />
+        <Route path="/marcar" element={<Marcar />} />
         <Route path="/login" element={<Login />} />
         <Route path="/restablecer" element={<Restablecer />} />
         <Route path="*" element={<AlLogin />} />
@@ -57,6 +59,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/kiosco" element={<Kiosco />} />
+      <Route path="/marcar" element={<Marcar />} />
       <Route element={<Layout />}>
         <Route index element={usuario.rol === "empleado" ? <InicioPortal /> : <Inicio />} />
         <Route

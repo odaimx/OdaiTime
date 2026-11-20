@@ -170,7 +170,7 @@ async def estado(d: DispositivoActual, request: Request, db: DB) -> dict:
             "qr": config.permitir_movil,
         },
         # El celular abre esta liga con su cámara normal; la app toma el token de la URL.
-        "qr": {"url": f"{base}/checar?qr={token}", "expira": expira.isoformat()},
+        "qr": {"url": f"{base}/marcar?qr={token}", "expira": expira.isoformat()},
         "ultimas": [
             {
                 "nombre": f"{c.empleado.nombre} {c.empleado.apellido_paterno}",

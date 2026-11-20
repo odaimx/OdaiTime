@@ -574,6 +574,13 @@ export default function Empleados() {
                 />
               </Fila>,
               ...camposChecado(form, setForm, dispositivos, configSucursal),
+              ...(sel && !nuevo
+                ? [
+                    <Fila key="celulares" etiqueta="Celulares" ayuda="Celulares vinculados en /marcar para checar sin usuario. Uno nuevo no puede checar hasta que lo apruebes.">
+                      <CelularesEmpleado empleadoId={sel.id} query={query} />
+                    </Fila>,
+                  ]
+                : []),
             ],
           )}
         </>
@@ -1037,7 +1044,7 @@ function camposChecado(form: Form, setForm: (f: Form) => void, dispositivos: Dis
     <Fila key="disp" etiqueta="Dispositivos" ayuda={`Kioscos y relojes donde puede checar.${ayudaSuc}`}>
       <SelectorDispositivos todos={dispositivos} sucursalId={form.sucursal_id} valor={ef.disp} onCambio={(disp) => guardar({ disp })} />
     </Fila>,
-    <Fila key="movil" etiqueta="Portal (celular)" ayuda="Checa desde su celular con el portal (necesita acceso al portal).">
+    <Fila key="movil" etiqueta="Portal (celular)" ayuda="Checa desde su celular: en el portal o con su celular vinculado en «Checar asistencia» (PIN, ubicación y selfie).">
       <label className="inline-flex items-center gap-2 text-sm text-tinta-900">
         <input type="checkbox" className="h-4 w-4 accent-brand-500" checked={ef.movil} onChange={(e) => guardar({ movil: e.target.checked })} />
         Puede checar desde su celular
@@ -1050,6 +1057,78 @@ function camposChecado(form: Form, setForm: (f: Form) => void, dispositivos: Dis
       </label>
     </Fila>,
   ];
+}
+
+interface Celular {
+  id: string;
+  equipo: string | null;
+  estado: "pendiente" | "aprobado";
+  created_at: string;
+  aprobado_en: string | null;
+  ultimo_uso: string | null;
+}
+
+/** Nombre corto del equipo a partir del navegador con que se vinculó. */
+function nombreEquipo(ua: string | null) {
+  if (!ua) return "Celular";
+  const so = /iPhone|iPad/.test(ua) ? "iPhone" : /Android/.test(ua) ? (ua.match(/Android[^;)]*;\s*([^;)]+?)(?:\sBuild|\))/)?.[1] ?? "Android") : "Navegador";
+  const nav = /CriOS|Chrome/.test(ua) ? "Chrome" : /Safari/.test(ua) ? "Safari" : /Firefox/.test(ua) ? "Firefox" : "";
+  return nav ? `${so} · ${nav}` : so;
+}
+
+/** Celulares vinculados del empleado: aprobar los pendientes o quitar uno (perdido, cambio de equipo). */
+function CelularesEmpleado({ empleadoId, query }: { empleadoId: string; query: string }) {
+  const [lista, setLista] = useState<Celular[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const cargar = useCallback(() => {
+    get<Celular[]>(`/empleados/${empleadoId}/celulares${query}`)
+      .then(setLista)
+      .catch(() => setLista([]));
+  }, [empleadoId, query]);
+  useEffect(cargar, [cargar]);
+  async function accion(c: Celular, tipo: "aprobar" | "quitar") {
+    if (tipo === "quitar" && !confirm(c.estado === "pendiente" ? "¿Rechazar este celular?" : "¿Desvincular este celular? Ya no podrá checar con él.")) return;
+    setError(null);
+    try {
+      if (tipo === "aprobar") await post(`/celulares/${c.id}/aprobar${query}`, {});
+      else await api(`/celulares/${c.id}${query}`, { method: "DELETE" });
+      cargar();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo completar");
+    }
+  }
+  if (lista === null) return <span className="text-sm text-slate-400">Cargando…</span>;
+  return (
+    <div className="space-y-2">
+      {lista.length === 0 && <p className="text-sm text-slate-500">Ninguno. El empleado lo vincula desde la página «Checar asistencia».</p>}
+      {lista.map((c) => (
+        <div key={c.id} className={`flex items-center gap-3 rounded-lg px-3 py-2 ring-1 ${c.estado === "pendiente" ? "bg-amber-50 ring-amber-200" : "ring-slate-200"}`}>
+          <Icono nombre="smartphone" className="h-5 w-5 shrink-0 text-slate-500" />
+          <div className="min-w-0 flex-1 text-sm">
+            <p className="truncate font-medium text-tinta-900" title={c.equipo ?? ""}>
+              {nombreEquipo(c.equipo)}
+            </p>
+            <p className="text-xs text-slate-500">
+              {c.estado === "pendiente"
+                ? `Pendiente desde ${new Date(c.created_at).toLocaleDateString("es-MX")}`
+                : c.ultimo_uso
+                  ? `Último uso ${new Date(c.ultimo_uso).toLocaleDateString("es-MX")}`
+                  : "Aprobado, sin uso aún"}
+            </p>
+          </div>
+          {c.estado === "pendiente" && (
+            <button type="button" className="btn-primary px-3 py-1 text-xs" onClick={() => accion(c, "aprobar")}>
+              Aprobar
+            </button>
+          )}
+          <button type="button" className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-red-600" title={c.estado === "pendiente" ? "Rechazar" : "Desvincular"} onClick={() => accion(c, "quitar")}>
+            <Icono nombre="trash" className="h-4 w-4" />
+          </button>
+        </div>
+      ))}
+      {error && <p className="text-xs text-red-600">{error}</p>}
+    </div>
+  );
 }
 
 /** Lista desplegable con casillas: los dispositivos de su sucursal primero. */
