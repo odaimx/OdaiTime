@@ -138,6 +138,7 @@ async def test_en_festivo_solo_checan_los_designados(client, superadmin):
         json={"email": "ana@caribe.mx", "password": PASSWORD},
     )
     e = auth(await login(client, "ana@caribe.mx"))
+    assert (await client.post("/api/checadas/aviso", headers=e)).status_code == 204
     # Sin GPS para simplificar.
     cfg = (await client.get("/api/checadas/config", headers=a)).json()
     cfg = {k: v for k, v in cfg.items() if k not in ("origen", "sucursal_id")}

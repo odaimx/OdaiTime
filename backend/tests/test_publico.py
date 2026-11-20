@@ -9,7 +9,7 @@ async def _slug(client, a):
 
 
 async def test_celular_vinculado_sin_usuario(client, superadmin):
-    a, _, _, emp = await _setup(client, superadmin)
+    a, _, _, emp = await _setup(client, superadmin, aviso=False)
     await _config(client, a, ignorar_repetida_min=0, permitir_movil=True)
     slug = await _slug(client, a)
 
@@ -71,7 +71,7 @@ async def test_celular_vinculado_sin_usuario(client, superadmin):
 
 
 async def test_qr_del_kiosco_sin_usuario(client, superadmin):
-    a, _, suc, _ = await _setup(client, superadmin)
+    a, _, suc, _ = await _setup(client, superadmin, aviso=False)
     await _config(client, a, ignorar_repetida_min=0)
     k, h = await _kiosco(client, a, suc, "Tablet")
     qr = (await client.get("/api/kiosco/estado", headers=h)).json()["qr"]["url"].split("qr=")[1]
@@ -106,9 +106,11 @@ async def test_qr_del_kiosco_sin_usuario(client, superadmin):
 
 
 async def test_aviso_en_el_portal(client, superadmin):
-    a, e, _, emp = await _setup(client, superadmin)
+    a, e, _, emp = await _setup(client, superadmin, aviso=False)
     assert (await client.get(f"/api/empleados/{emp['id']}/aviso", headers=a)).json() is None
     assert (await client.get("/api/checadas/hoy", headers=e)).json()["aviso_aceptado"] is False
+    r = await client.post("/api/checadas", headers=e, data=CERCA)
+    assert r.status_code == 428 and r.json()["detail"]["codigo"] == "aviso_requerido"
     assert (await client.post("/api/checadas/aviso", headers=e)).status_code == 204
     assert (await client.post("/api/checadas/aviso", headers=e)).status_code == 204  # idempotente
     assert (await client.get("/api/checadas/hoy", headers=e)).json()["aviso_aceptado"] is True
