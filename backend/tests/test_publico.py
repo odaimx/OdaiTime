@@ -18,11 +18,16 @@ async def test_celular_vinculado_sin_usuario(client, superadmin):
         json={"empresa": slug, "identificador": "1001", "pin": "9999"},
     )
     assert r.status_code == 401
-    r = await client.post(
-        "/api/publico/celular/vincular",
-        json={"empresa": slug, "identificador": "1001", "pin": "1234", "equipo": "Android"},
-    )
+    vinc = {"empresa": slug, "identificador": "1001", "pin": "1234", "equipo": "Android"}
+    # Sin aceptar el aviso de privacidad no se vincula.
+    r = await client.post("/api/publico/celular/vincular", json=vinc)
+    assert r.status_code == 428 and r.json()["detail"]["codigo"] == "aviso_requerido"
+    aviso = (await client.get(f"/api/publico/aviso?empresa={slug}")).json()
+    assert aviso["version"] and aviso["responsable"]
+    r = await client.post("/api/publico/celular/vincular", json={**vinc, "aviso": aviso["version"]})
     assert r.status_code == 201, r.text
+    constancia = (await client.get(f"/api/empleados/{emp['id']}/aviso", headers=a)).json()
+    assert constancia["medio"] == "celular"
     h = {"X-Celular-Token": r.json()["token"]}
 
     est = (await client.get("/api/publico/celular/estado", headers=h)).json()
@@ -77,10 +82,11 @@ async def test_qr_del_kiosco_sin_usuario(client, superadmin):
         "/api/publico/qr/identificar", json={**base, "latitud": 21.2, "longitud": LON}
     )
     assert r.status_code == 422
-    r = await client.post(
-        "/api/publico/qr/identificar",
-        json={**base, "latitud": LAT, "longitud": LON, "precision": 10},
-    )
+    cerca = {**base, "latitud": LAT, "longitud": LON, "precision": 10}
+    r = await client.post("/api/publico/qr/identificar", json=cerca)
+    assert r.status_code == 428
+    version = (await client.get(f"/api/publico/aviso?qr={qr}")).json()["version"]
+    r = await client.post("/api/publico/qr/identificar", json={**cerca, "aviso": version})
     assert r.status_code == 200, r.text
     ses = r.json()
     assert ses["acciones"][0] == {"accion": "entrada", "habilitada": True}
@@ -97,3 +103,14 @@ async def test_qr_del_kiosco_sin_usuario(client, superadmin):
         "/api/publico/qr/identificar", json={**base, "qr": "x.1.y", "latitud": LAT, "longitud": LON}
     )
     assert r.status_code == 422
+
+
+async def test_aviso_en_el_portal(client, superadmin):
+    a, e, _, emp = await _setup(client, superadmin)
+    assert (await client.get(f"/api/empleados/{emp['id']}/aviso", headers=a)).json() is None
+    assert (await client.get("/api/checadas/hoy", headers=e)).json()["aviso_aceptado"] is False
+    assert (await client.post("/api/checadas/aviso", headers=e)).status_code == 204
+    assert (await client.post("/api/checadas/aviso", headers=e)).status_code == 204  # idempotente
+    assert (await client.get("/api/checadas/hoy", headers=e)).json()["aviso_aceptado"] is True
+    constancia = (await client.get(f"/api/empleados/{emp['id']}/aviso", headers=a)).json()
+    assert constancia["medio"] == "portal"

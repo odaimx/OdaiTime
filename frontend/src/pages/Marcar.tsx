@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
 import Camara from "../components/Camara";
+import AvisoPrivacidad, { type DatosAviso } from "../components/AvisoPrivacidad";
 import EscanerQR from "../components/EscanerQR";
 import Icono from "../components/Iconos";
 import PantallaChecado, { ACCIONES, type Accion, type MarcaHoy } from "../components/PantallaChecado";
@@ -18,7 +19,7 @@ type Modo = "qr" | "celular";
 type Resultado = { ok: boolean; texto: string; detalle?: string };
 
 const TOKEN = "odaitime.celular";
-const AVISO = "odaitime.aviso_privacidad.v1";
+const AVISO = "odaitime.aviso_privacidad";
 
 const leer = (k: string) => {
   try {
@@ -142,49 +143,6 @@ function CampoPin({ valor, onCambio, autoFocus }: { valor: string; onCambio: (v:
   );
 }
 
-// ------------------------------------------------------------------ Aviso de privacidad
-
-function AvisoPrivacidad({ empresa, onAceptar }: { empresa: string; onAceptar: () => void }) {
-  const [acepto, setAcepto] = useState(false);
-  return (
-    <div className="card space-y-4 p-6">
-      <div className="flex items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
-          <Icono nombre="lock" className="h-5 w-5" />
-        </span>
-        <h2 className="text-lg font-semibold text-tinta-900">Aviso de privacidad</h2>
-      </div>
-      <div className="max-h-72 space-y-2 overflow-y-auto text-sm leading-relaxed text-slate-600">
-        <p>
-          <strong>{empresa || "Tu empleador"}</strong> es responsable de los datos personales que se recaban al registrar tu asistencia, conforme a la Ley Federal de Protección de Datos
-          Personales en Posesión de los Particulares.
-        </p>
-        <p>
-          <strong>Datos que se recaban:</strong> tu número de empleado, una fotografía en el momento de checar y la ubicación de tu dispositivo únicamente en ese momento (no se te
-          rastrea en otro momento). En el celular también se guarda un identificador del equipo vinculado.
-        </p>
-        <p>
-          <strong>Finalidad:</strong> llevar el registro de tu jornada laboral (entradas, salidas y descansos) que exige la Ley Federal del Trabajo (arts. 132 y 804), y comprobar que la
-          checada la hizo la persona correcta en el lugar de trabajo.
-        </p>
-        <p>
-          <strong>Conservación:</strong> las checadas se conservan el tiempo que marca la ley; las fotografías se eliminan pasado el plazo que fije la empresa.
-        </p>
-        <p>
-          <strong>Derechos ARCO:</strong> puedes pedir acceso, rectificación, cancelación u oposición al tratamiento de tus datos con el área de Recursos Humanos de tu empresa.
-        </p>
-      </div>
-      <label className="flex items-start gap-2 text-sm text-slate-700">
-        <input type="checkbox" className="mt-0.5" checked={acepto} onChange={(e) => setAcepto(e.target.checked)} />
-        <span>He leído el aviso de privacidad y acepto el tratamiento de mis datos para el registro de asistencia.</span>
-      </label>
-      <button type="button" className="btn-primary w-full py-3" disabled={!acepto} onClick={onAceptar}>
-        Continuar
-      </button>
-    </div>
-  );
-}
-
 // ------------------------------------------------------------------ Kiosco (QR)
 
 interface Identificado {
@@ -195,7 +153,7 @@ interface Identificado {
   acciones: { accion: Accion; habilitada: boolean }[];
 }
 
-function ConQR({ qr, onQr }: { qr: string | null; onQr: (qr: string | null) => void }) {
+function ConQR({ qr, onQr, aviso, onAviso }: { qr: string | null; onQr: (qr: string | null) => void; aviso: string | null; onAviso: () => void }) {
   const [numero, setNumero] = useState("");
   const [pin, setPin] = useState("");
   const [pos, setPos] = useState<Posicion | null>(null);
@@ -238,13 +196,14 @@ function ConQR({ qr, onQr }: { qr: string | null; onQr: (qr: string | null) => v
       setPos(p);
       const datos = await pedir<Identificado>("/publico/qr/identificar", {
         method: "POST",
-        body: JSON.stringify({ qr, numero, pin, latitud: Number(p.latitud), longitud: Number(p.longitud), precision: Number(p.precision) }),
+        body: JSON.stringify({ qr, numero, pin, aviso, latitud: Number(p.latitud), longitud: Number(p.longitud), precision: Number(p.precision) }),
       });
       setQuien(datos);
     } catch (err) {
       setPin("");
       setResultado({ ok: false, texto: mensajeDe(err) });
       if (err instanceof ErrorPublico && err.codigo === "qr_invalido") onQr(null);
+      if (err instanceof ErrorPublico && err.codigo === "aviso_requerido") onAviso();
     } finally {
       setOcupado(false);
     }
@@ -333,7 +292,7 @@ interface EstadoCelular {
   hoy: EstadoHoy | null;
 }
 
-function ConCelular({ slug }: { slug: string | null }) {
+function ConCelular({ slug, aviso, onAviso }: { slug: string | null; aviso: string | null; onAviso: () => void }) {
   const [token, setToken] = useState<string | null>(() => leer(TOKEN));
   const [estado, setEstado] = useState<EstadoCelular | null>(null);
   const [identificador, setIdentificador] = useState("");
@@ -385,7 +344,7 @@ function ConCelular({ slug }: { slug: string | null }) {
     try {
       const r = await pedir<{ token: string; estado: string; nombre: string }>("/publico/celular/vincular", {
         method: "POST",
-        body: JSON.stringify({ empresa: slug, identificador, pin, equipo: navigator.userAgent.slice(0, 200) }),
+        body: JSON.stringify({ empresa: slug, identificador, pin, aviso, equipo: navigator.userAgent.slice(0, 120) }),
       });
       escribir(TOKEN, r.token);
       setToken(r.token);
@@ -393,6 +352,7 @@ function ConCelular({ slug }: { slug: string | null }) {
     } catch (err) {
       setPin("");
       setResultado({ ok: false, texto: mensajeDe(err) });
+      if (err instanceof ErrorPublico && err.codigo === "aviso_requerido") onAviso();
     } finally {
       setOcupado(false);
     }
@@ -546,7 +506,9 @@ export default function Marcar() {
   const [modo, setModo] = useState<Modo>(() => (qr ? "qr" : leer(TOKEN) ? "celular" : "qr"));
   const [tenant, setTenant] = useState<TenantInfo | null>(null);
   const [slug, setSlug] = useState<string | null>(params.get("empresa"));
-  const [aceptado, setAceptado] = useState(() => leer(AVISO) === "1");
+  const [aviso, setAviso] = useState<string | null>(() => leer(AVISO));
+  const [datosAviso, setDatosAviso] = useState<DatosAviso | null>(null);
+  const aceptado = !!aviso && (!datosAviso || aviso === datosAviso.version);
 
   useEffect(() => {
     fetch("/api/tenant")
@@ -556,6 +518,21 @@ export default function Marcar() {
         if (t?.modo === "tenant" && t.slug) setSlug(t.slug);
       })
       .catch(() => {});
+  }, []);
+
+  // Responsable y versión del aviso: de la empresa (subdominio o clave) o del QR del kiosco.
+  useEffect(() => {
+    const q = slug ? `empresa=${encodeURIComponent(slug)}` : qr ? `qr=${encodeURIComponent(qr)}` : null;
+    if (!q || tenant?.modo === "base") return;
+    fetch(`/api/publico/aviso?${q}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: DatosAviso | null) => d && setDatosAviso(d))
+      .catch(() => {});
+  }, [slug, qr, tenant]);
+
+  const pedirAviso = useCallback(() => {
+    escribir(AVISO, null);
+    setAviso(null);
   }, []);
 
   const cambiarQr = useCallback(
@@ -588,10 +565,13 @@ export default function Marcar() {
   } else if (!aceptado) {
     contenido = (
       <AvisoPrivacidad
+        datos={datosAviso}
         empresa={tenant?.nombre ?? ""}
         onAceptar={() => {
-          escribir(AVISO, "1");
-          setAceptado(true);
+          // La constancia la guarda el servidor al identificarse (con número y PIN).
+          const v = datosAviso?.version ?? "aceptado";
+          escribir(AVISO, v);
+          setAviso(v);
         }}
       />
     );
@@ -614,7 +594,7 @@ export default function Marcar() {
       </form>
     );
   } else {
-    contenido = modo === "qr" ? <ConQR qr={qr} onQr={cambiarQr} /> : <ConCelular slug={slug} />;
+    contenido = modo === "qr" ? <ConQR qr={qr} onQr={cambiarQr} aviso={aviso} onAviso={pedirAviso} /> : <ConCelular slug={slug} aviso={aviso} onAviso={pedirAviso} />;
   }
 
   return (

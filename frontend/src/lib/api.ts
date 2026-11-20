@@ -430,6 +430,8 @@ export interface EstadoHoy {
   hora_servidor: string;
   festivo_hoy: string | null;
   designado_festivo: boolean;
+  /** Aviso de privacidad vigente aceptado. */
+  aviso_aceptado?: boolean;
   /** Obra asignada hoy: la ubicación se valida contra ella y no contra la sucursal. */
   obra?: (ObraRef & { latitud: number | null; longitud: number | null; radio_metros: number }) | null;
 }

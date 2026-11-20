@@ -25,6 +25,7 @@ from app.core.security import verify_password
 from app.core.tenant import tenant_de
 from app.models import CelularVinculado, Dispositivo, Empleado, Empresa
 from app.schemas.checada import Accion, EstadoHoy
+from app.services import aviso as aviso_svc
 from app.services import checadas as svc
 from app.services import estado_empresa
 
@@ -49,6 +50,22 @@ async def _kiosco_de_qr(db: DB, qr: str) -> Dispositivo:
     return d
 
 
+# --- Aviso de privacidad ---
+
+
+@router.get("/aviso")
+async def aviso(
+    request: Request, db: DB, empresa: str | None = None, qr: str | None = None
+) -> dict:
+    """Responsable y domicilio para el aviso de privacidad (de la empresa o del QR del kiosco)."""
+    if qr and tenant_de(request).modo != "tenant":
+        d = await _kiosco_de_qr(db, qr)
+        emp = await db.get(Empresa, d.empresa_id)
+    else:
+        emp = await _empresa_publica(db, request, empresa)
+    return aviso_svc.datos(emp)
+
+
 # --- QR del kiosco ---
 
 
@@ -58,6 +75,7 @@ class QrIdentificarIn(BaseModel):
     pin: str | None = Field(default=None, max_length=6)
     latitud: float = Field(ge=-90, le=90)
     longitud: float = Field(ge=-180, le=180)
+    aviso: str | None = Field(default=None, max_length=20)  # versión del aviso aceptado
     precision: int | None = Field(default=None, ge=0)
 
 
@@ -74,6 +92,7 @@ async def qr_identificar(data: QrIdentificarIn, request: Request, db: DB) -> dic
         await _limite(f"pub_ip:{_ip(request)}", 30, PIN_VENTANA_S, registrar_fallo=True)
         raise
     svc.validar_gps(d.sucursal, data.latitud, data.longitud, data.precision)
+    await aviso_svc.exigir(db, empleado, data.aviso, medio="qr", request=request)
     estado = await _estado_empleado(db, d, empleado)
     await db.commit()
     return {"sesion": svc.firmar_sesion(d.id, empleado.id), **estado}
@@ -156,6 +175,7 @@ class VincularIn(BaseModel):
     identificador: str = Field(min_length=1, max_length=20)  # número de empleado o celular
     pin: str = Field(min_length=4, max_length=6)
     equipo: str | None = Field(default=None, max_length=120)
+    aviso: str | None = Field(default=None, max_length=20)
 
 
 @router.post("/celular/vincular", status_code=status.HTTP_201_CREATED)
@@ -189,6 +209,7 @@ async def vincular(data: VincularIn, request: Request, db: DB) -> dict:
         if getattr(e, "detail", {}).get("codigo") == "credenciales":
             raise invalido from None
         raise
+    await aviso_svc.exigir(db, empleado, data.aviso, medio="celular", request=request)
     token, token_hash = svc.nuevo_token()
     db.add(
         CelularVinculado(
