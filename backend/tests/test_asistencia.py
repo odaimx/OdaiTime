@@ -167,3 +167,57 @@ async def test_vacaciones_y_permisos(client, superadmin):
         "/api/asistencia/resumen", headers=e, params={"desde": "2025-03-01", "hasta": "2025-03-07"}
     )
     assert r.status_code == 403
+
+
+async def test_filtros_de_exportacion(client, superadmin):
+    a, suc, emp = await _setup(client, superadmin)
+    otro = (
+        await client.post(
+            "/api/empleados",
+            headers=a,
+            json={
+                "numero": "2",
+                "nombre": "Beto",
+                "apellido_paterno": "Luna",
+                "fecha_ingreso": "2024-03-01",
+                "sucursal_id": suc["id"],
+                "departamento": "Cocina",
+                "puesto": "Chef",
+            },
+        )
+    ).json()
+    cat = (
+        await client.post(
+            "/api/categorias?modelo=empleado",
+            headers=a,
+            json={"nombre": "Semanal", "color": "#8a64de"},
+        )
+    ).json()
+    r = await client.put(
+        "/api/categorias/registro?modelo=empleado",
+        headers=a,
+        json={"registro_id": emp["id"], "categoria_ids": [cat["id"]]},
+    )
+    assert r.status_code == 200, r.text
+    base = {"desde": "2025-03-03", "hasta": "2025-03-09"}
+
+    async def numeros(**extra):
+        r = await client.get("/api/asistencia/resumen", headers=a, params={**base, **extra})
+        assert r.status_code == 200, r.text
+        return sorted(f["empleado"]["numero"] for f in r.json())
+
+    assert await numeros() == ["1", "2"]
+    assert await numeros(categoria_ids=[cat["id"]]) == ["1"]
+    assert await numeros(departamentos=["Cocina"]) == ["2"]
+    assert await numeros(puestos=["Chef"], categoria_ids=[cat["id"]]) == []  # Y entre grupos
+    assert await numeros(empleado_ids=[emp["id"], otro["id"]]) == ["1", "2"]
+    assert await numeros(sucursal_ids=[suc["id"]], estatus="activos") == ["1", "2"]
+    assert await numeros(estatus="bajas") == []
+    op = (await client.get("/api/reportes/opciones-filtro", headers=a)).json()
+    assert op == {"departamentos": ["Cocina"], "puestos": ["Chef"]}
+    r = await client.get(
+        "/api/reportes/nomina",
+        headers=a,
+        params={**base, "sistema": "generico", "categoria_ids": [cat["id"]]},
+    )
+    assert r.status_code == 200 and r.headers["X-Odai-Empleados"] == "1"
