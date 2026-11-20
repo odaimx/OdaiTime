@@ -334,7 +334,7 @@ export default function Turnos() {
                 </button>
               </div>
               <div className="divide-y divide-slate-100 rounded-lg border border-slate-200">
-                <div className="hidden grid-cols-[6.5rem_1fr_1fr_4.5rem_3.5rem] gap-2 px-3 py-2 text-xs font-medium text-slate-500 sm:grid">
+                <div className="hidden grid-cols-[7rem_10rem_10rem_5rem_4rem] gap-x-8 gap-y-2 px-3 py-2 text-xs font-medium text-slate-500 sm:grid">
                   <span>Día</span>
                   <span>Entrada</span>
                   <span>Salida</span>
@@ -343,7 +343,7 @@ export default function Turnos() {
                 </div>
                 {form.dias.map((d, i) => (
                   <div key={i} className="space-y-2 px-3 py-2">
-                    <div className="grid grid-cols-2 items-center gap-2 sm:grid-cols-[6.5rem_1fr_1fr_4.5rem_3.5rem]">
+                    <div className="grid grid-cols-2 items-center gap-2 sm:grid-cols-[7rem_10rem_10rem_5rem_4rem] sm:gap-x-8">
                       <label className="col-span-2 flex items-center gap-2 text-sm text-tinta-900 sm:col-span-1">
                         <input type="checkbox" className="accent-brand-500" checked={d.activo} onChange={(e) => setDia(i, { activo: e.target.checked })} />
                         {DIAS[i]}
@@ -364,7 +364,7 @@ export default function Turnos() {
                       )}
                     </div>
                     {d.activo && d.quebrado && (
-                      <div className="grid grid-cols-2 items-center gap-2 sm:grid-cols-[6.5rem_1fr_1fr_4.5rem_3.5rem]">
+                      <div className="grid grid-cols-2 items-center gap-2 sm:grid-cols-[7rem_10rem_10rem_5rem_4rem] sm:gap-x-8">
                         <span className="col-span-2 text-xs text-slate-500 sm:col-span-1">2º horario</span>
                         <input type="time" className="input px-2" aria-label={`Regreso ${DIAS[i]}`} value={d.entrada2} onChange={(e) => setDia(i, { entrada2: e.target.value })} required />
                         <input type="time" className="input px-2" aria-label={`Salida final ${DIAS[i]}`} value={d.salida2} onChange={(e) => setDia(i, { salida2: e.target.value })} required />
@@ -374,7 +374,7 @@ export default function Turnos() {
                       </div>
                     )}
                     {d.activo && !d.quebrado && (
-                      <button type="button" className="text-xs font-medium text-brand-600 hover:underline sm:ml-[7rem]" onClick={() => setDia(i, { quebrado: true })}>
+                      <button type="button" className="text-xs font-medium text-brand-600 hover:underline sm:ml-[9rem]" onClick={() => setDia(i, { quebrado: true })}>
                         + Agregar segundo horario (turno quebrado)
                       </button>
                     )}
