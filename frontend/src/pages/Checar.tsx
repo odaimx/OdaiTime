@@ -104,7 +104,8 @@ export default function Checar() {
         });
       } catch (e) {
         // Error de red: se reintenta después. Rechazo del servidor: se descarta.
-        if (!(e instanceof ApiError)) restantes.push(p);
+        // Falta aceptar el aviso de privacidad: se conserva para enviarla después de aceptarlo.
+        if (!(e instanceof ApiError) || e.status === 428) restantes.push(p);
       }
     }
     guardarCola(restantes);
@@ -120,6 +121,8 @@ export default function Checar() {
   async function aceptarAviso() {
     try {
       await api("/checadas/aviso", { method: "POST" });
+      setError(null);
+      await sincronizar(); // envía lo que quedó en espera
       cargar();
     } catch (e) {
       setError((e as Error).message);
@@ -170,6 +173,7 @@ export default function Checar() {
       if (e instanceof ApiError) {
         setError(e.message);
         setPaso("inicio");
+        if (e.status === 428) cargar(); // muestra el aviso de privacidad
       } else if (estado?.permitir_offline) {
         // Sin conexión: se guarda en el teléfono con la hora real.
         const cola = [...leerCola(), { momento, pos, qr, accion, foto: fotoC ? await aDataUrl(fotoC) : null }];

@@ -9,7 +9,7 @@ LEJOS = {"latitud": "21.172000", "longitud": "-86.851500", "precision": "10"}
 JPG = ("foto.jpg", b"\xff\xd8\xff\xe0fake-jpeg", "image/jpeg")
 
 
-async def _setup(client, superadmin, con_pin=True):
+async def _setup(client, superadmin, con_pin=True, aviso=True):
     await crear_empresa(client, superadmin, "Caribe", "admin@caribe.mx")
     a = auth(await login(client, "admin@caribe.mx"))
     r = await client.post(
@@ -45,6 +45,8 @@ async def _setup(client, superadmin, con_pin=True):
     )
     assert r.status_code == 201
     e = auth(await login(client, "maria@caribe.mx"))
+    if aviso:  # sin aviso de privacidad aceptado el portal no checa
+        assert (await client.post("/api/checadas/aviso", headers=e)).status_code == 204
     await _config(client, a, permitir_movil=True)  # de fábrica el portal no checa
     return a, e, suc, emp
 
