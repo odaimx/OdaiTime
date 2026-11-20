@@ -159,3 +159,54 @@ async def test_config_requiere_datos(client, superadmin):
     assert r.status_code == 422
     r = await client.get("/api/whatsapp/config", headers=a)
     assert r.json()["activo"] is False
+
+
+async def test_registro_integrado_de_meta(client, superadmin, monkeypatch):
+    a, _, _, _ = await _setup(client, superadmin)
+    # Sin la app de Odai configurada, el botón no está disponible.
+    assert (await client.get("/api/whatsapp/registro", headers=a)).json()["disponible"] is False
+    assert (await client.get("/api/whatsapp/proveedor", headers=a)).status_code == 403
+
+    r = await client.put(
+        "/api/whatsapp/proveedor",
+        headers=superadmin,
+        json={"app_id": "123456789", "config_id": "987654321", "app_secret": SECRETO},
+    )
+    assert r.status_code == 200 and r.json()["tiene_secreto"] and "app_secret" not in r.json()
+    datos = (await client.get("/api/whatsapp/registro", headers=a)).json()
+    assert datos == {
+        "disponible": True,
+        "app_id": "123456789",
+        "config_id": "987654321",
+        "version": datos["version"],
+    }
+
+    pasos: dict = {}
+
+    async def falso(**kw):
+        pasos.update(kw)
+        return {"token": "EAAG-del-cliente", "numero": "+52 998 765 4321"}
+
+    monkeypatch.setattr(wa, "registro_integrado", falso)
+    r = await client.post(
+        "/api/whatsapp/registro",
+        headers=a,
+        json={"code": "codigo-de-meta-123", "waba_id": "55555", "phone_number_id": "77777"},
+    )
+    assert r.status_code == 200, r.text
+    cfg = r.json()
+    assert cfg["activo"] and cfg["phone_number_id"] == "77777" and cfg["tiene_token"]
+    assert cfg["numero"] == "+52 998 765 4321"
+    assert pasos["app_secret"] == SECRETO and pasos["webhook_url"] == cfg["webhook_url"]
+    assert pasos["verify_token"] == cfg["verify_token"] and len(pasos["pin"]) == 6
+
+    async def rechaza(**kw):
+        raise wa.ErrorMeta("Código vencido")
+
+    monkeypatch.setattr(wa, "registro_integrado", rechaza)
+    r = await client.post(
+        "/api/whatsapp/registro",
+        headers=a,
+        json={"code": "codigo-de-meta-456", "waba_id": "55555", "phone_number_id": "77777"},
+    )
+    assert r.status_code == 502 and "Código vencido" in r.json()["detail"]
