@@ -4,6 +4,7 @@ Se autentican con el token que reciben al vincularse (encabezado X-Dispositivo-T
 no con usuario y contraseña.
 """
 
+import base64
 import logging
 from datetime import UTC, datetime, time, timedelta
 from typing import Annotated
@@ -27,6 +28,7 @@ from app.api.deps import DB
 from app.core.config import get_settings
 from app.core.security import verify_password
 from app.models import Checada, Dispositivo, Empleado, Empresa
+from app.schemas.checada import Accion
 from app.services import checadas as svc
 from app.services import estado_empresa
 from app.services import festivos as festivos_svc
@@ -184,22 +186,9 @@ async def estado(d: DispositivoActual, request: Request, db: DB) -> dict:
     }
 
 
-@router.post("/kiosco/checar", status_code=status.HTTP_201_CREATED)
-async def checar_kiosco(
-    d: DispositivoActual,
-    db: DB,
-    numero: Annotated[str, Form(min_length=1, max_length=20)],
-    pin: Annotated[str | None, Form(max_length=6)] = None,
-    foto: Annotated[UploadFile | None, File()] = None,
-) -> dict:
-    _solo_kiosco(d)
-    config, _ = await svc.config_efectiva(db, d.empresa_id, d.sucursal_id)
-    if not config.permitir_kiosco and not await _kiosco_por_empleado(db, d):
-        raise svc.error(
-            "kiosco_no_permitido", "El kiosco está desactivado para esta sucursal.", http=403
-        )
-
-    key = f"pin_fail:{d.id}:{numero.upper()}"
+async def _autenticar(db, d: Dispositivo, config, numero: str, pin: str | None) -> Empleado:
+    """Número de empleado + PIN en la tablet. Bloquea 15 min tras 5 intentos fallidos."""
+    key = f"pin_fail:{d.id}:{numero.strip().upper()}"
     if await _limite(key, 5, 900):
         raise svc.error(
             "bloqueado", "Demasiados intentos con ese número. Espera 15 minutos.", http=429
@@ -227,6 +216,104 @@ async def checar_kiosco(
     svc.validar_dispositivo(
         empleado, d, await svc.nombres_dispositivos(db, empleado.dispositivos_checado)
     )
+    return empleado
+
+
+async def _config_kiosco(db, d: Dispositivo):
+    _solo_kiosco(d)
+    config, _ = await svc.config_efectiva(db, d.empresa_id, d.sucursal_id)
+    if not config.permitir_kiosco and not await _kiosco_por_empleado(db, d):
+        raise svc.error(
+            "kiosco_no_permitido", "El kiosco está desactivado para esta sucursal.", http=403
+        )
+    return config
+
+
+async def _estado_empleado(db, d: Dispositivo, empleado: Empleado) -> dict:
+    """Lo que muestra la pantalla de checado: checadas de la jornada y qué botón toca."""
+    tz = svc.zona(d.sucursal)
+    ahora = datetime.now(UTC)
+    jornada, turno = svc.jornada_de(empleado, ahora, tz)
+    hoy = list(
+        await db.scalars(
+            select(Checada)
+            .where(
+                Checada.empleado_id == empleado.id,
+                Checada.momento >= datetime.combine(jornada, time.min, tz),
+            )
+            .order_by(Checada.momento)
+        )
+    )
+    ultima = await svc.ultima_checada(db, empleado.id)
+    # Las fotos son columnas diferidas: se leen aparte (en async no se cargan solas).
+    foto = await db.scalar(select(Empleado.foto_128).where(Empleado.id == empleado.id))
+    return {
+        "empleado": {
+            "nombre": empleado.nombre,
+            "nombre_completo": empleado.nombre_completo,
+            "numero": empleado.numero,
+            "puesto": empleado.puesto,
+        },
+        "foto": f"data:image/jpeg;base64,{base64.b64encode(foto).decode()}" if foto else None,
+        "turno": [{"entrada": a.isoformat(), "salida": b.isoformat()} for a, b in turno.bloques]
+        if turno
+        else [],
+        "checadas": [
+            {"tipo": c.tipo, "momento": c.momento.isoformat(), "comida": c.comida}
+            for c in hoy
+            if c.estado == "valida"
+        ],
+        "acciones": svc.acciones(ultima, hoy, turno, ahora),
+        "hora_servidor": ahora.isoformat(),
+    }
+
+
+class IdentificarIn(BaseModel):
+    numero: str = Field(min_length=1, max_length=20)
+    pin: str | None = Field(default=None, max_length=6)
+
+
+@router.post("/kiosco/identificar")
+async def identificar(data: IdentificarIn, d: DispositivoActual, db: DB) -> dict:
+    """Paso 1: número + PIN. Devuelve una sesión corta (3 min) para elegir el botón y la foto."""
+    config = await _config_kiosco(db, d)
+    empleado = await _autenticar(db, d, config, data.numero, data.pin)
+    estado_emp = await _estado_empleado(db, d, empleado)
+    await db.commit()  # ultima_conexion
+    return {"sesion": svc.firmar_sesion(d.id, empleado.id), **estado_emp}
+
+
+@router.post("/kiosco/checar", status_code=status.HTTP_201_CREATED)
+async def checar_kiosco(
+    d: DispositivoActual,
+    db: DB,
+    numero: Annotated[str | None, Form(max_length=20)] = None,
+    pin: Annotated[str | None, Form(max_length=6)] = None,
+    sesion: Annotated[str | None, Form(max_length=200)] = None,
+    accion: Annotated[Accion | None, Form()] = None,
+    foto: Annotated[UploadFile | None, File()] = None,
+    offline: Annotated[bool, Form()] = False,
+    momento: Annotated[datetime | None, Form()] = None,
+) -> dict:
+    """Paso 2: con la sesión del paso 1 (o número + PIN directo) y el botón elegido.
+
+    Sin conexión, la tablet guarda número + PIN + botón + foto + hora (corregida con la
+    diferencia contra el reloj del servidor) y los envía al reconectar: aquí se comprueba el PIN.
+    """
+    config = await _config_kiosco(db, d)
+    if offline and sesion:
+        raise svc.error("credenciales", "Sin conexión se envía con número y PIN.", http=401)
+    if sesion:
+        empleado_id = svc.leer_sesion(sesion, d.id)
+        empleado = await db.get(Empleado, empleado_id) if empleado_id else None
+        if empleado is None or not empleado.activo or empleado.empresa_id != d.empresa_id:
+            raise svc.error(
+                "sesion_vencida", "Se acabó el tiempo; vuelve a escribir tu número.", http=401
+            )
+    elif numero:
+        empleado = await _autenticar(db, d, config, numero, pin)
+    else:
+        raise svc.error("credenciales", "Escribe tu número de empleado.", http=401)
     if svc.requiere_foto(config, "kiosco") and foto is None:
         raise svc.error("foto_requerida", "Se necesita la foto para checar.")
 
@@ -237,6 +324,9 @@ async def checar_kiosco(
         config=config,
         origen="kiosco",
         dispositivo_id=d.id,
+        accion=accion,
+        offline=offline,
+        momento_dispositivo=momento,
     )
     if foto is not None:
         checada.foto = await svc.guardar_foto(foto, d.empresa_id)
@@ -244,6 +334,7 @@ async def checar_kiosco(
     return {
         "nombre": empleado.nombre_completo,
         "tipo": checada.tipo,
+        "comida": checada.comida,
         "momento": checada.momento.isoformat(),
         "retardo_minutos": checada.retardo_minutos,
     }

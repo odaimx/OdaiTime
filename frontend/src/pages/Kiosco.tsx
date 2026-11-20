@@ -1,7 +1,18 @@
 import QRCode from "qrcode";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Camara from "../components/Camara";
+import PantallaChecado, { ACCIONES, type Accion, type MarcaHoy } from "../components/PantallaChecado";
 import { comprimir, hora } from "../lib/api";
+import {
+  agregar as cola_agregar,
+  cifrarPin,
+  contar as cola_contar,
+  descifrarPin,
+  guardarDesfase,
+  horaCorregida,
+  listar as cola_listar,
+  quitar as cola_quitar,
+} from "../lib/colaKiosco";
 
 /** Modo kiosco: tablet fija en la entrada, autenticada con su propio token (sin usuario). */
 
@@ -92,6 +103,16 @@ function Vincular({ onListo }: { onListo: (token: string) => void }) {
   );
 }
 
+interface Identificado {
+  sesion: string | null; // null = sin conexión
+  empleado: { nombre: string; nombre_completo: string; numero: string; puesto: string | null };
+  foto: string | null;
+  checadas: MarcaHoy[];
+  acciones: { accion: Accion; habilitada: boolean }[];
+}
+
+const INACTIVIDAD_S = 30;
+
 function PantallaKiosco({ token, onDesvinculado }: { token: string; onDesvinculado: () => void }) {
   const [estado, setEstado] = useState<Estado | null>(null);
   const [qrImg, setQrImg] = useState<string | null>(null);
@@ -99,24 +120,69 @@ function PantallaKiosco({ token, onDesvinculado }: { token: string; onDesvincula
   const [numero, setNumero] = useState("");
   const [pin, setPin] = useState("");
   const [campo, setCampo] = useState<"numero" | "pin">("numero");
+  const [quien, setQuien] = useState<Identificado | null>(null);
+  const [accion, setAccion] = useState<Accion | null>(null);
   const [camara, setCamara] = useState(false);
-  const [mensaje, setMensaje] = useState<{ ok: boolean; texto: string; detalle?: string } | null>(null);
+  const [ocupado, setOcupado] = useState(false);
+  const [enLinea, setEnLinea] = useState(true);
+  const [pendientes, setPendientes] = useState(0);
+  const [inactivo, setInactivo] = useState(INACTIVIDAD_S);
+  const [mensaje, setMensaje] = useState<{ ok: boolean; texto: string; detalle?: string; espera?: boolean } | null>(null);
   const headers = { "X-Dispositivo-Token": token };
+
+  const reiniciar = useCallback(() => {
+    setQuien(null);
+    setAccion(null);
+    setNumero("");
+    setPin("");
+    setCampo("numero");
+    setCamara(false);
+  }, []);
+
+  // Envía las checadas guardadas sin conexión (en orden); el servidor comprueba el PIN.
+  const sincronizar = useCallback(async () => {
+    const cola = await cola_listar().catch(() => []);
+    for (const p of cola) {
+      const body = new FormData();
+      body.append("numero", p.numero);
+      const pinClaro = await descifrarPin(p.pin).catch(() => "");
+      if (pinClaro) body.append("pin", pinClaro);
+      body.append("accion", p.accion);
+      body.append("offline", "true");
+      body.append("momento", p.momento);
+      if (p.foto) body.append("foto", p.foto, "foto.webp");
+      const r = await fetch("/api/kiosco/checar", { method: "POST", headers: { "X-Dispositivo-Token": token }, body }).catch(() => null);
+      if (!r) break; // sigue sin red
+      if (r.status === 401 && !(await r.clone().json().catch(() => null))?.detail?.codigo) return onDesvinculado();
+      await cola_quitar(p.id!); // enviada o rechazada (queda en la bitácora del servidor)
+    }
+    setPendientes(await cola_contar().catch(() => 0));
+  }, [token, onDesvinculado]);
 
   const cargar = useCallback(async () => {
     const r = await fetch("/api/kiosco/estado", { headers: { "X-Dispositivo-Token": token } }).catch(() => null);
-    if (!r) return; // sin red: se reintenta en el siguiente ciclo
+    if (!r) return setEnLinea(false); // sin red: se reintenta en el siguiente ciclo
     if (r.status === 401) return onDesvinculado();
     if (!r.ok) return;
+    setEnLinea(true);
     const e: Estado = await r.json();
+    guardarDesfase(e.hora_servidor);
     setEstado(e);
     setQrImg(await QRCode.toDataURL(e.qr.url, { margin: 1, width: 320, color: { dark: "#1a2c4f", light: "#ffffff" } }));
-  }, [token, onDesvinculado]);
+    void sincronizar();
+  }, [token, onDesvinculado, sincronizar]);
 
   useEffect(() => {
     cargar();
+    cola_contar().then(setPendientes).catch(() => null);
     const reloj = setInterval(() => setAhora(new Date()), 1000);
-    return () => clearInterval(reloj);
+    const latido = setInterval(cargar, 60_000);
+    window.addEventListener("online", cargar);
+    return () => {
+      clearInterval(reloj);
+      clearInterval(latido);
+      window.removeEventListener("online", cargar);
+    };
   }, [cargar]);
 
   // Refresca el QR justo cuando vence (cada 30 s).
@@ -127,10 +193,18 @@ function PantallaKiosco({ token, onDesvinculado }: { token: string; onDesvincula
     return () => clearTimeout(t);
   }, [estado, cargar]);
 
+  // Con alguien identificado, regresa al inicio tras 30 s sin tocar la pantalla.
+  useEffect(() => {
+    if (!quien || camara) return;
+    setInactivo(INACTIVIDAD_S);
+    const t = setInterval(() => setInactivo((n) => (n <= 1 ? (reiniciar(), INACTIVIDAD_S) : n - 1)), 1000);
+    return () => clearInterval(t);
+  }, [quien, camara, reiniciar]);
+
   // El mensaje de resultado se limpia solo.
   useEffect(() => {
     if (!mensaje) return;
-    const t = setTimeout(() => setMensaje(null), 5000);
+    const t = setTimeout(() => setMensaje(null), mensaje.ok ? 4000 : 6000);
     return () => clearTimeout(t);
   }, [mensaje]);
 
@@ -144,21 +218,66 @@ function PantallaKiosco({ token, onDesvinculado }: { token: string; onDesvincula
     else set((v) => (v.length < max ? v + t : v));
   }
 
-  function checar() {
+  async function continuar() {
     if (!numero) return setCampo("numero");
-    if (estado?.config.pin && !pin) return setCampo("pin");
-    if (estado?.config.foto) setCamara(true);
-    else enviar(null);
+    if (estado?.config.pin && campo === "numero") return setCampo("pin");
+    if (estado?.config.pin && !pin) return;
+    setOcupado(true);
+    try {
+      const r = await fetch("/api/kiosco/identificar", {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ numero, pin: pin || null }),
+      });
+      const datos = await r.json().catch(() => null);
+      if (!r.ok) {
+        const d = datos?.detail;
+        setMensaje({ ok: false, texto: typeof d === "string" ? d : (d?.mensaje ?? "No se pudo identificar") });
+        setPin("");
+        setCampo(d?.codigo === "credenciales" && estado?.config.pin ? "pin" : "numero");
+        return;
+      }
+      setEnLinea(true);
+      setQuien(datos as Identificado);
+    } catch {
+      // Sin conexión: se puede checar igual; el servidor comprobará el PIN al reconectar.
+      setEnLinea(false);
+      setQuien({
+        sesion: null,
+        empleado: { nombre: "", nombre_completo: `Empleado ${numero}`, numero, puesto: null },
+        foto: null,
+        checadas: [],
+        acciones: (["entrada", "salida"] as Accion[]).map((a) => ({ accion: a, habilitada: true })),
+      });
+    } finally {
+      setOcupado(false);
+    }
   }
 
-  async function enviar(foto: Blob | null) {
+  function elegir(a: Accion) {
+    setAccion(a);
+    setCamara(true); // la selfie siempre se toma
+  }
+
+  async function enviar(foto: Blob) {
     setCamara(false);
+    if (!quien || !accion) return;
+    setOcupado(true);
+    const fotoC = await comprimir(foto);
+    const guardarSinRed = async () => {
+      await cola_agregar({ numero, pin: await cifrarPin(pin), accion, momento: horaCorregida().toISOString(), foto: fotoC });
+      setPendientes(await cola_contar());
+      setMensaje({ ok: true, espera: true, texto: `${ACCIONES[accion].listo} sin conexión`, detalle: "Se enviará en cuanto regrese el internet." });
+    };
     try {
-      // fetch directo: el kiosco no usa la sesión de usuario (un PIN incorrecto responde 401).
+      if (!quien.sesion) {
+        await guardarSinRed();
+        return;
+      }
       const body = new FormData();
-      body.append("numero", numero);
-      if (pin) body.append("pin", pin);
-      if (foto) body.append("foto", await comprimir(foto), "foto.jpg");
+      body.append("sesion", quien.sesion);
+      body.append("accion", accion);
+      body.append("foto", fotoC, "foto.webp");
       const resp = await fetch("/api/kiosco/checar", { method: "POST", headers, body });
       const datos = await resp.json().catch(() => null);
       if (!resp.ok) {
@@ -168,16 +287,16 @@ function PantallaKiosco({ token, onDesvinculado }: { token: string; onDesvincula
       const r = datos as { nombre: string; tipo: string; momento: string; retardo_minutos: number | null };
       setMensaje({
         ok: true,
-        texto: `${r.tipo === "entrada" ? "Entrada" : "Salida"} registrada · ${hora(r.momento, tz)}`,
+        texto: `${ACCIONES[accion].listo} · ${hora(r.momento, tz)}`,
         detalle: `${r.nombre}${r.retardo_minutos ? ` · retardo de ${r.retardo_minutos} min` : ""}`,
       });
       cargar();
     } catch (e) {
-      setMensaje({ ok: false, texto: e instanceof TypeError ? "Sin conexión con el servidor" : (e as Error).message });
+      if (e instanceof TypeError) await guardarSinRed();
+      else setMensaje({ ok: false, texto: (e as Error).message });
     } finally {
-      setNumero("");
-      setPin("");
-      setCampo("numero");
+      setOcupado(false);
+      reiniciar();
     }
   }
 
@@ -188,104 +307,148 @@ function PantallaKiosco({ token, onDesvinculado }: { token: string; onDesvincula
   }
 
   return (
-    <div className="grid min-h-screen bg-navy-900 text-white lg:grid-cols-2">
-      <section className="flex flex-col gap-6 p-6 sm:p-10">
-        <div className="flex items-center justify-between gap-4">
+    <div className="flex min-h-screen flex-col bg-slate-100 text-tinta-900">
+      {/* Barra superior: empresa, sucursal, conexión y reloj */}
+      <header className="flex items-center justify-between gap-4 bg-navy-900 px-6 py-4 text-white">
+        <div className="flex items-center gap-4">
           <img src="/logo.png" alt="ODAI" className="h-7" />
-          <span className="text-sm text-slate-300">
-            <span className="font-mono font-semibold text-accent-500">{estado.sucursal.clave}</span> · {estado.sucursal.nombre}
-          </span>
+          <div className="leading-tight">
+            <p className="text-sm font-semibold">{estado.empresa ?? "Kiosco"}</p>
+            <p className="text-xs text-slate-300">
+              <span className="font-mono text-accent-500">{estado.sucursal.clave}</span> · {estado.sucursal.nombre}
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="text-7xl font-bold tracking-tight tabular-nums sm:text-8xl">{ahora.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", timeZone: tz })}</p>
-          <p className="mt-2 text-lg capitalize text-slate-300">{ahora.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", timeZone: tz })}</p>
+        <div className="flex items-center gap-5">
+          {(!enLinea || pendientes > 0) && (
+            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${enLinea ? "bg-amber-400 text-amber-950" : "bg-red-500 text-white"}`}>
+              {enLinea ? `Enviando ${pendientes} pendiente(s)…` : `Sin conexión${pendientes ? ` · ${pendientes} por enviar` : ""}`}
+            </span>
+          )}
+          <div className="text-right leading-tight">
+            <p className="text-3xl font-bold tabular-nums">{ahora.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: tz })}</p>
+            <p className="text-xs capitalize text-slate-300">{ahora.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", timeZone: tz })}</p>
+          </div>
         </div>
+      </header>
 
-        {estado.config.qr && qrImg && (
-          <div className="flex flex-col items-center gap-5 rounded-3xl bg-white p-5 text-tinta-900 sm:flex-row">
-            <img src={qrImg} alt="Código QR para checar con el celular" className="h-48 w-48 shrink-0" />
-            <div className="space-y-2">
-              <p className="text-xl font-bold">Escanea con tu celular</p>
-              <p className="text-sm text-slate-600">Abre la cámara de tu teléfono y apunta a este código. Cambia cada 30 segundos.</p>
+      <div className="grid flex-1 gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <main className="flex flex-col justify-center">
+          {!estado.config.permitir_kiosco ? (
+            <p className="card p-10 text-center text-lg text-slate-600">El kiosco está desactivado para esta sucursal.</p>
+          ) : quien ? (
+            <div className="mx-auto w-full max-w-3xl space-y-4">
+              <PantallaChecado
+                grande
+                nombre={quien.empleado.nombre_completo}
+                subtitulo={[quien.empleado.puesto, `No. ${quien.empleado.numero}`].filter(Boolean).join(" · ")}
+                foto={
+                  quien.foto ? (
+                    <img src={quien.foto} alt="" className="h-24 w-24 rounded-2xl object-cover ring-4 ring-slate-100" />
+                  ) : (
+                    <span className="flex h-24 w-24 items-center justify-center rounded-2xl bg-slate-100 text-3xl font-bold text-slate-400">{quien.empleado.nombre_completo.charAt(0)}</span>
+                  )
+                }
+                marcas={quien.checadas}
+                acciones={quien.acciones}
+                tz={tz}
+                ahora={ahora}
+                ocupado={ocupado}
+                onAccion={elegir}
+              />
+              {!quien.sesion && <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">Sin conexión: tu checada se guarda en la tablet y se envía en cuanto regrese el internet.</p>}
+              <div className="flex items-center justify-between text-sm text-slate-500">
+                <span>Al elegir, la tablet toma tu foto.</span>
+                <button type="button" className="rounded-xl px-4 py-2 font-medium text-slate-600 hover:bg-white" onClick={reiniciar}>
+                  No soy yo · Cancelar ({inactivo})
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="card mx-auto w-full max-w-md space-y-5 p-6 sm:p-8">
+              {estado.festivo_hoy && (
+                <p className="rounded-xl bg-sky-50 px-4 py-3 text-sm text-sky-800">
+                  Hoy es <strong>{estado.festivo_hoy}</strong>. Solo checa el personal designado para trabajar.
+                </p>
+              )}
+              <div className="text-center">
+                <h1 className="text-2xl font-bold">Bienvenido</h1>
+                <p className="mt-1 text-slate-500">{estado.config.pin ? "Escribe tu número de empleado y tu PIN." : "Escribe tu número de empleado."}</p>
+              </div>
+              <div className={`grid gap-3 ${estado.config.pin ? "grid-cols-2" : "grid-cols-1"}`}>
+                <button type="button" onClick={() => setCampo("numero")} className={`rounded-2xl border-2 bg-white px-4 py-3 text-left ${campo === "numero" ? "border-brand-500" : "border-slate-200"}`}>
+                  <span className="block text-xs font-semibold text-slate-500">Número de empleado</span>
+                  <span className="block h-9 text-3xl font-bold tabular-nums">{numero}</span>
+                </button>
+                {estado.config.pin && (
+                  <button type="button" onClick={() => setCampo("pin")} className={`rounded-2xl border-2 bg-white px-4 py-3 text-left ${campo === "pin" ? "border-brand-500" : "border-slate-200"}`}>
+                    <span className="block text-xs font-semibold text-slate-500">PIN</span>
+                    <span className="block h-9 text-3xl tracking-[0.3em]">{"•".repeat(pin.length)}</span>
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((n) => (
+                  <button key={n} type="button" onClick={() => tecla(n)} className="h-16 rounded-2xl border border-slate-200 bg-white text-3xl font-semibold transition active:scale-95 active:bg-brand-50">
+                    {n}
+                  </button>
+                ))}
+                <button type="button" onClick={() => tecla("borrar")} aria-label="Borrar" className="flex h-16 items-center justify-center rounded-2xl border border-slate-200 bg-slate-100">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M21 5H9l-6 7 6 7h12zM17 9l-6 6M11 9l6 6" />
+                  </svg>
+                </button>
+                <button type="button" onClick={() => tecla("0")} className="h-16 rounded-2xl border border-slate-200 bg-white text-3xl font-semibold transition active:scale-95">
+                  0
+                </button>
+                <button type="button" onClick={continuar} disabled={ocupado} className="h-16 rounded-2xl bg-brand-500 text-lg font-bold text-white transition active:scale-95 disabled:opacity-60">
+                  {campo === "numero" && estado.config.pin ? "Siguiente" : ocupado ? "…" : "Entrar"}
+                </button>
+              </div>
+            </div>
+          )}
+        </main>
+
+        <aside className="space-y-4">
+          {estado.config.qr && qrImg && enLinea && (
+            <div className="card space-y-3 p-5 text-center">
+              <p className="font-semibold">Checa con tu celular</p>
+              <img src={qrImg} alt="Código QR para checar con el celular" className="mx-auto h-44 w-44" />
               <div className="flex items-center gap-3">
                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200">
                   <div className="h-full bg-brand-500 transition-[width] duration-1000 ease-linear" style={{ width: `${(restante / 30) * 100}%` }} />
                 </div>
                 <span className="text-sm font-semibold tabular-nums text-brand-700">0:{String(restante).padStart(2, "0")}</span>
               </div>
+              <p className="text-xs text-slate-500">Escanéalo desde ODAITIME en tu celular. Cambia cada 30 segundos.</p>
             </div>
+          )}
+          <div className="card space-y-2 p-5">
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Últimas checadas</p>
+            {estado.ultimas.length === 0 && <p className="text-sm text-slate-400">Nadie ha checado hoy.</p>}
+            {estado.ultimas.slice(0, 6).map((u, i) => (
+              <div key={i} className="flex justify-between gap-2 text-sm">
+                <span className="truncate">{u.nombre}</span>
+                <span className={`shrink-0 ${u.tipo === "entrada" ? "text-emerald-600" : "text-rose-600"}`}>
+                  {u.tipo === "entrada" ? "Entrada" : "Salida"} {hora(u.momento, tz)}
+                </span>
+              </div>
+            ))}
           </div>
-        )}
-
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Últimas checadas</p>
-          {estado.ultimas.length === 0 && <p className="text-sm text-slate-400">Nadie ha checado hoy.</p>}
-          {estado.ultimas.slice(0, 5).map((u, i) => (
-            <div key={i} className="flex justify-between text-sm">
-              <span>{u.nombre}</span>
-              <span className={u.tipo === "entrada" ? "text-emerald-300" : "text-sky-300"}>
-                {u.tipo === "entrada" ? "Entrada" : "Salida"} {hora(u.momento, tz)}
-              </span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="flex flex-col justify-center gap-5 bg-slate-50 p-6 text-tinta-900 sm:p-10">
-        {!estado.config.permitir_kiosco ? (
-          <p className="text-center text-lg text-slate-600">El kiosco está desactivado para esta sucursal.</p>
-        ) : (
-          <>
-            {estado.festivo_hoy && (
-              <p className="rounded-xl bg-sky-50 px-4 py-3 text-sm text-sky-800">
-                Hoy es <strong>{estado.festivo_hoy}</strong>. Solo puede checar el personal designado para trabajar.
-              </p>
-            )}
-            <div>
-              <h1 className="text-2xl font-bold">Checar con tu número</h1>
-              <p className="mt-1 text-slate-500">{estado.config.pin ? "Escribe tu número de empleado y tu PIN." : "Escribe tu número de empleado."}</p>
-            </div>
-
-            <div className={`grid gap-3 ${estado.config.pin ? "grid-cols-2" : "grid-cols-1"}`}>
-              <button type="button" onClick={() => setCampo("numero")} className={`rounded-2xl border-2 bg-white px-4 py-3 text-left ${campo === "numero" ? "border-brand-500" : "border-slate-200"}`}>
-                <span className="block text-xs font-semibold text-slate-500">Número de empleado</span>
-                <span className="block h-9 text-3xl font-bold tabular-nums">{numero}</span>
-              </button>
-              {estado.config.pin && (
-                <button type="button" onClick={() => setCampo("pin")} className={`rounded-2xl border-2 bg-white px-4 py-3 text-left ${campo === "pin" ? "border-brand-500" : "border-slate-200"}`}>
-                  <span className="block text-xs font-semibold text-slate-500">PIN</span>
-                  <span className="block h-9 text-3xl tracking-[0.3em]">{"•".repeat(pin.length)}</span>
-                </button>
-              )}
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((n) => (
-                <button key={n} type="button" onClick={() => tecla(n)} className="h-16 rounded-2xl border border-slate-200 bg-white text-3xl font-semibold transition active:scale-95 active:bg-brand-50 sm:h-20">
-                  {n}
-                </button>
-              ))}
-              <button type="button" onClick={() => tecla("borrar")} aria-label="Borrar" className="flex h-16 items-center justify-center rounded-2xl border border-slate-200 bg-slate-100 sm:h-20">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M21 5H9l-6 7 6 7h12zM17 9l-6 6M11 9l6 6" />
-                </svg>
-              </button>
-              <button type="button" onClick={() => tecla("0")} className="h-16 rounded-2xl border border-slate-200 bg-white text-3xl font-semibold transition active:scale-95 sm:h-20">
-                0
-              </button>
-              <button type="button" onClick={checar} className="h-16 rounded-2xl bg-brand-500 text-lg font-bold text-white transition active:scale-95 sm:h-20">
-                {campo === "numero" && estado.config.pin ? "Siguiente" : "Checar"}
-              </button>
-            </div>
-            {estado.config.foto && <p className="text-sm text-slate-500">Al checar, la tablet tomará tu foto.</p>}
-          </>
-        )}
-      </section>
+        </aside>
+      </div>
 
       {mensaje && (
-        <div role="status" className={`fixed inset-x-0 bottom-0 p-6 text-center text-white ${mensaje.ok ? "bg-emerald-600" : "bg-red-600"}`}>
-          <p className="text-2xl font-bold">{mensaje.texto}</p>
-          {mensaje.detalle && <p className="mt-1 text-lg">{mensaje.detalle}</p>}
+        <div role="status" className="fixed inset-0 z-50 flex items-center justify-center bg-navy-900/60 p-6" onClick={() => setMensaje(null)}>
+          <div className="card w-full max-w-md space-y-3 p-8 text-center">
+            <div className={`mx-auto flex h-20 w-20 items-center justify-center rounded-full ${mensaje.ok ? (mensaje.espera ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700") : "bg-red-100 text-red-700"}`}>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                {mensaje.ok ? <path d="M20 6L9 17l-5-5" /> : <path d="M18 6 6 18M6 6l12 12" />}
+              </svg>
+            </div>
+            <p className="text-2xl font-bold">{mensaje.texto}</p>
+            {mensaje.detalle && <p className="text-slate-600">{mensaje.detalle}</p>}
+          </div>
         </div>
       )}
     </div>

@@ -242,6 +242,60 @@ def siguiente_tipo(ultima: Checada | None, ahora: datetime) -> str:
     return "entrada"
 
 
+ACCIONES = {
+    "entrada": ("entrada", False),
+    "salida_comida": ("salida", True),
+    "regreso_comida": ("entrada", True),
+    "salida": ("salida", False),
+}
+
+
+def acciones(
+    ultima: Checada | None, hoy: list[Checada], turno: TurnoHoy | None, ahora: datetime
+) -> list[dict]:
+    """Botones de la pantalla de checado y cuál toca. Los de comida solo con horario quebrado."""
+    quebrado = bool(turno and len(turno.bloques) >= 2)
+    sig = siguiente_tipo(ultima, ahora)
+    validas = [c for c in hoy if c.estado == "valida"]
+    en_comida = bool(validas and validas[-1].tipo == "salida" and validas[-1].comida)
+    ya_comio = any(c.comida and c.tipo == "salida" for c in validas)
+    lista = [{"accion": "entrada", "habilitada": sig == "entrada" and not (quebrado and en_comida)}]
+    if quebrado:
+        lista += [
+            {"accion": "salida_comida", "habilitada": sig == "salida" and not ya_comio},
+            {"accion": "regreso_comida", "habilitada": sig == "entrada" and en_comida},
+        ]
+    lista.append({"accion": "salida", "habilitada": sig == "salida"})
+    return lista
+
+
+SESION_S = 180
+
+
+def firmar_sesion(dispositivo_id: uuid.UUID, empleado_id: uuid.UUID) -> str:
+    """Sesión corta del kiosco tras número + PIN (para elegir el botón y tomar la foto)."""
+    exp = int(datetime.now(UTC).timestamp()) + SESION_S
+    base = f"{dispositivo_id}.{empleado_id}.{exp}"
+    firma = hmac.new(get_settings().secret_key.encode(), base.encode(), hashlib.sha256).hexdigest()
+    return f"{base}.{firma[:40]}"
+
+
+def leer_sesion(token: str, dispositivo_id: uuid.UUID) -> uuid.UUID | None:
+    try:
+        disp, emp, exp, firma = token.split(".")
+        base = f"{disp}.{emp}.{exp}"
+        esperada = hmac.new(
+            get_settings().secret_key.encode(), base.encode(), hashlib.sha256
+        ).hexdigest()[:40]
+        if not hmac.compare_digest(firma, esperada) or disp != str(dispositivo_id):
+            return None
+        if int(exp) < datetime.now(UTC).timestamp():
+            return None
+        return uuid.UUID(emp)
+    except (ValueError, TypeError):
+        return None
+
+
 def bloque_de(turno: TurnoHoy, momento: datetime) -> tuple[datetime, datetime]:
     """Bloque al que corresponde una entrada: en turno quebrado, el regreso de comida
     (después de la mitad del descanso) se compara contra el segundo horario."""
@@ -366,6 +420,7 @@ async def registrar(
     origen: str,
     momento_dispositivo: datetime | None = None,
     offline: bool = False,
+    accion: str | None = None,
     **campos,
 ) -> Checada:
     """Valida ventana, repetición y tipo; agrega la checada a la sesión (sin commit)."""
@@ -398,6 +453,15 @@ async def registrar(
         )
 
     tipo = siguiente_tipo(ultima, momento)
+    if accion is not None:
+        esperado, es_comida = ACCIONES[accion]
+        if tipo != esperado:
+            raise error(
+                "accion_invalida",
+                f"Ahora te toca registrar tu {tipo}.",
+                http=status.HTTP_409_CONFLICT,
+            )
+        campos["comida"] = es_comida
     tz = zona(sucursal)
     dia, turno = jornada_de(empleado, momento, tz)
     if tipo == "entrada":

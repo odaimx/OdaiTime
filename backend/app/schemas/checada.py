@@ -66,6 +66,7 @@ class ChecadaOut(BaseModel):
     empleado: EmpleadoRef
     sucursal: SucursalRef
     obra: ObraRef | None = None
+    comida: bool = False
 
     @classmethod
     def de(cls, c) -> "ChecadaOut":
@@ -80,6 +81,7 @@ class ChecadaOut(BaseModel):
             estado=c.estado,
             corregida=c.corregida,
             tiene_foto=c.foto is not None,
+            comida=bool(getattr(c, "comida", False)),
             empleado=EmpleadoRef.model_validate(c.empleado),
             sucursal=SucursalRef.model_validate(c.sucursal),
             obra=ObraRef.model_validate(c.obra) if c.obra is not None else None,
@@ -121,6 +123,14 @@ class Requisitos(BaseModel):
     qr: bool
 
 
+Accion = Literal["entrada", "salida_comida", "regreso_comida", "salida"]
+
+
+class AccionOut(BaseModel):
+    accion: Accion
+    habilitada: bool
+
+
 class EstadoHoy(BaseModel):
     empleado: EmpleadoRef
     sucursal: SucursalChecar
@@ -132,6 +142,7 @@ class EstadoHoy(BaseModel):
     permitir_offline: bool
     requiere: Requisitos
     checadas_hoy: list[ChecadaOut]
+    acciones: list[AccionOut] = []
     hora_servidor: datetime
     festivo_hoy: str | None = None
     designado_festivo: bool = False
