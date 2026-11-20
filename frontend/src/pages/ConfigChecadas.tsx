@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import Bitacora from "../components/Bitacora";
 import ConfigWhatsApp from "../components/ConfigWhatsApp";
-import { Badge, BarraGuardar, ErrorBox, Modal, PageHeader, useEmpresaScope, Plegable, type ItemSubmenu } from "../components/ui";
+import Registro from "../components/Registro";
+import { Badge, BarraGuardar, Campos, ErrorBox, Fila, Modal, PageHeader, useEmpresaScope, Plegable, type ItemSubmenu } from "../components/ui";
 import { api, fechaHora, get, patch, post, type ConfigChecadas as Config, type Dispositivo, type Sucursal } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -110,16 +111,22 @@ export default function ConfigChecadas({
     cargar();
   }
 
-  async function crearDisp(e: FormEvent) {
-    e.preventDefault();
+  async function crearDisp(e?: FormEvent): Promise<boolean> {
+    e?.preventDefault();
     setErrorDisp(null);
+    if (!formDisp.nombre.trim() || !formDisp.sucursal_id) {
+      setErrorDisp("Escribe el nombre y elige la sucursal.");
+      return false;
+    }
     try {
       const d = await post<Dispositivo>(`/dispositivos${query}`, formDisp);
       setNuevoDisp(false);
       setCodigo(d);
       cargarDisp();
+      return true;
     } catch (err) {
       setErrorDisp((err as Error).message);
+      return false;
     }
   }
 
@@ -338,16 +345,23 @@ export default function ConfigChecadas({
       </div>
 
       {nuevoDisp && (
-        <Modal title="Agregar dispositivo" onClose={() => setNuevoDisp(false)}>
+        <Registro
+          flotante
+          titulo="Agregar dispositivo"
+          sucio
+          autoguardar={false}
+          imprimir={false}
+          onGuardar={() => crearDisp()}
+          onCerrar={() => setNuevoDisp(false)}
+          nota="Al guardar se muestra el código de 6 dígitos para vincular la tablet o el reloj."
+        >
           <form onSubmit={crearDisp} className="space-y-4">
-            <div>
-              <label className="label">Nombre</label>
-              <input className="input" required placeholder="Tablet recepción" value={formDisp.nombre} onChange={(e) => setFormDisp({ ...formDisp, nombre: e.target.value })} />
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <label className="label">Sucursal</label>
-                <select className="input" required value={formDisp.sucursal_id} onChange={(e) => setFormDisp({ ...formDisp, sucursal_id: e.target.value })}>
+            <Campos>
+              <Fila etiqueta="Nombre" htmlFor="disp-nombre">
+                <input id="disp-nombre" className="input" required placeholder="Tablet recepción" value={formDisp.nombre} onChange={(e) => setFormDisp({ ...formDisp, nombre: e.target.value })} />
+              </Fila>
+              <Fila etiqueta="Sucursal" htmlFor="disp-suc">
+                <select id="disp-suc" className="input" required value={formDisp.sucursal_id} onChange={(e) => setFormDisp({ ...formDisp, sucursal_id: e.target.value })}>
                   <option value="">Selecciona…</option>
                   {sucursales.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -355,24 +369,17 @@ export default function ConfigChecadas({
                     </option>
                   ))}
                 </select>
-              </div>
-              <div>
-                <label className="label">Tipo</label>
-                <select className="input" value={formDisp.tipo} onChange={(e) => setFormDisp({ ...formDisp, tipo: e.target.value })}>
+              </Fila>
+              <Fila etiqueta="Tipo" htmlFor="disp-tipo">
+                <select id="disp-tipo" className="input" value={formDisp.tipo} onChange={(e) => setFormDisp({ ...formDisp, tipo: e.target.value })}>
                   <option value="kiosco">Kiosco (tablet)</option>
                   <option value="biometrico">Reloj biométrico</option>
                 </select>
-              </div>
-            </div>
+              </Fila>
+            </Campos>
             <ErrorBox message={errorDisp} />
-            <div className="flex justify-end gap-3">
-              <button type="button" className="btn-secondary" onClick={() => setNuevoDisp(false)}>
-                Cancelar
-              </button>
-              <button className="btn-primary">Crear y obtener código</button>
-            </div>
           </form>
-        </Modal>
+        </Registro>
       )}
 
       {codigo && (

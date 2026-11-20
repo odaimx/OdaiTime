@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ArticuloLFT } from "../components/LFT";
 import Icono from "../components/Iconos";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
-import { ErrorBox, Modal, PageHeader } from "../components/ui";
+import Registro from "../components/Registro";
+import { Campos, ErrorBox, Fila, PageHeader } from "../components/ui";
 import { api, get, post, type Empleado, type Empresa, type Festivo } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useBanda } from "../lib/bandas";
@@ -50,15 +51,21 @@ export default function Festivos() {
     cargar();
   }
 
-  async function crear(e: FormEvent) {
-    e.preventDefault();
+  async function crear(e?: FormEvent): Promise<boolean> {
+    e?.preventDefault();
     setError(null);
+    if (!form.fecha || form.nombre.trim().length < 3) {
+      setError("Escribe la fecha y un nombre de al menos 3 letras.");
+      return false;
+    }
     try {
       await post(`/festivos?${query}`, form);
       setNuevo(false);
       cargar();
+      return true;
     } catch (err) {
       setError((err as Error).message);
+      return false;
     }
   }
 
@@ -84,15 +91,17 @@ export default function Festivos() {
     setDesignar(f);
   }
 
-  async function guardarDesignados() {
-    if (!designar) return;
+  async function guardarDesignados(): Promise<boolean> {
+    if (!designar) return false;
     setError(null);
     try {
       await api(`/festivos/designados?${query}`, { method: "PUT", body: JSON.stringify({ fecha: designar.fecha, empleado_ids: [...seleccion] }) });
       setConteo((c) => ({ ...c, [designar.fecha]: seleccion.size }));
       setDesignar(null);
+      return true;
     } catch (err) {
       setError((err as Error).message);
+      return false;
     }
   }
 
@@ -257,11 +266,18 @@ export default function Festivos() {
       </p>
 
       {designar && (
-        <Modal title={`Personal que trabaja · ${designar.nombre}`} onClose={() => setDesignar(null)} ancho="md">
+        <Registro
+          flotante
+          titulo={`Personal que trabaja · ${designar.nombre}`}
+          subtitulo={<span className="capitalize">{fecha(designar.fecha)}</span>}
+          sucio
+          autoguardar={false}
+          imprimir={false}
+          onGuardar={guardarDesignados}
+          onCerrar={() => setDesignar(null)}
+          nota="Solo las personas marcadas podrán registrar entrada ese día."
+        >
           <div className="space-y-4">
-            <p className="text-sm text-slate-600">
-              <span className="capitalize">{fecha(designar.fecha)}</span>. Solo las personas marcadas podrán registrar entrada ese día.
-            </p>
             <input className="input" placeholder="Buscar empleado…" value={buscar} onChange={(e) => setBuscar(e.target.value)} />
             <div className="max-h-72 space-y-1 overflow-y-auto rounded-lg border border-slate-200 p-2">
               {empleados
@@ -290,49 +306,40 @@ export default function Festivos() {
             </div>
             <p className="text-xs text-slate-500">{seleccion.size} persona(s) designada(s).</p>
             <ErrorBox message={error} />
-            <div className="flex justify-end gap-3">
-              <button type="button" className="btn-secondary" onClick={() => setDesignar(null)}>
-                Cancelar
-              </button>
-              <button className="btn-primary" onClick={guardarDesignados}>
-                Guardar
-              </button>
-            </div>
           </div>
-        </Modal>
+        </Registro>
       )}
 
       {nuevo && (
-        <Modal title={nacional ? "Agregar al catálogo nacional" : "Agregar día de la empresa"} onClose={() => setNuevo(false)} ancho="md">
+        <Registro
+          flotante
+          titulo={nacional ? "Agregar al catálogo nacional" : "Agregar día de la empresa"}
+          sucio
+          autoguardar={false}
+          imprimir={false}
+          onGuardar={() => crear()}
+          onCerrar={() => setNuevo(false)}
+        >
           <form onSubmit={crear} className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <label className="label">Fecha</label>
-                <input type="date" className="input" required value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} />
-              </div>
+            <Campos>
+              <Fila etiqueta="Fecha" htmlFor="fes-fecha">
+                <input id="fes-fecha" type="date" className="input" required value={form.fecha} onChange={(e) => setForm({ ...form, fecha: e.target.value })} />
+              </Fila>
+              <Fila etiqueta="Nombre" htmlFor="fes-nombre">
+                <input id="fes-nombre" className="input" required minLength={3} maxLength={120} placeholder={nacional ? "Jornada electoral federal" : "Aniversario de la empresa"} value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
+              </Fila>
               {nacional && (
-                <div>
-                  <label className="label">Tipo</label>
-                  <select className="input" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}>
+                <Fila etiqueta="Tipo" htmlFor="fes-tipo">
+                  <select id="fes-tipo" className="input" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}>
                     <option value="obligatorio">Obligatorio (art. 74)</option>
                     <option value="opcional">Opcional</option>
                   </select>
-                </div>
+                </Fila>
               )}
-            </div>
-            <div>
-              <label className="label">Nombre</label>
-              <input className="input" required minLength={3} maxLength={120} placeholder={nacional ? "Jornada electoral federal" : "Aniversario de la empresa"} value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
-            </div>
+            </Campos>
             <ErrorBox message={error} />
-            <div className="flex justify-end gap-3">
-              <button type="button" className="btn-secondary" onClick={() => setNuevo(false)}>
-                Cancelar
-              </button>
-              <button className="btn-primary">Agregar</button>
-            </div>
           </form>
-        </Modal>
+        </Registro>
       )}
     </>
   );
