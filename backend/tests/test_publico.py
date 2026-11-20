@@ -48,6 +48,7 @@ async def test_celular_vinculado_sin_usuario(client, superadmin):
 
     est = (await client.get("/api/publico/celular/estado", headers=h)).json()
     assert est["estado"] == "aprobado" and est["hoy"]["acciones"][0]["accion"] == "entrada"
+    assert "foto" in est
 
     # Sin selfie no; con PIN incorrecto no; con todo, sí.
     r = await client.post("/api/publico/celular/checar", headers=h, data=datos)
@@ -90,6 +91,7 @@ async def test_qr_del_kiosco_sin_usuario(client, superadmin):
     assert r.status_code == 200, r.text
     ses = r.json()
     assert ses["acciones"][0] == {"accion": "entrada", "habilitada": True}
+    assert ses["gps"]["metros"] < ses["gps"]["radio"] and ses["sucursal"] == "Cancún"
 
     r = await client.post(
         "/api/publico/qr/checar",

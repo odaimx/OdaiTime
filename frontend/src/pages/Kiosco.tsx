@@ -1,7 +1,7 @@
 import QRCode from "qrcode";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Camara from "../components/Camara";
-import PantallaChecado, { ACCIONES, type Accion, type MarcaHoy } from "../components/PantallaChecado";
+import PantallaChecado, { ACCIONES, EncabezadoEmpresa, Reloj, type Accion, type Bloque, type MarcaHoy } from "../components/PantallaChecado";
 import { comprimir, hora } from "../lib/api";
 import {
   agregar as cola_agregar,
@@ -21,6 +21,8 @@ const TOKEN = "odaitime.kiosco";
 interface Estado {
   dispositivo: { id: string; nombre: string };
   empresa: string | null;
+  empresa_id?: string | null;
+  logo_version?: string | null;
   sucursal: { clave: string; nombre: string; zona_horaria: string };
   config: { permitir_kiosco: boolean; pin: boolean; foto: boolean; qr: boolean };
   qr: { url: string; expira: string };
@@ -107,6 +109,8 @@ interface Identificado {
   sesion: string | null; // null = sin conexión
   empleado: { nombre: string; nombre_completo: string; numero: string; puesto: string | null };
   foto: string | null;
+  sucursal?: string;
+  turno?: Bloque[];
   checadas: MarcaHoy[];
   acciones: { accion: Accion; habilitada: boolean }[];
 }
@@ -204,7 +208,7 @@ function PantallaKiosco({ token, onDesvinculado }: { token: string; onDesvincula
   // El mensaje de resultado se limpia solo.
   useEffect(() => {
     if (!mensaje) return;
-    const t = setTimeout(() => setMensaje(null), mensaje.ok ? 4000 : 6000);
+    const t = setTimeout(() => setMensaje(null), mensaje.ok ? 4000 : 25000);
     return () => clearTimeout(t);
   }, [mensaje]);
 
@@ -306,34 +310,47 @@ function PantallaKiosco({ token, onDesvinculado }: { token: string; onDesvincula
     return <div className="flex min-h-screen items-center justify-center bg-navy-900 text-slate-300">Conectando…</div>;
   }
 
-  return (
-    <div className="flex min-h-screen flex-col bg-slate-100 text-tinta-900">
-      {/* Barra superior: empresa, sucursal, conexión y reloj */}
-      <header className="flex items-center justify-between gap-4 bg-navy-900 px-6 py-4 text-white">
-        <div className="flex items-center gap-4">
-          <img src="/logo.png" alt="ODAI" className="h-7" />
-          <div className="leading-tight">
-            <p className="text-sm font-semibold">{estado.empresa ?? "Kiosco"}</p>
-            <p className="text-xs text-slate-300">
-              <span className="font-mono text-accent-500">{estado.sucursal.clave}</span> · {estado.sucursal.nombre}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-5">
-          {(!enLinea || pendientes > 0) && (
-            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${enLinea ? "bg-amber-400 text-amber-950" : "bg-red-500 text-white"}`}>
-              {enLinea ? `Enviando ${pendientes} pendiente(s)…` : `Sin conexión${pendientes ? ` · ${pendientes} por enviar` : ""}`}
-            </span>
-          )}
-          <div className="text-right leading-tight">
-            <p className="text-3xl font-bold tabular-nums">{ahora.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: tz })}</p>
-            <p className="text-xs capitalize text-slate-300">{ahora.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", timeZone: tz })}</p>
-          </div>
-        </div>
-      </header>
+  const conexion =
+    !enLinea || pendientes > 0 ? (
+      <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${enLinea ? "bg-amber-400 text-amber-950" : "bg-red-500 text-white"}`}>
+        {enLinea ? `Enviando ${pendientes} pendiente(s)…` : `Sin conexión${pendientes ? ` · ${pendientes} por enviar` : ""}`}
+      </span>
+    ) : null;
 
-      <div className="grid flex-1 gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <main className="flex flex-col justify-center">
+  return (
+    <div className="min-h-screen bg-slate-100 p-4 text-tinta-900 sm:p-6">
+      <div className="mx-auto w-full max-w-4xl space-y-4">
+        <EncabezadoEmpresa
+          nombre={estado.empresa ?? "Kiosco"}
+          empresaId={estado.empresa_id}
+          logoVersion={estado.logo_version}
+          detalle={`${estado.sucursal.clave} · ${estado.sucursal.nombre}`}
+          derecha={conexion}
+        />
+
+        {/* El QR para checar con el celular en lugar de los botones de método; a un lado, el reloj. */}
+        <div className="flex items-center justify-between gap-6">
+          {estado.config.qr && qrImg && enLinea ? (
+            <div className="card flex items-center gap-4 p-3">
+              <img src={qrImg} alt="Código QR para checar con el celular" className="h-28 w-28" />
+              <div className="w-36 space-y-2">
+                <p className="text-sm font-semibold leading-tight">Checa con tu celular</p>
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200">
+                    <div className="h-full bg-brand-500 transition-[width] duration-1000 ease-linear" style={{ width: `${(restante / 30) * 100}%` }} />
+                  </div>
+                  <span className="text-xs font-semibold tabular-nums text-brand-700">0:{String(restante).padStart(2, "0")}</span>
+                </div>
+                <p className="text-xs leading-tight text-slate-500">Escanéalo con la cámara. Cambia cada 30 s.</p>
+              </div>
+            </div>
+          ) : (
+            <span />
+          )}
+          <Reloj grande ahora={ahora} tz={tz} />
+        </div>
+
+        <main>
           {!estado.config.permitir_kiosco ? (
             <p className="card p-10 text-center text-lg text-slate-600">El kiosco está desactivado para esta sucursal.</p>
           ) : quien ? (
@@ -341,7 +358,8 @@ function PantallaKiosco({ token, onDesvinculado }: { token: string; onDesvincula
               <PantallaChecado
                 grande
                 nombre={quien.empleado.nombre_completo}
-                subtitulo={[quien.empleado.puesto, `No. ${quien.empleado.numero}`].filter(Boolean).join(" · ")}
+                subtitulo={quien.sucursal ?? `${estado.sucursal.clave} · ${estado.sucursal.nombre}`}
+                bloques={quien.turno}
                 foto={
                   quien.foto ? (
                     <img src={quien.foto} alt="" className="h-24 w-24 rounded-2xl object-cover ring-4 ring-slate-100" />
@@ -409,24 +427,10 @@ function PantallaKiosco({ token, onDesvinculado }: { token: string; onDesvincula
           )}
         </main>
 
-        <aside className="space-y-4">
-          {estado.config.qr && qrImg && enLinea && (
-            <div className="card space-y-3 p-5 text-center">
-              <p className="font-semibold">Checa con tu celular</p>
-              <img src={qrImg} alt="Código QR para checar con el celular" className="mx-auto h-44 w-44" />
-              <div className="flex items-center gap-3">
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200">
-                  <div className="h-full bg-brand-500 transition-[width] duration-1000 ease-linear" style={{ width: `${(restante / 30) * 100}%` }} />
-                </div>
-                <span className="text-sm font-semibold tabular-nums text-brand-700">0:{String(restante).padStart(2, "0")}</span>
-              </div>
-              <p className="text-xs text-slate-500">Escanéalo desde ODAITIME en tu celular. Cambia cada 30 segundos.</p>
-            </div>
-          )}
-          <div className="card space-y-2 p-5">
+        {!quien && estado.ultimas.length > 0 && (
+          <div className="card space-y-1.5 p-4">
             <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Últimas checadas</p>
-            {estado.ultimas.length === 0 && <p className="text-sm text-slate-400">Nadie ha checado hoy.</p>}
-            {estado.ultimas.slice(0, 6).map((u, i) => (
+            {estado.ultimas.slice(0, 5).map((u, i) => (
               <div key={i} className="flex justify-between gap-2 text-sm">
                 <span className="truncate">{u.nombre}</span>
                 <span className={`shrink-0 ${u.tipo === "entrada" ? "text-emerald-600" : "text-rose-600"}`}>
@@ -435,12 +439,17 @@ function PantallaKiosco({ token, onDesvinculado }: { token: string; onDesvincula
               </div>
             ))}
           </div>
-        </aside>
+        )}
       </div>
 
       {mensaje && (
         <div role="status" className="fixed inset-0 z-50 flex items-center justify-center bg-navy-900/60 p-6" onClick={() => setMensaje(null)}>
-          <div className="card w-full max-w-md space-y-3 p-8 text-center">
+          <div className="card relative w-full max-w-md space-y-3 p-8 text-center">
+            <button type="button" className="absolute right-3 top-3 rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Cerrar aviso" onClick={() => setMensaje(null)}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" aria-hidden="true">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
             <div className={`mx-auto flex h-20 w-20 items-center justify-center rounded-full ${mensaje.ok ? (mensaje.espera ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700") : "bg-red-100 text-red-700"}`}>
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 {mensaje.ok ? <path d="M20 6L9 17l-5-5" /> : <path d="M18 6 6 18M6 6l12 12" />}

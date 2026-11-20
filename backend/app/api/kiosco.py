@@ -158,6 +158,8 @@ async def estado(d: DispositivoActual, request: Request, db: DB) -> dict:
     return {
         "dispositivo": {"id": str(d.id), "nombre": d.nombre},
         "empresa": empresa.nombre if empresa else None,
+        "empresa_id": str(d.empresa_id),
+        "logo_version": empresa.logo_version if empresa else None,
         "sucursal": {
             "clave": d.sucursal.clave,
             "nombre": d.sucursal.nombre,
@@ -255,6 +257,7 @@ async def _estado_empleado(db, d: Dispositivo, empleado: Empleado) -> dict:
             "puesto": empleado.puesto,
         },
         "foto": f"data:image/jpeg;base64,{base64.b64encode(foto).decode()}" if foto else None,
+        "sucursal": d.sucursal.nombre,
         "turno": [{"entrada": a.isoformat(), "salida": b.isoformat()} for a, b in turno.bloques]
         if turno
         else [],

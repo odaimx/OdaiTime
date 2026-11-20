@@ -10,6 +10,7 @@ Seguridad: bloqueo de 15 min tras 5 PIN incorrectos (por número y por IP), sesi
 3 min tras el PIN, token del celular guardado solo como hash y revocable desde la ficha.
 """
 
+import base64
 import uuid
 from datetime import UTC, datetime
 from typing import Annotated
@@ -95,7 +96,12 @@ async def qr_identificar(data: QrIdentificarIn, request: Request, db: DB) -> dic
     await aviso_svc.exigir(db, empleado, data.aviso, medio="qr", request=request)
     estado = await _estado_empleado(db, d, empleado)
     await db.commit()
-    return {"sesion": svc.firmar_sesion(d.id, empleado.id), **estado}
+    metros = svc.distancia_m(data.latitud, data.longitud, d.sucursal.latitud, d.sucursal.longitud)
+    return {
+        "sesion": svc.firmar_sesion(d.id, empleado.id),
+        "gps": {"metros": round(metros, 1), "radio": d.sucursal.radio_metros},
+        **estado,
+    }
 
 
 @router.post("/qr/checar", status_code=status.HTTP_201_CREATED)
@@ -240,6 +246,7 @@ async def _celular(db: DB, token: str | None) -> CelularVinculado:
 class CelularEstado(BaseModel):
     estado: str
     nombre: str
+    foto: str | None = None  # data URL de la foto del expediente (128 px)
     hoy: EstadoHoy | None = None
 
 
@@ -250,8 +257,12 @@ async def celular_estado(
     c = await _celular(db, token)
     if c.estado != "aprobado":
         return CelularEstado(estado=c.estado, nombre=c.empleado.nombre)
+    foto = await db.scalar(select(Empleado.foto_128).where(Empleado.id == c.empleado_id))
     return CelularEstado(
-        estado="aprobado", nombre=c.empleado.nombre, hoy=await estado_hoy(db, c.empleado)
+        estado="aprobado",
+        nombre=c.empleado.nombre,
+        foto=f"data:image/jpeg;base64,{base64.b64encode(foto).decode()}" if foto else None,
+        hoy=await estado_hoy(db, c.empleado),
     )
 
 
