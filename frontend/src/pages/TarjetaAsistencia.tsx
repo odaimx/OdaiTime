@@ -5,7 +5,7 @@ import { useAuth } from "../lib/auth";
 import { useNavigate } from "react-router";
 import Icono from "../components/Iconos";
 import Vista, { abrirEn, useVista, type ConfigVista } from "../components/Vista";
-import { ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
+import { Campos, ErrorBox, Fila, PageHeader, useEmpresaScope } from "../components/ui";
 import { periodo } from "../lib/periodo";
 import { descargar, get, hm, hora, INCIDENCIAS,
   RAMOS,
@@ -64,9 +64,9 @@ export default function TarjetaAsistencia() {
     setDetalle(await get<DetalleAsistencia>(`/asistencia/empleado/${empleadoId}${query}${sep}${new URLSearchParams(rango)}`));
   }
 
-  async function guardarIncidencia(e: FormEvent) {
-    e.preventDefault();
-    if (!justificar || !detalle) return;
+  async function guardarIncidencia(e?: FormEvent): Promise<boolean> {
+    e?.preventDefault();
+    if (!justificar || !detalle) return false;
     setError(null);
     try {
       await post(`/asistencia/incidencias${query}`, {
@@ -82,8 +82,10 @@ export default function TarjetaAsistencia() {
       setJustificar(null);
       await abrir(detalle.empleado.id);
       cargar();
+      return true;
     } catch (err) {
       setError((err as Error).message);
+      return false;
     }
   }
 
@@ -355,60 +357,58 @@ export default function TarjetaAsistencia() {
       )}
 
       {justificar && detalle && (
-        <Modal title={`Incidencia del ${new Date(justificar.fecha + "T12:00").toLocaleDateString("es-MX", { dateStyle: "long" })}`} onClose={() => setJustificar(null)}>
+        <Registro
+          flotante
+          titulo={`Incidencia del ${new Date(justificar.fecha + "T12:00").toLocaleDateString("es-MX", { dateStyle: "long" })}`}
+          subtitulo={detalle.empleado.nombre_completo}
+          sucio
+          autoguardar={false}
+          imprimir={false}
+          onGuardar={() => guardarIncidencia()}
+          onCerrar={() => setJustificar(null)}
+          nota="Para rangos de varios días, usa la ficha del empleado › Vacaciones e incidencias."
+        >
           <form onSubmit={guardarIncidencia} className="space-y-4">
-            <div>
-              <label className="label">Tipo</label>
-              <select className="input" value={formInc.tipo} onChange={(e) => setFormInc({ ...formInc, tipo: e.target.value })}>
-                {Object.entries(INCIDENCIAS).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {formInc.tipo === "incapacidad" && (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div>
-                  <label className="label">Ramo</label>
-                  <select className="input" value={formInc.ramo} onChange={(e) => setFormInc({ ...formInc, ramo: e.target.value })}>
+            <Campos>
+              <Fila etiqueta="Tipo" htmlFor="inc-tipo">
+                <select id="inc-tipo" className="input" value={formInc.tipo} onChange={(e) => setFormInc({ ...formInc, tipo: e.target.value })}>
+                  {Object.entries(INCIDENCIAS).map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </Fila>
+              <Fila etiqueta="Notas" htmlFor="inc-notas">
+                <input id="inc-notas" className="input" maxLength={1000} value={formInc.notas} onChange={(e) => setFormInc({ ...formInc, notas: e.target.value })} />
+              </Fila>
+              {formInc.tipo === "incapacidad" && [
+                <Fila key="ramo" etiqueta="Ramo" htmlFor="inc-ramo">
+                  <select id="inc-ramo" className="input" value={formInc.ramo} onChange={(e) => setFormInc({ ...formInc, ramo: e.target.value })}>
                     {Object.entries(RAMOS).map(([k, v]) => (
                       <option key={k} value={k}>
                         {v}
                       </option>
                     ))}
                   </select>
-                </div>
-                <div>
-                  <label className="label">Tipo</label>
-                  <select className="input" value={formInc.tipo_incapacidad} onChange={(e) => setFormInc({ ...formInc, tipo_incapacidad: e.target.value })}>
+                </Fila>,
+                <Fila key="tipo-inc" etiqueta="Tipo de incapacidad" htmlFor="inc-tipo-inc">
+                  <select id="inc-tipo-inc" className="input" value={formInc.tipo_incapacidad} onChange={(e) => setFormInc({ ...formInc, tipo_incapacidad: e.target.value })}>
                     {Object.entries(TIPOS_INCAPACIDAD).map(([k, v]) => (
                       <option key={k} value={k}>
                         {v}
                       </option>
                     ))}
                   </select>
-                </div>
-                <div>
-                  <label className="label">Folio (IMSS)</label>
-                  <input className="input" maxLength={40} value={formInc.folio} onChange={(e) => setFormInc({ ...formInc, folio: e.target.value })} />
-                </div>
-              </div>
-            )}
-            <div>
-              <label className="label">Notas</label>
-              <input className="input" maxLength={1000} value={formInc.notas} onChange={(e) => setFormInc({ ...formInc, notas: e.target.value })} />
-            </div>
-            <p className="text-xs text-slate-500">Para rangos de varios días, usa la ficha del empleado › Vacaciones e incidencias.</p>
+                </Fila>,
+                <Fila key="folio" etiqueta="Folio (IMSS)" htmlFor="inc-folio">
+                  <input id="inc-folio" className="input" maxLength={40} value={formInc.folio} onChange={(e) => setFormInc({ ...formInc, folio: e.target.value })} />
+                </Fila>,
+              ]}
+            </Campos>
             <ErrorBox message={error} />
-            <div className="flex justify-end gap-3">
-              <button type="button" className="btn-secondary" onClick={() => setJustificar(null)}>
-                Cancelar
-              </button>
-              <button className="btn-primary">Guardar</button>
-            </div>
           </form>
-        </Modal>
+        </Registro>
       )}
     </>
   );

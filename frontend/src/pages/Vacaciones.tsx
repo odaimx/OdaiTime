@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Icono from "../components/Iconos";
 import Vista, { useAbrirDesdeUrl, useVista, type ConfigVista } from "../components/Vista";
-import { ErrorBox, Modal, PageHeader, useEmpresaScope } from "../components/ui";
+import Registro from "../components/Registro";
+import { ErrorBox, PageHeader, useEmpresaScope } from "../components/ui";
 import {
   abrirArchivo,
   fechaCorta,
@@ -131,7 +132,15 @@ function Responder({ s, query, onCerrar, onCambio }: { s: SolicitudVacaciones; q
   }
 
   return (
-    <Modal title={`Vacaciones · ${s.empleado.nombre_completo}`} onClose={onCerrar}>
+    <Registro
+      flotante
+      titulo={s.empleado.nombre_completo}
+      subtitulo={`Vacaciones · ${rango(s.fecha_inicio, s.fecha_fin)}`}
+      imprimir={false}
+      autoguardar={false}
+      onCerrar={onCerrar}
+      nota={s.estado === "pendiente" || s.estado === "aprobada" ? "Se avisa al empleado por correo. Al aprobar, las vacaciones aparecen en su tarjeta de asistencia." : undefined}
+    >
       <dl className="mb-4 grid grid-cols-2 gap-3 text-sm">
         <div>
           <dt className="label">Fechas</dt>
@@ -192,10 +201,9 @@ function Responder({ s, query, onCerrar, onCambio }: { s: SolicitudVacaciones; q
               </button>
             )}
           </div>
-          <p className="text-xs text-slate-500">Se avisa al empleado por correo. Al aprobar, las vacaciones aparecen en su tarjeta de asistencia.</p>
         </div>
       )}
-    </Modal>
+    </Registro>
   );
 }
 
