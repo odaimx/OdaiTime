@@ -181,7 +181,7 @@ async def test_kiosco_pin_y_qr(client, superadmin):
     estado = (await client.get("/api/kiosco/estado", headers=k)).json()
     assert estado["sucursal"]["clave"] == "CUN"
     assert estado["config"]["pin"] is True
-    assert "/checar?qr=" in estado["qr"]["url"]
+    assert "/marcar?qr=" in estado["qr"]["url"]
     assert (await client.get("/api/kiosco/estado")).status_code == 401
 
     # Número + PIN.

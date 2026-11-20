@@ -240,7 +240,7 @@ async def checar_movil(
     if foto is not None:
         checada.foto = await svc.guardar_foto(foto, empleado.empresa_id)
     await db.commit()
-    await db.refresh(checada, attribute_names=["empleado", "sucursal"])
+    await db.refresh(checada, attribute_names=["empleado", "sucursal", "obra"])
     return checada
 
 
