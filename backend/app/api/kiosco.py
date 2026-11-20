@@ -29,6 +29,7 @@ from app.core.config import get_settings
 from app.core.security import verify_password
 from app.models import Checada, Dispositivo, Empleado, Empresa
 from app.schemas.checada import Accion
+from app.services import aviso as aviso_svc
 from app.services import checadas as svc
 from app.services import estado_empresa
 from app.services import festivos as festivos_svc
@@ -282,8 +283,35 @@ async def identificar(data: IdentificarIn, d: DispositivoActual, db: DB) -> dict
     config = await _config_kiosco(db, d)
     empleado = await _autenticar(db, d, config, data.numero, data.pin)
     estado_emp = await _estado_empleado(db, d, empleado)
+    aceptado = await aviso_svc.aceptado(db, empleado.id)
+    empresa = None if aceptado else await db.get(Empresa, d.empresa_id)
     await db.commit()  # ultima_conexion
-    return {"sesion": svc.firmar_sesion(d.id, empleado.id), **estado_emp}
+    return {
+        "sesion": svc.firmar_sesion(d.id, empleado.id),
+        "aviso_aceptado": aceptado,
+        # Sin aviso aceptado, la tablet lo muestra antes de los botones («Enterado, acepto»).
+        "aviso": None if aceptado else aviso_svc.datos(empresa),
+        **estado_emp,
+    }
+
+
+class AvisoKioscoIn(BaseModel):
+    sesion: str = Field(max_length=200)
+
+
+@router.post("/kiosco/aviso", status_code=status.HTTP_204_NO_CONTENT)
+async def aceptar_aviso_kiosco(
+    data: AvisoKioscoIn, d: DispositivoActual, request: Request, db: DB
+) -> None:
+    """El empleado identificado en la tablet toca «Enterado, acepto»."""
+    empleado_id = svc.leer_sesion(data.sesion, d.id)
+    empleado = await db.get(Empleado, empleado_id) if empleado_id else None
+    if empleado is None or empleado.empresa_id != d.empresa_id:
+        raise svc.error(
+            "sesion_vencida", "Se acabó el tiempo; vuelve a escribir tu número.", http=401
+        )
+    await aviso_svc.registrar(db, empleado, medio="kiosco", request=request)
+    await db.commit()
 
 
 @router.post("/kiosco/checar", status_code=status.HTTP_201_CREATED)
@@ -312,6 +340,11 @@ async def checar_kiosco(
         if empleado is None or not empleado.activo or empleado.empresa_id != d.empresa_id:
             raise svc.error(
                 "sesion_vencida", "Se acabó el tiempo; vuelve a escribir tu número.", http=401
+            )
+        # En línea, primero el aviso de privacidad (sin conexión se envía con número y PIN).
+        if not await aviso_svc.aceptado(db, empleado.id):
+            raise svc.error(
+                "aviso_requerido", "Toca «Enterado, acepto» en el aviso de privacidad.", http=428
             )
     elif numero:
         empleado = await _autenticar(db, d, config, numero, pin)

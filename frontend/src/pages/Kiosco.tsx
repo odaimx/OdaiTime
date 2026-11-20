@@ -1,5 +1,6 @@
 import QRCode from "qrcode";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import AvisoPrivacidad, { type DatosAviso } from "../components/AvisoPrivacidad";
 import Camara from "../components/Camara";
 import PantallaChecado, { ACCIONES, EncabezadoEmpresa, Reloj, type Accion, type Bloque, type MarcaHoy } from "../components/PantallaChecado";
 import { comprimir, hora } from "../lib/api";
@@ -111,6 +112,8 @@ interface Identificado {
   foto: string | null;
   sucursal?: string;
   turno?: Bloque[];
+  aviso_aceptado?: boolean;
+  aviso?: DatosAviso | null;
   checadas: MarcaHoy[];
   acciones: { accion: Accion; habilitada: boolean }[];
 }
@@ -200,7 +203,7 @@ function PantallaKiosco({ token, onDesvinculado }: { token: string; onDesvincula
   // Con alguien identificado, regresa al inicio tras 30 s sin tocar la pantalla.
   useEffect(() => {
     if (!quien || camara) return;
-    setInactivo(INACTIVIDAD_S);
+    setInactivo(quien.aviso_aceptado === false ? 60 : INACTIVIDAD_S); // más tiempo para leer el aviso
     const t = setInterval(() => setInactivo((n) => (n <= 1 ? (reiniciar(), INACTIVIDAD_S) : n - 1)), 1000);
     return () => clearInterval(t);
   }, [quien, camara, reiniciar]);
@@ -253,6 +256,29 @@ function PantallaKiosco({ token, onDesvinculado }: { token: string; onDesvincula
         checadas: [],
         acciones: (["entrada", "salida"] as Accion[]).map((a) => ({ accion: a, habilitada: true })),
       });
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  async function aceptarAviso() {
+    if (!quien?.sesion) return;
+    setOcupado(true);
+    try {
+      const r = await fetch("/api/kiosco/aviso", {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ sesion: quien.sesion }),
+      });
+      if (!r.ok) {
+        const d = (await r.json().catch(() => null))?.detail;
+        setMensaje({ ok: false, texto: typeof d === "string" ? d : (d?.mensaje ?? "No se pudo registrar el aviso") });
+        if (r.status === 401) reiniciar();
+        return;
+      }
+      setQuien({ ...quien, aviso_aceptado: true });
+    } catch {
+      setMensaje({ ok: false, texto: "Sin conexión. Intenta de nuevo." });
     } finally {
       setOcupado(false);
     }
@@ -353,6 +379,18 @@ function PantallaKiosco({ token, onDesvinculado }: { token: string; onDesvincula
         <main>
           {!estado.config.permitir_kiosco ? (
             <p className="card p-10 text-center text-lg text-slate-600">El kiosco está desactivado para esta sucursal.</p>
+          ) : quien && quien.sesion && quien.aviso_aceptado === false ? (
+            <div className="mx-auto w-full max-w-3xl space-y-3">
+              <p className="text-center text-lg">
+                Hola, <strong>{quien.empleado.nombre}</strong>. Antes de tu primera checada, lee el aviso de privacidad.
+              </p>
+              <AvisoPrivacidad grande enterado datos={quien.aviso ?? null} empresa={estado.empresa ?? undefined} ocupado={ocupado} onAceptar={aceptarAviso} />
+              <div className="text-right">
+                <button type="button" className="rounded-xl px-4 py-2 text-sm font-medium text-slate-600 hover:bg-white" onClick={reiniciar}>
+                  No soy yo · Cancelar ({inactivo})
+                </button>
+              </div>
+            </div>
           ) : quien ? (
             <div className="mx-auto w-full max-w-3xl space-y-4">
               <PantallaChecado

@@ -13,8 +13,24 @@ export interface DatosAviso {
  * datos que se recaban, finalidad, conservación y derechos ARCO. Se acepta una vez por versión;
  * el servidor guarda la constancia (quién, cuándo, por dónde).
  */
-export default function AvisoPrivacidad({ datos, empresa, onAceptar, ocupado }: { datos: DatosAviso | null; empresa?: string; onAceptar: () => void; ocupado?: boolean }) {
-  const [acepto, setAcepto] = useState(false);
+export default function AvisoPrivacidad({
+  datos,
+  empresa,
+  onAceptar,
+  ocupado,
+  enterado = false,
+  grande = false,
+}: {
+  datos: DatosAviso | null;
+  empresa?: string;
+  onAceptar: () => void;
+  ocupado?: boolean;
+  /** Tablet del kiosco: un solo botón «Enterado, acepto», sin casilla. */
+  enterado?: boolean;
+  grande?: boolean;
+}) {
+  const [marcado, setAcepto] = useState(false);
+  const acepto = enterado || marcado;
   const responsable = datos?.responsable || empresa || "Tu empleador";
   return (
     <div className="card space-y-4 p-6">
@@ -24,7 +40,7 @@ export default function AvisoPrivacidad({ datos, empresa, onAceptar, ocupado }: 
         </span>
         <h2 className="text-lg font-semibold text-tinta-900">Aviso de privacidad</h2>
       </div>
-      <div className="max-h-72 space-y-2 overflow-y-auto text-sm leading-relaxed text-slate-600">
+      <div className={`space-y-2 overflow-y-auto leading-relaxed text-slate-600 ${grande ? "max-h-[50vh] text-base" : "max-h-72 text-sm"}`}>
         <p>
           <strong>{responsable}</strong>
           {datos?.domicilio ? `, con domicilio en ${datos.domicilio},` : ""} es responsable de los datos personales que se recaban al registrar tu asistencia, conforme a la Ley Federal de
@@ -47,12 +63,14 @@ export default function AvisoPrivacidad({ datos, empresa, onAceptar, ocupado }: 
         </p>
         {datos?.version && <p className="text-xs text-slate-400">Versión {datos.version}</p>}
       </div>
-      <label className="flex items-start gap-2 text-sm text-slate-700">
-        <input type="checkbox" className="mt-0.5" checked={acepto} onChange={(e) => setAcepto(e.target.checked)} />
-        <span>He leído el aviso de privacidad y acepto el tratamiento de mis datos para el registro de asistencia.</span>
-      </label>
-      <button type="button" className="btn-primary w-full py-3" disabled={!acepto || ocupado} onClick={onAceptar}>
-        Continuar
+      {!enterado && (
+        <label className="flex items-start gap-2 text-sm text-slate-700">
+          <input type="checkbox" className="mt-0.5" checked={marcado} onChange={(e) => setAcepto(e.target.checked)} />
+          <span>He leído el aviso de privacidad y acepto el tratamiento de mis datos para el registro de asistencia.</span>
+        </label>
+      )}
+      <button type="button" className={`btn-primary w-full ${grande ? "py-4 text-lg" : "py-3"}`} disabled={!acepto || ocupado} onClick={onAceptar}>
+        {enterado ? "Enterado, acepto" : "Continuar"}
       </button>
     </div>
   );

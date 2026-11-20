@@ -116,3 +116,23 @@ async def test_aviso_en_el_portal(client, superadmin):
     assert (await client.get("/api/checadas/hoy", headers=e)).json()["aviso_aceptado"] is True
     constancia = (await client.get(f"/api/empleados/{emp['id']}/aviso", headers=a)).json()
     assert constancia["medio"] == "portal"
+
+
+async def test_aviso_en_la_tablet(client, superadmin):
+    a, _, suc, emp = await _setup(client, superadmin, aviso=False)
+    await _config(client, a, ignorar_repetida_min=0)
+    _, h = await _kiosco(client, a, suc, "Tablet")
+    r = await client.post(
+        "/api/kiosco/identificar", headers=h, json={"numero": "1001", "pin": "1234"}
+    )
+    ses = r.json()
+    assert ses["aviso_aceptado"] is False and ses["aviso"]["responsable"]
+    datos = {"sesion": ses["sesion"], "accion": "entrada"}
+    r = await client.post("/api/kiosco/checar", headers=h, data=datos)
+    assert r.status_code == 428
+    r = await client.post("/api/kiosco/aviso", headers=h, json={"sesion": ses["sesion"]})
+    assert r.status_code == 204
+    r = await client.post("/api/kiosco/checar", headers=h, data=datos)
+    assert r.status_code == 201, r.text
+    constancia = (await client.get(f"/api/empleados/{emp['id']}/aviso", headers=a)).json()
+    assert constancia["medio"] == "kiosco"
