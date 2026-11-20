@@ -5,7 +5,7 @@ import Registro from "../components/Registro";
 import FotoChecada from "../components/FotoChecada";
 import Icono from "../components/Iconos";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
-import { Badge, Campos, ErrorBox, Fila, Modal, PageHeader, useEmpresaScope, Plegable } from "../components/ui";
+import { Campos, ErrorBox, Fila, PageHeader, useEmpresaScope, Plegable } from "../components/ui";
 import { fechaHora, get, hoyISO, ORIGENES, patch, post, type Checada, type Empleado, type Sucursal } from "../lib/api";
 import { useBanda } from "../lib/bandas";
 
@@ -180,15 +180,21 @@ export default function Checadas() {
   const vista = useVista(config, checadas);
   const enOrden = vista.ordenados;
 
-  async function crearManual(e: FormEvent) {
-    e.preventDefault();
+  async function crearManual(e?: FormEvent): Promise<boolean> {
+    e?.preventDefault();
     setError(null);
+    if (!form.empleado_id || !form.momento || form.motivo.trim().length < 3) {
+      setError("Elige el empleado, la fecha y hora, y escribe el motivo.");
+      return false;
+    }
     try {
       await post(`/checadas/manual${query}`, { ...form, momento: new Date(form.momento).toISOString() });
       setManual(false);
       cargar();
+      return true;
     } catch (err) {
       setError((err as Error).message);
+      return false;
     }
   }
 
@@ -207,46 +213,47 @@ export default function Checadas() {
 
 
       {manual && (
-        <Modal title="Registrar checada manual" onClose={() => setManual(false)}>
+        <Registro
+          titulo="Checada manual"
+          subtitulo="Entrada o salida que el empleado no pudo registrar"
+          sucio
+          autoguardar={false}
+          imprimir={false}
+          onGuardar={() => crearManual()}
+          onCerrar={() => setManual(false)}
+          nota="Queda registrada en el historial con tu nombre y el motivo."
+        >
           <form onSubmit={crearManual} className="space-y-4">
-            <div>
-              <label className="label">Empleado</label>
-              <select className="input" required value={form.empleado_id} onChange={(e) => setForm({ ...form, empleado_id: e.target.value })}>
-                <option value="">Selecciona…</option>
-                {empleados.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    #{e.numero} — {e.nombre_completo}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <label className="label">Tipo</label>
-                <select className="input" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}>
+            <Campos>
+              <Fila etiqueta="Empleado" htmlFor="man-emp">
+                <select id="man-emp" className="input" required value={form.empleado_id} onChange={(e) => setForm({ ...form, empleado_id: e.target.value })}>
+                  <option value="">Selecciona…</option>
+                  {empleados.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      #{e.numero} — {e.nombre_completo}
+                    </option>
+                  ))}
+                </select>
+              </Fila>
+              <Fila etiqueta="Tipo" htmlFor="man-tipo">
+                <select id="man-tipo" className="input" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}>
                   <option value="entrada">Entrada</option>
                   <option value="salida">Salida</option>
                 </select>
-              </div>
-              <div>
-                <label className="label">Fecha y hora</label>
-                <input type="datetime-local" className="input" required value={form.momento} onChange={(e) => setForm({ ...form, momento: e.target.value })} />
-              </div>
-            </div>
-            <div>
-              <label className="label">Motivo</label>
-              <input className="input" required minLength={3} placeholder="Olvidó checar, falla del kiosco…" value={form.motivo} onChange={(e) => setForm({ ...form, motivo: e.target.value })} />
-            </div>
-            <p className="text-xs text-slate-500">Queda registrada en el historial con tu nombre y el motivo.</p>
+              </Fila>
+              <Fila etiqueta="Fecha y hora" htmlFor="man-momento">
+                <input id="man-momento" type="datetime-local" className="input" required value={form.momento} onChange={(e) => setForm({ ...form, momento: e.target.value })} />
+              </Fila>
+              <Fila etiqueta="Motivo" htmlFor="man-motivo">
+                <input id="man-motivo" className="input" required minLength={3} placeholder="Olvidó checar, falla del kiosco…" value={form.motivo} onChange={(e) => setForm({ ...form, motivo: e.target.value })} />
+              </Fila>
+            </Campos>
             <ErrorBox message={error} />
-            <div className="flex justify-end gap-3">
-              <button type="button" className="btn-secondary" onClick={() => setManual(false)}>
-                Cancelar
-              </button>
-              <button className="btn-primary">Registrar</button>
-            </div>
+            <button type="submit" className="sr-only">
+              Guardar
+            </button>
           </form>
-        </Modal>
+        </Registro>
       )}
 
       {sel && (

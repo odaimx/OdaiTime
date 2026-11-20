@@ -158,6 +158,7 @@ export default function ConfigChecadas({
         <div className="min-w-0 space-y-5">
           {pestana === "config" && (
           <>
+          {esAdmin && config && <BarraGuardar sucio={JSON.stringify(config) !== guardada} onGuardar={() => guardar()} />}
           <div className="card flex flex-wrap items-end justify-between gap-4 p-5">
             <label className="min-w-64 flex-1 text-sm font-medium text-tinta-900">
               Aplicar a
@@ -190,8 +191,7 @@ export default function ConfigChecadas({
 
           {config && (
             <form onSubmit={guardar} className="space-y-5">
-              {esAdmin && <BarraGuardar sucio={JSON.stringify(config) !== guardada} onGuardar={() => guardar()} />}
-              <fieldset disabled={bloqueado} className="card grid grid-cols-1 gap-x-16 p-5 md:grid-cols-2">
+              <fieldset disabled={bloqueado} className="card grid grid-cols-1 gap-x-24 p-5 md:grid-cols-2">
                 <legend className="sr-only">Dónde se puede checar</legend>
                 <h2 className="mb-2 font-semibold text-tinta-900 md:col-span-2">Dónde se puede checar</h2>
                 <Opcion checked={config.permitir_movil} onChange={(v) => set("permitir_movil", v)} titulo="Checar desde el portal (celular)">
@@ -205,7 +205,7 @@ export default function ConfigChecadas({
                 </Opcion>
               </fieldset>
 
-              <fieldset disabled={bloqueado} className="card grid grid-cols-1 gap-x-16 p-5 md:grid-cols-2">
+              <fieldset disabled={bloqueado} className="card grid grid-cols-1 gap-x-24 p-5 md:grid-cols-2">
                 <legend className="sr-only">Validaciones</legend>
                 <h2 className="mb-2 font-semibold text-tinta-900 md:col-span-2">Validaciones</h2>
                 <Opcion

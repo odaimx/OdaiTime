@@ -111,6 +111,7 @@ async def hoy(user: CurrentUser, db: DB) -> EstadoHoy:
         else None,
         siguiente_tipo=svc.siguiente_tipo(await svc.ultima_checada(db, empleado.id), ahora),
         permitir_movil=svc.medio_permitido(empleado, "movil", config),
+        permitir_kiosco=svc.medio_permitido(empleado, "kiosco", config),
         permitir_offline=config.permitir_offline,
         requiere=Requisitos(
             gps=config.validar_gps,

@@ -421,6 +421,7 @@ export interface EstadoHoy {
   turno: { nombre: string; entrada: string; salida: string; tolerancia_minutos: number; bloques: { entrada: string; salida: string }[] } | null;
   siguiente_tipo: "entrada" | "salida";
   permitir_movil: boolean;
+  permitir_kiosco?: boolean;
   permitir_offline: boolean;
   requiere: { gps: boolean; foto: boolean; qr: boolean };
   checadas_hoy: Checada[];
