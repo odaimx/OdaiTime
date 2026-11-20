@@ -362,9 +362,9 @@ function PantallaKiosco({ token, onDesvinculado }: { token: string; onDesvincula
                 bloques={quien.turno}
                 foto={
                   quien.foto ? (
-                    <img src={quien.foto} alt="" className="h-24 w-24 rounded-2xl object-cover ring-4 ring-slate-100" />
+                    <img src={quien.foto} alt="" className="h-full w-full object-cover" />
                   ) : (
-                    <span className="flex h-24 w-24 items-center justify-center rounded-2xl bg-slate-100 text-3xl font-bold text-slate-400">{quien.empleado.nombre_completo.charAt(0)}</span>
+                    <span className="flex h-full w-full items-center justify-center bg-slate-100 text-5xl font-bold text-slate-400">{quien.empleado.nombre_completo.charAt(0)}</span>
                   )
                 }
                 marcas={quien.checadas}

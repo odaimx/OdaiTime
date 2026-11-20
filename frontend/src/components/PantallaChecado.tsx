@@ -196,9 +196,10 @@ export default function PantallaChecado({
   return (
     <div className="space-y-4">
       {/* Foto a la derecha y, a un costado, nombre, sucursal y GPS. */}
-      <div className="card flex flex-row-reverse items-center gap-4 p-4 sm:p-5">
-        <div className="shrink-0">{foto}</div>
-        <div className="min-w-0 flex-1 space-y-0.5">
+      <div className="card flex flex-row-reverse items-stretch gap-4 p-2">
+        {/* La foto ocupa casi todo el alto del rectángulo, en su propio marco. */}
+        <div className={`flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200 ${grande ? "h-36 w-32" : "h-28 w-24"}`}>{foto}</div>
+        <div className="min-w-0 flex-1 space-y-0.5 self-center py-2 pl-2">
           <p className={`font-bold leading-tight text-tinta-900 ${grande ? "text-3xl" : "text-xl"}`}>{nombre}</p>
           {subtitulo && <p className="truncate text-sm text-slate-500">{subtitulo}</p>}
           <LineaGps gps={gps} />

@@ -99,9 +99,9 @@ function resultadoDe(r: { tipo: string; comida?: boolean; momento: string; retar
 
 function FotoCirculo({ src, nombre }: { src: string | null; nombre: string }) {
   return src ? (
-    <img src={src} alt="" className="h-20 w-20 rounded-2xl object-cover ring-4 ring-slate-100" />
+    <img src={src} alt="" className="h-full w-full object-cover" />
   ) : (
-    <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-brand-100 text-3xl font-bold text-brand-700">{nombre.slice(0, 1).toUpperCase() || "?"}</span>
+    <span className="flex h-full w-full items-center justify-center bg-brand-100 text-4xl font-bold text-brand-700">{nombre.slice(0, 1).toUpperCase() || "?"}</span>
   );
 }
 
@@ -631,9 +631,9 @@ export default function Marcar() {
           <Reloj ahora={ahora} />
         </div>
         {contenido}
-        <p className="pt-2 text-center text-xs text-slate-400">
+        <p className="pt-2 text-center text-base font-semibold text-slate-600">
           ¿Quieres ver tu historial o pedir vacaciones?{" "}
-          <a href="/login" className="underline">
+          <a href="/login" className="font-bold text-brand-600 underline">
             Entra al portal
           </a>
         </p>
