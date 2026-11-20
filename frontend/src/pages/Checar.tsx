@@ -291,7 +291,7 @@ export default function Checar() {
             <PantallaChecado
               nombre={estado.empleado.nombre_completo}
               subtitulo={estado.obra ? `Zona ${estado.obra.nombre}` : `${estado.sucursal.clave} · ${estado.sucursal.nombre}`}
-              foto={<FotoUsuario className="h-16 w-16" />}
+              foto={<FotoUsuario className="h-full w-full rounded-none" />}
               marcas={estado.checadas_hoy.filter((c) => c.estado === "valida")}
               acciones={estado.acciones ?? []}
               bloques={estado.turno?.bloques}
