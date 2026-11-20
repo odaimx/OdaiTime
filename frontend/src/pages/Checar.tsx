@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import Camara from "../components/Camara";
+import PantallaChecado, { ACCIONES, type Accion } from "../components/PantallaChecado";
 import Icono, { type NombreIcono } from "../components/Iconos";
 import { ErrorBox, FotoUsuario, PageHeader } from "../components/ui";
 import { ApiError, comprimir, get, hora, postForm, type Checada, type EstadoHoy } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 type Posicion = { latitud: string; longitud: string; precision: string };
-type Pendiente = { momento: string; pos: Posicion | null; qr: string | null; foto: string | null };
+type Pendiente = { momento: string; pos: Posicion | null; qr: string | null; foto: string | null; accion?: Accion | null };
 
 const COLA = "odaitime.pendientes";
 
@@ -137,6 +138,7 @@ export default function Checar() {
   const [error, setError] = useState<string | null>(null);
   const [pendientes, setPendientes] = useState(leerCola().length);
   const [metodo, setMetodo] = useState<Metodo | null>(null);
+  const [accion, setAccion] = useState<Accion | null>(null);
 
   const cargar = useCallback(() => {
     get<EstadoHoy>("/checadas/hoy")
@@ -156,6 +158,7 @@ export default function Checar() {
           qr: p.qr,
           offline: "true",
           momento: p.momento,
+          accion: p.accion ?? null,
           foto: p.foto ? await deDataUrl(p.foto) : null,
         });
       } catch (e) {
@@ -182,10 +185,10 @@ export default function Checar() {
   const tz = estado?.sucursal.zona_horaria;
   const necesitaQr = estado?.requiere.qr && !qr;
 
-  function iniciar() {
+  function iniciar(a: Accion) {
     setError(null);
-    if (estado?.requiere.foto) setPaso("camara");
-    else enviar(null);
+    setAccion(a);
+    setPaso("camara"); // la selfie siempre se toma (protección contra checar por otro)
   }
 
   async function enviar(foto: Blob | null) {
@@ -203,7 +206,7 @@ export default function Checar() {
     }
     const fotoC = foto ? await comprimir(foto) : null;
     try {
-      const checada = await postForm<Checada>("/checadas", { ...(pos ?? {}), qr, foto: fotoC });
+      const checada = await postForm<Checada>("/checadas", { ...(pos ?? {}), qr, accion, foto: fotoC });
       setResultado({ checada });
       setPaso("listo");
       if (qr) setParams({}, { replace: true });
@@ -214,7 +217,7 @@ export default function Checar() {
         setPaso("inicio");
       } else if (estado?.permitir_offline) {
         // Sin conexión: se guarda en el teléfono con la hora real.
-        const cola = [...leerCola(), { momento, pos, qr, foto: fotoC ? await aDataUrl(fotoC) : null }];
+        const cola = [...leerCola(), { momento, pos, qr, accion, foto: fotoC ? await aDataUrl(fotoC) : null }];
         guardarCola(cola);
         setPendientes(cola.length);
         setResultado({ offline: true });
@@ -227,7 +230,7 @@ export default function Checar() {
   }
 
   if (paso === "camara") {
-    return <Camara onFoto={(b) => enviar(b)} onCancelar={() => setPaso("inicio")} />;
+    return <Camara titulo="Mira a la cámara" onFoto={(b) => enviar(b)} onCancelar={() => setPaso("inicio")} />;
   }
 
   if (paso === "listo" && resultado) {
@@ -241,7 +244,7 @@ export default function Checar() {
         </div>
         {c ? (
           <>
-            <p className="text-slate-500">{c.tipo === "entrada" ? "Entrada registrada" : "Salida registrada"}</p>
+            <p className="text-slate-500">{accion ? ACCIONES[accion].listo : c.tipo === "entrada" ? "Entrada registrada" : "Salida registrada"}</p>
             <p className="text-6xl font-bold tracking-tight text-tinta-900">{hora(c.momento, tz)}</p>
             {c.tipo === "entrada" && (
               <span className={`rounded-full px-3 py-1 text-sm font-medium ${c.retardo_minutos ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>
@@ -301,10 +304,9 @@ export default function Checar() {
         }
       />
       <div className="mx-auto max-w-md space-y-4">
-        <div className="flex items-center gap-4 rounded-3xl bg-navy-900 p-4 text-white">
-          <FotoUsuario className="h-20 w-20" />
-          <div className="min-w-0">
-            <p className="truncate text-sm text-slate-300">Hola, {usuario?.nombre.split(" ")[0]}</p>
+        <div className="flex items-center justify-between gap-4 rounded-3xl bg-navy-900 px-5 py-4 text-white">
+          <p className="truncate text-sm text-slate-300">Hola, {usuario?.nombre.split(" ")[0]}</p>
+          <div className="min-w-0 text-right">
             <p className="text-4xl font-bold tracking-tight tabular-nums">
               {ahora.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", timeZone: tz })}
               <span className="text-lg text-slate-400">:{String(ahora.getSeconds()).padStart(2, "0")}</span>
@@ -323,20 +325,21 @@ export default function Checar() {
             <p className="text-sm text-slate-600">{estado.festivo_hoy}. No necesitas checar. Solo registra asistencia el personal que la empresa designó para trabajar.</p>
           </div>
         ) : actual === "celular" ? (
-          <div className="flex flex-col items-center gap-3 py-2">
-            {qr && <p className="rounded-xl bg-accent-500/10 px-3 py-2 text-sm text-tinta-900">Código del kiosco leído. Toca el botón para registrar.</p>}
-            <button
-              onClick={iniciar}
-              disabled={paso === "enviando"}
-              className="flex h-48 w-48 flex-col items-center justify-center gap-2 rounded-full border-[10px] border-brand-100 bg-brand-500 text-white shadow-xl shadow-brand-500/30 transition active:scale-95 disabled:opacity-60"
-            >
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                {estado.siguiente_tipo === "salida" ? <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /> : <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" />}
-              </svg>
-              <span className="text-xl font-bold">{paso === "enviando" ? "Registrando…" : estado.siguiente_tipo === "salida" ? "Registrar salida" : "Registrar entrada"}</span>
-            </button>
+          <div className="space-y-3">
+            {qr && <p className="rounded-xl bg-accent-500/10 px-3 py-2 text-sm text-tinta-900">Código del kiosco leído. Elige qué vas a registrar.</p>}
+            <PantallaChecado
+              nombre={estado.empleado.nombre_completo}
+              subtitulo={estado.obra ? `Zona ${estado.obra.nombre}` : `${estado.sucursal.clave} · ${estado.sucursal.nombre}`}
+              foto={<FotoUsuario className="h-16 w-16" />}
+              marcas={estado.checadas_hoy.filter((c) => c.estado === "valida")}
+              acciones={estado.acciones ?? []}
+              tz={tz}
+              ahora={ahora}
+              ocupado={paso === "enviando"}
+              onAccion={iniciar}
+            />
             <p className="text-center text-xs text-slate-500">
-              {[estado.requiere.gps && `Se valida tu ubicación en ${estado.obra ? `la zona ${estado.obra.nombre}` : "tu sucursal"}`, estado.requiere.foto && "se toma una foto"].filter(Boolean).join(" y ")}
+              {[estado.requiere.gps && `Se valida tu ubicación en ${estado.obra ? `la zona ${estado.obra.nombre}` : "tu sucursal"}`, "se toma una selfie"].filter(Boolean).join(" y ")}.
             </p>
           </div>
         ) : actual === "qr" ? (

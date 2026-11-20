@@ -115,7 +115,7 @@ export default function Empleados() {
     if (!sel) return elegirFotoNueva(archivo); // en el alta, la foto se sube al crear
     setCamaraFoto(false);
     const body = new FormData();
-    body.append("archivo", await comprimir(archivo, 1200), "foto.jpg");
+    body.append("archivo", await comprimir(archivo, 1200, "image/jpeg"), "foto.jpg");
     await ejecutar(() => api<EmpleadoDetalle>(`/empleados/${sel.id}/foto${query}`, { method: "PUT", body }));
   }
   const [aviso, setAviso] = useState<LimiteLicencia | null>(null);
@@ -395,7 +395,7 @@ export default function Empleados() {
       let creado = await post<EmpleadoDetalle>(`/empleados${query}`, { ...datos, ...mediosApi(form), turno_id: turno_id || null, pin: pin || null });
       if (fotoNueva) {
         const body = new FormData();
-        body.append("archivo", await comprimir(fotoNueva, 1200), "foto.jpg");
+        body.append("archivo", await comprimir(fotoNueva, 1200, "image/jpeg"), "foto.jpg");
         creado = await api<EmpleadoDetalle>(`/empleados/${creado.id}/foto${query}`, { method: "PUT", body });
       }
       elegirFotoNueva(null);

@@ -405,6 +405,7 @@ export interface Checada {
   empleado: { id: string; numero: string; nombre_completo: string; foto_actualizada: string | null };
   sucursal: SucursalRef;
   obra?: ObraRef | null;
+  comida?: boolean;
 }
 
 export const ORIGENES: Record<Checada["origen"], string> = {
@@ -425,6 +426,7 @@ export interface EstadoHoy {
   permitir_offline: boolean;
   requiere: { gps: boolean; foto: boolean; qr: boolean };
   checadas_hoy: Checada[];
+  acciones?: { accion: "entrada" | "salida_comida" | "regreso_comida" | "salida"; habilitada: boolean }[];
   hora_servidor: string;
   festivo_hoy: string | null;
   designado_festivo: boolean;
@@ -516,14 +518,22 @@ export const fechaHora = (iso: string) =>
   new Date(iso).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
 
 /** Reduce una foto a máx. 720 px en JPEG para que suba rápido. */
-export async function comprimir(blob: Blob, max = 720): Promise<Blob> {
+/** Foto de checada: 480 px en WebP (~25 KB), suficiente para reconocer a la persona. */
+export async function comprimir(blob: Blob, max = 480, tipo: "image/webp" | "image/jpeg" = "image/webp"): Promise<Blob> {
   const img = await createImageBitmap(blob);
   const escala = Math.min(1, max / Math.max(img.width, img.height));
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(img.width * escala);
   canvas.height = Math.round(img.height * escala);
   canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
-  return new Promise((ok) => canvas.toBlob((b) => ok(b ?? blob), "image/jpeg", 0.8));
+  return new Promise((ok) =>
+    canvas.toBlob(
+      // Si el navegador no genera WebP (Safari antiguo), devuelve JPEG.
+      (b) => (b && b.type === tipo ? ok(b) : canvas.toBlob((j) => ok(j ?? blob), "image/jpeg", 0.8)),
+      tipo,
+      tipo === "image/webp" ? 0.7 : 0.85,
+    ),
+  );
 }
 
 /** Carga una imagen protegida (con token) como URL local. */

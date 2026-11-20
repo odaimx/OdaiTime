@@ -87,3 +87,47 @@ async def test_editar_dispositivo(client, superadmin):
         json={"sucursal_id": "00000000-0000-0000-0000-000000000001"},
     )
     assert r.status_code == 422
+
+
+async def test_kiosco_identificar_y_acciones(client, superadmin):
+    a, _, suc, emp = await _setup(client, superadmin)
+    await _config(client, a, ignorar_repetida_min=0)
+    _, h = await _kiosco(client, a, suc, "Tablet")
+
+    r = await client.post(
+        "/api/kiosco/identificar", headers=h, json={"numero": "1001", "pin": "0000"}
+    )
+    assert r.status_code == 401
+    r = await client.post(
+        "/api/kiosco/identificar", headers=h, json={"numero": "1001", "pin": "1234"}
+    )
+    assert r.status_code == 200, r.text
+    ses = r.json()
+    assert ses["empleado"]["numero"] == "1001"
+    assert [x["accion"] for x in ses["acciones"]] == ["entrada", "salida"]  # sin horario quebrado
+    assert ses["acciones"][0]["habilitada"] and not ses["acciones"][1]["habilitada"]
+
+    # Botón equivocado: no se registra.
+    r = await client.post(
+        "/api/kiosco/checar", headers=h, data={"sesion": ses["sesion"], "accion": "salida"}
+    )
+    assert r.status_code == 409
+    r = await client.post(
+        "/api/kiosco/checar", headers=h, data={"sesion": ses["sesion"], "accion": "entrada"}
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["tipo"] == "entrada"
+
+    # Sesión alterada o de otro kiosco: no sirve.
+    r = await client.post(
+        "/api/kiosco/checar",
+        headers=h,
+        data={"sesion": ses["sesion"][:-2] + "00", "accion": "salida"},
+    )
+    assert r.status_code == 401
+
+    r = await client.post(
+        "/api/kiosco/identificar", headers=h, json={"numero": "1001", "pin": "1234"}
+    )
+    assert r.json()["acciones"][1]["habilitada"] is True
+    assert len(r.json()["checadas"]) == 1

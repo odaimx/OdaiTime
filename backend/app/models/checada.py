@@ -77,6 +77,9 @@ class Checada(UUIDPkMixin, Base):
     latitud: Mapped[float | None] = mapped_column(Numeric(9, 6, asdecimal=False))
     longitud: Mapped[float | None] = mapped_column(Numeric(9, 6, asdecimal=False))
     precision_m: Mapped[int | None]
+    # Salida a comer / regreso de comida (horario quebrado): no cambia el cálculo, que empareja
+    # entradas y salidas; sirve para mostrar y comprobar el descanso (art. 63 y 64 LFT).
+    comida: Mapped[bool] = mapped_column(default=False, server_default="false")
     distancia_m: Mapped[int | None]
     foto: Mapped[str | None] = mapped_column(String(200))  # ruta relativa en el almacén
     dispositivo_id: Mapped[uuid.UUID | None] = mapped_column(

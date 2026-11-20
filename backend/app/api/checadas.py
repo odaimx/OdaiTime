@@ -12,6 +12,7 @@ from app.api.deps import DB, CurrentUser, empresa_scope, require_roles, sucursal
 from app.core.config import get_settings
 from app.models import Checada, ConfigChecadas, Dispositivo, Empleado, Rol, Sucursal, Usuario
 from app.schemas.checada import (
+    Accion,
     ChecadaOut,
     ConfigGuardar,
     ConfigOut,
@@ -86,11 +87,14 @@ async def hoy(user: CurrentUser, db: DB) -> EstadoHoy:
     # En turno nocturno, de madrugada sigue mostrando el turno (y las checadas) de anoche.
     jornada, turno = svc.jornada_de(empleado, ahora, tz)
     inicio_dia = datetime.combine(jornada, time.min, tz)
-    hoy_checadas = await db.scalars(
-        select(Checada)
-        .where(Checada.empleado_id == empleado.id, Checada.momento >= inicio_dia)
-        .order_by(Checada.momento)
+    hoy_checadas = list(
+        await db.scalars(
+            select(Checada)
+            .where(Checada.empleado_id == empleado.id, Checada.momento >= inicio_dia)
+            .order_by(Checada.momento)
+        )
     )
+    ultima = await svc.ultima_checada(db, empleado.id)
     festivo = await festivos_svc.festivo_del_dia(db, empleado.empresa_id, local.date())
     obra = await obras_svc.obra_del_dia(db, empleado.id, local.date())
     return EstadoHoy(
@@ -109,7 +113,7 @@ async def hoy(user: CurrentUser, db: DB) -> EstadoHoy:
         )
         if turno
         else None,
-        siguiente_tipo=svc.siguiente_tipo(await svc.ultima_checada(db, empleado.id), ahora),
+        siguiente_tipo=svc.siguiente_tipo(ultima, ahora),
         permitir_movil=svc.medio_permitido(empleado, "movil", config),
         permitir_kiosco=svc.medio_permitido(empleado, "kiosco", config),
         permitir_offline=config.permitir_offline,
@@ -119,6 +123,7 @@ async def hoy(user: CurrentUser, db: DB) -> EstadoHoy:
             qr=config.validar_qr,
         ),
         checadas_hoy=[ChecadaOut.de(c) for c in hoy_checadas],
+        acciones=svc.acciones(ultima, hoy_checadas, turno, ahora),
         hora_servidor=ahora,
     )
 
@@ -139,6 +144,7 @@ async def checar(
     offline: Annotated[bool, Form()] = False,
     momento: Annotated[datetime | None, Form()] = None,
     foto: Annotated[UploadFile | None, File()] = None,
+    accion: Annotated[Accion | None, Form()] = None,
 ) -> ChecadaOut:
     empleado = await _mi_empleado(db, user)
     sucursal = empleado.sucursal
@@ -194,6 +200,7 @@ async def checar(
         distancia_m=distancia,
         dispositivo_id=dispositivo_id,
         obra_id=obra.id if obra else None,
+        accion=accion,
     )
     if foto is not None:
         checada.foto = await svc.guardar_foto(foto, empleado.empresa_id)
