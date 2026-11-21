@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import Bitacora from "../components/Bitacora";
+import FiltrosExportacion, { filtrosIniciales, paramsDe, type Filtros } from "../components/FiltrosExportacion";
 import Registro, { useFormulario } from "../components/Registro";
 import Icono from "../components/Iconos";
 import Vista, { useAbrirDesdeUrl, useVista, type ConfigVista } from "../components/Vista";
 import { imprimirSecciones } from "../lib/imprimir";
-import { Ayuda, Badge, Campos, CamposDomicilio, CamposUbicacion, DOMICILIO_VACIO, domicilioApi, domicilioDe, ErrorBox, Fila, Modal, PageHeader, Plegable, useEmpresaScope, type Domicilio } from "../components/ui";
+import { Ayuda, Badge, Campos, CamposDomicilio, CamposUbicacion, DOMICILIO_VACIO, domicilioApi, domicilioDe, ErrorBox, Fila, PageHeader, Plegable, useEmpresaScope, type Domicilio } from "../components/ui";
 import { api, descargar, fechaCorta, get, patch, post, type AsignacionObra, type Empleado, type Obra, type Sucursal } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useBanda } from "../lib/bandas";
+import { periodo } from "../lib/periodo";
 
 type Form = {
   clave: string;
@@ -421,11 +423,9 @@ function Asignaciones({ obra, query, puedeEditar, onCambio }: { obra: Obra; quer
   );
 }
 
-/** Excel de horas trabajadas y extras por obra en un periodo. */
+/** Excel de horas trabajadas y extras por zona, con los filtros de exportación. */
 function ReporteObras({ obras, query, onCerrar }: { obras: Obra[]; query: string; onCerrar: () => void }) {
-  const hoy = hoyIso();
-  const [desde, setDesde] = useState(`${hoy.slice(0, 8)}01`);
-  const [hasta, setHasta] = useState(hoy);
+  const [filtros, setFiltros] = useState<Filtros>(() => ({ ...filtrosIniciales(), preset: "mes", ...periodo("mes") }));
   const [obraId, setObraId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [bajando, setBajando] = useState(false);
@@ -433,12 +433,11 @@ function ReporteObras({ obras, query, onCerrar }: { obras: Obra[]; query: string
   async function bajar() {
     setError(null);
     setBajando(true);
-    const p = new URLSearchParams(query.replace(/^\?/, ""));
-    p.set("desde", desde);
-    p.set("hasta", hasta);
+    const p = paramsDe(filtros);
+    for (const [k, v] of new URLSearchParams(query.replace(/^\?/, ""))) p.set(k, v);
     if (obraId) p.set("obra_id", obraId);
     try {
-      await descargar(`/reportes/obras.xlsx?${p}`, `horas_por_zona_${desde}_${hasta}.xlsx`);
+      await descargar(`/reportes/obras.xlsx?${p}`, `horas_por_zona_${filtros.desde}_${filtros.hasta}.xlsx`);
       onCerrar();
     } catch (e) {
       setError((e as Error).message);
@@ -448,16 +447,10 @@ function ReporteObras({ obras, query, onCerrar }: { obras: Obra[]; query: string
   }
 
   return (
-    <Modal title="Horas por zona" onClose={onCerrar}>
+    <Registro flotante titulo="Horas por zona" imprimir={false} autoguardar={false} onCerrar={onCerrar} nota="Horas trabajadas y extras de cada empleado en la zona a la que estaba asignado cada día.">
       <div className="space-y-4">
         <Campos>
-          <Fila etiqueta="Desde">
-            <input className="input" type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />
-          </Fila>
-          <Fila etiqueta="Hasta">
-            <input className="input" type="date" min={desde} value={hasta} onChange={(e) => setHasta(e.target.value)} />
-          </Fila>
-          <Fila etiqueta="Zona">
+          <Fila etiqueta="Zona del reporte">
             <select className="input" value={obraId} onChange={(e) => setObraId(e.target.value)}>
               <option value="">Todas</option>
               {obras.map((o) => (
@@ -468,17 +461,14 @@ function ReporteObras({ obras, query, onCerrar }: { obras: Obra[]; query: string
             </select>
           </Fila>
         </Campos>
+        <FiltrosExportacion query={query} valor={filtros} onCambio={setFiltros} sinZonas />
         <ErrorBox message={error} />
-        <div className="flex justify-end gap-2">
-          <button className="btn-secondary" onClick={onCerrar}>
-            Cancelar
-          </button>
-          <button className="btn-primary" disabled={bajando || !desde || !hasta} onClick={bajar}>
+        <div className="flex justify-end">
+          <button className="btn-primary" disabled={bajando} onClick={bajar}>
             <Icono nombre="file-chart-column" /> {bajando ? "Generando…" : "Descargar Excel"}
           </button>
         </div>
-        <p className="border-t border-slate-200 pt-4 text-xs text-slate-500">Horas trabajadas y extras de cada empleado en la zona a la que estaba asignado cada día.</p>
       </div>
-    </Modal>
+    </Registro>
   );
 }
