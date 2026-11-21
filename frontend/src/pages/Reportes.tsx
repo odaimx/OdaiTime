@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import Icono from "../components/Iconos";
+import FiltrosExportacion, { filtrosIniciales, hayFiltros, paramsDe, type Filtros } from "../components/FiltrosExportacion";
 import { ArticuloLFT } from "../components/LFT";
 import Registro from "../components/Registro";
 import Vista, { useVista, type ConfigVista } from "../components/Vista";
 import { Ayuda, ErrorBox, PageHeader, useEmpresaScope } from "../components/ui";
-import { api, descargar, get, type ConceptoNomina, type FilaResumen, type Sucursal } from "../lib/api";
+import { api, descargar, get, type ConceptoNomina, type FilaResumen } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { periodo } from "../lib/periodo";
 
 interface Sistema {
   clave: string;
@@ -64,12 +64,6 @@ function sugerirPeriodo(tipo: string, desde: string): string {
 
 const UNIDADES: Record<string, string> = { horas: "horas", dias: "días", eventos: "eventos" };
 const ARTICULO: Record<string, string> = { HE2: "66", HE3: "68", PDOM: "71", DLAB: "73", FLAB: "75" };
-const PRESETS: [string, string][] = [
-  ["semana", "Esta semana"],
-  ["semana_pasada", "Semana pasada"],
-  ["quincena", "Quincena"],
-  ["mes", "Este mes"],
-];
 
 /** Exportaciones a sistemas de nómina: cada sistema abre su propia vista. */
 export default function Exportaciones() {
@@ -180,10 +174,8 @@ function ExportarSistema({
   onClaves: () => void;
 }) {
   const sep = query ? "&" : "?";
-  const [preset, setPreset] = useState("quincena");
-  const [rango, setRango] = useState(periodo("quincena"));
-  const [sucursal, setSucursal] = useState("");
-  const [sucursales, setSucursales] = useState<Sucursal[]>([]);
+  const [filtros, setFiltros] = useState<Filtros>(filtrosIniciales);
+  const rango = { desde: filtros.desde, hasta: filtros.hasta };
   const [conceptos, setConceptos] = useState<ConceptoNomina[]>([]);
   const [codigos, setCodigos] = useState<Record<string, string>>({});
   const [filas, setFilas] = useState<FilaResumen[] | null>(null);
@@ -205,21 +197,20 @@ function ExportarSistema({
   }, [rango.desde, rango.hasta, tipoPeriodo]);
 
   useEffect(() => {
-    get<Sucursal[]>(`/sucursales${query}`).then(setSucursales);
     get<ConceptoNomina[]>(`/reportes/claves${query}${sep}sistema=${sistema.clave}`).then((l) => {
       setConceptos(l);
       setCodigos(Object.fromEntries(l.map((c) => [c.clave, c.codigo ?? ""])));
     });
   }, [query, sep, sistema.clave]);
 
+  const clave = paramsDe(filtros).toString();
   useEffect(() => {
     setFilas(null);
-    const p = new URLSearchParams(rango);
-    if (sucursal) p.set("sucursal_id", sucursal);
-    get<FilaResumen[]>(`/asistencia/resumen${query}${sep}${p}`)
+    setError(null);
+    get<FilaResumen[]>(`/asistencia/resumen${query}${sep}${clave}`)
       .then(setFilas)
       .catch((e) => setError(e.message));
-  }, [rango, sucursal, query, sep]);
+  }, [clave, query, sep]);
 
   const sucio = conceptos.some((c) => (c.codigo ?? "") !== (codigos[c.clave] ?? ""));
   const codigo = (k: string) => codigos[k] || k;
@@ -240,8 +231,7 @@ function ExportarSistema({
   async function bajar() {
     setError(null);
     setBajando(true);
-    const p = new URLSearchParams({ ...rango, sistema: sistema.clave });
-    if (sucursal) p.set("sucursal_id", sucursal);
+    const p = paramsDe(filtros, { sistema: sistema.clave });
     if (esContpaqi) {
       p.set("formato", formato);
       p.set("tipo_periodo", tipoPeriodo);
@@ -260,7 +250,7 @@ function ExportarSistema({
       setAviso(
         movimientos === 0
           ? empleados === 0
-            ? "El archivo salió vacío: no hay empleados activos en ese periodo o sucursal."
+            ? "El archivo salió vacío: ningún empleado cumple el periodo y los filtros."
             : "El archivo salió sin movimientos: en el periodo no hay faltas, horas extra, retardos ni incidencias. Revisa que los empleados tengan turno asignado (en la Tarjeta de asistencia aparecen como “Sin turno”) y que haya checadas."
           : null,
       );
@@ -289,41 +279,14 @@ function ExportarSistema({
       <div className="space-y-6">
         <p className="text-sm text-slate-600">{sistema.descripcion}</p>
 
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1">
-            {PRESETS.map(([k, l]) => (
-              <button
-                key={k}
-                onClick={() => {
-                  setPreset(k);
-                  setRango(periodo(k));
-                }}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium ${preset === k ? "bg-white text-tinta-900 shadow-sm" : "text-slate-600 hover:text-tinta-900"}`}
-              >
-                {l}
-              </button>
-            ))}
-          </div>
-          <label className="text-xs font-medium text-slate-500">
-            Desde
-            <input type="date" className="input mt-1 w-40" value={rango.desde} onChange={(e) => (setPreset(""), setRango({ ...rango, desde: e.target.value }))} />
-          </label>
-          <label className="text-xs font-medium text-slate-500">
-            Hasta
-            <input type="date" className="input mt-1 w-40" value={rango.hasta} onChange={(e) => (setPreset(""), setRango({ ...rango, hasta: e.target.value }))} />
-          </label>
-          <label className="text-xs font-medium text-slate-500">
-            Sucursal
-            <select className="input mt-1 w-56" value={sucursal} onChange={(e) => setSucursal(e.target.value)}>
-              <option value="">Todas</option>
-              {sucursales.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.clave} — {s.nombre}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button className="btn-primary ml-auto" disabled={bajando || sucio} title={sucio ? "Guarda las claves antes de exportar" : undefined} onClick={bajar}>
+        <FiltrosExportacion query={query} valor={filtros} onCambio={setFiltros} />
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          {filas && (
+            <span className="text-sm text-slate-500">
+              {filas.length} empleado(s){hayFiltros(filtros) ? " con los filtros" : ""}
+            </span>
+          )}
+          <button className="btn-primary" disabled={bajando || sucio || filas?.length === 0} title={sucio ? "Guarda las claves antes de exportar" : undefined} onClick={bajar}>
             <Icono nombre="download" /> {bajando ? "Generando…" : `Descargar ${(esContpaqi || esOdoo ? formato : sistema.formato).toUpperCase()}`}
           </button>
         </div>
@@ -435,7 +398,7 @@ function ExportarSistema({
                 {filas?.length === 0 && (
                   <tr>
                     <td className="px-3 py-6 text-center text-slate-500" colSpan={usados.length + 1}>
-                      No hay empleados en ese periodo.
+                      Ningún empleado cumple el periodo y los filtros.
                     </td>
                   </tr>
                 )}

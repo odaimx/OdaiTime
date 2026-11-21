@@ -20,6 +20,15 @@ export function periodo(clave: string): { desde: string; hasta: string } {
       const fin = q1 ? new Date(hoy.getFullYear(), hoy.getMonth(), 15) : new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
       return { desde: iso(ini), hasta: iso(fin) };
     }
+    case "quincena_pasada": {
+      const q1 = hoy.getDate() <= 15;
+      // Primera quincena → la segunda del mes anterior; segunda → la primera de este mes.
+      const ini = q1 ? new Date(hoy.getFullYear(), hoy.getMonth() - 1, 16) : new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+      const fin = q1 ? new Date(hoy.getFullYear(), hoy.getMonth(), 0) : new Date(hoy.getFullYear(), hoy.getMonth(), 15);
+      return { desde: iso(ini), hasta: iso(fin) };
+    }
+    case "mes_pasado":
+      return { desde: iso(new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1)), hasta: iso(new Date(hoy.getFullYear(), hoy.getMonth(), 0)) };
     case "mes":
       return { desde: iso(new Date(hoy.getFullYear(), hoy.getMonth(), 1)), hasta: iso(new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0)) };
     default: {

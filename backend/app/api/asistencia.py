@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFil
 from sqlalchemy import select
 
 from app.api.deps import DB, CurrentUser, empresa_scope, require_roles, sucursales_permitidas
+from app.api.filtros import Filtro, FiltroEmpleados
 from app.models import Checada, Empleado, Incidencia, PoliticaAsistencia, Rol, Usuario
 from app.schemas.asistencia import (
     AlertaIncapacidad,
@@ -181,7 +182,7 @@ async def resumen(
     db: DB,
     desde: date,
     hasta: date,
-    sucursal_id: uuid.UUID | None = None,
+    filtro: Filtro,
     empresa_id: uuid.UUID | None = None,
 ) -> list[FilaResumen]:
     """Resumen por empleado del periodo (faltas, retardos, extras, domingos, festivos…)."""
@@ -193,7 +194,7 @@ async def resumen(
             resumen=ResumenOut.model_validate(r),
             conceptos=motor.conceptos_nomina(r),
         )
-        for e, _, r in await calcular_periodo(db, user, emp, desde, hasta, sucursal_id)
+        for e, _, r in await calcular_periodo(db, user, emp, desde, hasta, filtro=filtro)
     ]
 
 
@@ -204,6 +205,7 @@ async def calcular_periodo(
     desde: date,
     hasta: date,
     sucursal_id: uuid.UUID | None = None,
+    filtro: FiltroEmpleados | None = None,
 ) -> list[tuple[Empleado, list[motor.Dia], motor.Resumen]]:
     """Tarjeta de cada empleado (visible para el usuario) que estuvo activo en el periodo.
 
@@ -220,6 +222,8 @@ async def calcular_periodo(
         q = q.where(Empleado.sucursal_id.in_(permitidas))
     if sucursal_id:
         q = q.where(Empleado.sucursal_id == sucursal_id)
+    if filtro is not None:
+        q = filtro.aplicar(q, desde, hasta)
     empleados = list(await db.scalars(q.order_by(Empleado.apellido_paterno, Empleado.nombre)))
     if not empleados:
         return []

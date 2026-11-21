@@ -9,8 +9,9 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import undefer
 
 from app.api.asistencia import calcular_periodo
-from app.api.deps import DB, CurrentUser, empresa_scope, require_roles
-from app.models import ClaveNomina, Empresa, Rol
+from app.api.deps import DB, CurrentUser, empresa_scope, require_roles, sucursales_permitidas
+from app.api.filtros import Filtro
+from app.models import ClaveNomina, Empleado, Empresa, Rol
 from app.services import obras as obras_svc
 from app.services import reportes
 from app.services.asistencia import CONCEPTOS
@@ -112,6 +113,24 @@ async def guardar_claves(
     return await ver_claves(sistema, user, db, empresa_id)
 
 
+# --- Filtros ---
+
+
+@router.get("/opciones-filtro", dependencies=[Depends(require_roles(*_GESTION))])
+async def opciones_filtro(
+    user: CurrentUser, db: DB, empresa_id: uuid.UUID | None = None
+) -> dict[str, list[str]]:
+    """Departamentos y puestos capturados en los empleados (para los filtros de exportación)."""
+    emp = empresa_scope(user, empresa_id)
+    salida: dict[str, list[str]] = {}
+    for clave, col in (("departamentos", Empleado.departamento), ("puestos", Empleado.puesto)):
+        q = select(col).where(Empleado.empresa_id == emp, col.is_not(None), col != "").distinct()
+        if (permitidas := sucursales_permitidas(user)) is not None:
+            q = q.where(Empleado.sucursal_id.in_(permitidas))
+        salida[clave] = sorted(v for v in await db.scalars(q) if v)
+    return salida
+
+
 # --- Archivos ---
 
 
@@ -121,11 +140,11 @@ async def resumen_xlsx(
     db: DB,
     desde: date,
     hasta: date,
-    sucursal_id: uuid.UUID | None = None,
+    filtro: Filtro,
     empresa_id: uuid.UUID | None = None,
 ) -> Response:
     emp = empresa_scope(user, empresa_id)
-    periodo = await calcular_periodo(db, user, emp, desde, hasta, sucursal_id)
+    periodo = await calcular_periodo(db, user, emp, desde, hasta, filtro=filtro)
     contenido = reportes.reporte_resumen(await _empresa(db, emp), desde, hasta, periodo)
     return _archivo(
         contenido,
@@ -140,11 +159,11 @@ async def detalle_xlsx(
     db: DB,
     desde: date,
     hasta: date,
-    sucursal_id: uuid.UUID | None = None,
+    filtro: Filtro,
     empresa_id: uuid.UUID | None = None,
 ) -> Response:
     emp = empresa_scope(user, empresa_id)
-    periodo = await calcular_periodo(db, user, emp, desde, hasta, sucursal_id)
+    periodo = await calcular_periodo(db, user, emp, desde, hasta, filtro=filtro)
     contenido = reportes.reporte_detalle(await _empresa(db, emp), desde, hasta, periodo)
     return _archivo(
         contenido,
@@ -159,12 +178,13 @@ async def obras_xlsx(
     db: DB,
     desde: date,
     hasta: date,
+    filtro: Filtro,
     obra_id: uuid.UUID | None = None,
     empresa_id: uuid.UUID | None = None,
 ) -> Response:
     """Horas trabajadas y extras por obra y empleado."""
     emp = empresa_scope(user, empresa_id)
-    periodo = await calcular_periodo(db, user, emp, desde, hasta, None)
+    periodo = await calcular_periodo(db, user, emp, desde, hasta, filtro=filtro)
     asignaciones = await obras_svc.obras_por_empleado(db, emp, desde, hasta)
     contenido = reportes.reporte_obras(
         await _empresa(db, emp), desde, hasta, periodo, asignaciones, obra_id
@@ -183,7 +203,7 @@ async def exportar_nomina(
     db: DB,
     desde: date,
     hasta: date,
-    sucursal_id: uuid.UUID | None = None,
+    filtro: Filtro,
     empresa_id: uuid.UUID | None = None,
     formato: str = "xlsx",
     tipo_periodo: str | None = None,
@@ -219,7 +239,7 @@ async def exportar_nomina(
             ejercicio=hasta.year, formato=formato, checadas=checadas
         )
     emp = empresa_scope(user, empresa_id)
-    periodo = await calcular_periodo(db, user, emp, desde, hasta, sucursal_id)
+    periodo = await calcular_periodo(db, user, emp, desde, hasta, filtro=filtro)
     contenido, mime, ext = reportes.exportar(
         sistema,
         await _empresa(db, emp),
