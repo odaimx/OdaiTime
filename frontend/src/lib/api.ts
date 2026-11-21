@@ -487,6 +487,9 @@ export interface Dispositivo {
   nombre: string;
   tipo: "kiosco" | "biometrico";
   serie: string | null;
+  /** Reloj ZKTeco que envía directo a la nube (ADMS). */
+  adms?: boolean;
+  ips_permitidas?: string | null;
   sucursal: SucursalRef;
   activo: boolean;
   vinculado: boolean;

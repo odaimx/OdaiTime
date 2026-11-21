@@ -179,6 +179,8 @@ class DispositivoIn(BaseModel):
     sucursal_id: uuid.UUID
     tipo: Literal["kiosco", "biometrico"] = "kiosco"
     serie: str | None = Field(default=None, max_length=60)
+    adms: bool = False
+    ips_permitidas: str | None = Field(default=None, max_length=300)
 
 
 class DispositivoUpdate(BaseModel):
@@ -187,6 +189,8 @@ class DispositivoUpdate(BaseModel):
     sucursal_id: uuid.UUID | None = None
     tipo: Literal["kiosco", "biometrico"] | None = None
     serie: str | None = Field(default=None, max_length=60)
+    adms: bool | None = None
+    ips_permitidas: str | None = Field(default=None, max_length=300)
 
 
 class DispositivoOut(BaseModel):
@@ -196,6 +200,8 @@ class DispositivoOut(BaseModel):
     nombre: str
     tipo: str
     serie: str | None
+    adms: bool = False
+    ips_permitidas: str | None = None
     sucursal: SucursalRef
     activo: bool
     vinculado: bool
@@ -211,6 +217,8 @@ class DispositivoOut(BaseModel):
             nombre=d.nombre,
             tipo=d.tipo,
             serie=d.serie,
+            adms=d.adms,
+            ips_permitidas=d.ips_permitidas,
             sucursal=SucursalRef.model_validate(d.sucursal),
             activo=d.activo,
             vinculado=d.token_hash is not None,

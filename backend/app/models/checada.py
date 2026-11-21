@@ -45,6 +45,10 @@ class Dispositivo(UUIDPkMixin, TimestampMixin, Base):
     nombre: Mapped[str] = mapped_column(String(100))
     tipo: Mapped[str] = mapped_column(String(15), default="kiosco")  # kiosco | biometrico
     serie: Mapped[str | None] = mapped_column(String(60))  # n.º de serie del reloj biométrico
+    # Envío directo del reloj ZKTeco a la nube (protocolo ADMS / "push"): se identifica por su
+    # número de serie, así que se habilita a propósito y puede limitarse a IPs conocidas.
+    adms: Mapped[bool] = mapped_column(default=False, server_default="false")
+    ips_permitidas: Mapped[str | None] = mapped_column(String(300))  # "201.1.2.3, 10.0.0.0/24"
     token_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
     codigo_vinculacion: Mapped[str | None] = mapped_column(String(6))
     codigo_expira: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

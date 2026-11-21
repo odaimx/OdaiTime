@@ -18,6 +18,7 @@ from app.api import (
     empresas,
     festivos,
     health,
+    iclock,
     integracion,
     kiosco,
     licencia,
@@ -94,3 +95,6 @@ for r in (
     celulares.router,
 ):
     app.include_router(r, prefix="/api")
+
+# Relojes ZKTeco (ADMS): la ruta /iclock la fija el firmware del reloj.
+app.include_router(iclock.router)
