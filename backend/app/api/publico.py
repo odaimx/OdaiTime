@@ -253,7 +253,6 @@ class CelularEstado(BaseModel):
     hoy: EstadoHoy | None = None
 
 
-@router.get("/celular/estado", response_model=CelularEstado)
 async def _aprobado(db: DB, token: str | None) -> CelularVinculado:
     c = await _celular(db, token)
     if c.estado != "aprobado":
@@ -279,6 +278,7 @@ def _json(texto: str) -> dict:
     return d
 
 
+@router.get("/celular/estado", response_model=CelularEstado)
 async def celular_estado(
     db: DB, token: Annotated[str | None, Header(alias="X-Celular-Token")] = None
 ) -> CelularEstado:
