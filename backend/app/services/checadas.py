@@ -160,10 +160,16 @@ def validar_gps(
         )
     if lat is None or lon is None:
         raise error("gps_requerido", "Activa la ubicación de tu teléfono para checar.")
-    if precision is not None and precision > 200:
+    # Precisión máxima de la sucursal (en una obra, la de su sucursal).
+    suc = sucursal.sucursal if isinstance(sucursal, Obra) else sucursal
+    maxima = getattr(suc, "precision_gps_m", None) or 100
+    if precision is not None and precision > maxima:
         raise error(
             "gps_impreciso",
-            "La señal de ubicación es imprecisa. Sal a un lugar abierto e intenta de nuevo.",
+            f"La señal de ubicación es imprecisa (±{precision} m; se aceptan hasta {maxima} m). "
+            "Sal a un lugar abierto e intenta de nuevo.",
+            precision=precision,
+            maxima=maxima,
         )
     d = round(distancia_m(lat, lon, sucursal.latitud, sucursal.longitud))
     if d > sucursal.radio_metros:

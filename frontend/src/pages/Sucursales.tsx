@@ -11,8 +11,8 @@ import { api, get, patch, post, ZONAS_MX, type Categoria, type Dispositivo, type
 import { useAuth } from "../lib/auth";
 import { useBanda } from "../lib/bandas";
 
-type Form = { clave: string; nombre: string; zona_horaria: string; domicilio: Domicilio; latitud: string; longitud: string; radio_metros: string };
-const VACIO: Form = { clave: "", nombre: "", zona_horaria: "America/Mexico_City", domicilio: DOMICILIO_VACIO, latitud: "", longitud: "", radio_metros: "150" };
+type Form = { clave: string; nombre: string; zona_horaria: string; domicilio: Domicilio; latitud: string; longitud: string; radio_metros: string; precision_gps_m: string };
+const VACIO: Form = { clave: "", nombre: "", zona_horaria: "America/Mexico_City", domicilio: DOMICILIO_VACIO, latitud: "", longitud: "", radio_metros: "150", precision_gps_m: "100" };
 
 const zonaLabel = (z: string) => ZONAS_MX.find((x) => x.value === z)?.label ?? z;
 
@@ -24,6 +24,7 @@ const aForm = (s: Sucursal): Form => ({
   latitud: s.latitud?.toString() ?? "",
   longitud: s.longitud?.toString() ?? "",
   radio_metros: String(s.radio_metros),
+  precision_gps_m: String(s.precision_gps_m ?? 100),
 });
 
 export default function Sucursales() {
@@ -57,6 +58,7 @@ export default function Sucursales() {
       latitud: form.latitud ? Number(form.latitud) : null,
       longitud: form.longitud ? Number(form.longitud) : null,
       radio_metros: Number(form.radio_metros) || 150,
+      precision_gps_m: Math.min(1000, Math.max(10, Number(form.precision_gps_m) || 100)),
     };
     try {
       const r =
@@ -180,6 +182,7 @@ export default function Sucursales() {
                         ["Latitud", editando.latitud],
                         ["Longitud", editando.longitud],
                         ["Radio para checar", `${editando.radio_metros} m`],
+                        ["Precisión máxima del GPS", `${editando.precision_gps_m ?? 100} m`],
                         ["Estado", editando.activa ? "Activa" : "Inactiva"],
                         ["Categorías", cats.de(editando.id).map((c) => c.nombre).join(", ")],
                       ],
@@ -224,6 +227,16 @@ export default function Sucursales() {
                   deshabilitado={!puedeEditar}
                   onCambio={(c) => setForm({ ...form, ...c })}
                 />
+                <Fila
+                  etiqueta="Precisión máxima del GPS"
+                  htmlFor="suc-precision"
+                  ayuda="Margen de error aceptado del GPS del teléfono. Si la señal es peor (p. ej. dentro de un edificio), se pide salir a un lugar abierto. 100 m es lo recomendado; súbelo solo si hay mala señal en la zona."
+                >
+                  <div className="flex items-center gap-2">
+                    <input id="suc-precision" className="input w-32" type="number" min={10} max={1000} step={10} value={form.precision_gps_m} onChange={set("precision_gps_m")} />
+                    <span className="text-sm text-slate-500">metros</span>
+                  </div>
+                </Fila>
               </Campos>
             </fieldset>
 

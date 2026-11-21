@@ -13,6 +13,7 @@ class SucursalBase(Domicilio):
     latitud: float | None = Field(default=None, ge=-90, le=90)
     longitud: float | None = Field(default=None, ge=-180, le=180)
     radio_metros: int = Field(default=150, ge=10, le=5000)
+    precision_gps_m: int = Field(default=100, ge=10, le=1000)
 
 
 class SucursalCreate(SucursalBase):
@@ -29,6 +30,7 @@ class SucursalUpdate(Domicilio):
     latitud: float | None = Field(default=None, ge=-90, le=90)
     longitud: float | None = Field(default=None, ge=-180, le=180)
     radio_metros: int | None = Field(default=None, ge=10, le=5000)
+    precision_gps_m: int | None = Field(default=None, ge=10, le=1000)
     activa: bool | None = None
 
 

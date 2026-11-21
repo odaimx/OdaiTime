@@ -51,6 +51,7 @@ const BANDAS: Record<Area, Entrada[]> = {
         { etiqueta: "Plantillas de correo", ruta: "/configuracion/sistema/plantillas", icono: "mail-check" },
         { etiqueta: "Enlaces de Odai", ruta: "/configuracion/sistema/enlaces", icono: "send" },
         { etiqueta: "WhatsApp (Meta)", ruta: "/configuracion/sistema/whatsapp", icono: "phone" },
+        { etiqueta: "Fotos de checadas", ruta: "/configuracion/sistema/fotos", icono: "image" },
         { etiqueta: "Frases", ruta: "/configuracion/sistema/frases", icono: "file-text" },
         { etiqueta: "Color del tema", ruta: "/configuracion/sistema/tema", icono: "palette" },
         { etiqueta: "Pantalla de acceso", ruta: "/configuracion/sistema/acceso", icono: "image" },

@@ -1,3 +1,7 @@
+import asyncio
+import contextlib
+from collections.abc import AsyncIterator
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -33,7 +37,20 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
+
+@contextlib.asynccontextmanager
+async def ciclo(_: FastAPI) -> AsyncIterator[None]:
+    """Tareas de fondo: borrado diario de fotos vencidas."""
+    from app.services.retencion import tarea_diaria
+
+    tarea = asyncio.create_task(tarea_diaria()) if settings.environment != "test" else None
+    yield
+    if tarea:
+        tarea.cancel()
+
+
 app = FastAPI(
+    lifespan=ciclo,
     title=f"{settings.app_name} API",
     version="0.1.0",
     docs_url="/api/docs",
