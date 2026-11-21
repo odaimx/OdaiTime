@@ -1069,6 +1069,7 @@ interface Celular {
   created_at: string;
   aprobado_en: string | null;
   ultimo_uso: string | null;
+  passkey?: boolean;
 }
 
 /** Nombre corto del equipo a partir del navegador con que se vinculó. */
@@ -1110,6 +1111,11 @@ function CelularesEmpleado({ empleadoId, query }: { empleadoId: string; query: s
           <div className="min-w-0 flex-1 text-sm">
             <p className="truncate font-medium text-tinta-900" title={c.equipo ?? ""}>
               {nombreEquipo(c.equipo)}
+              {c.passkey && (
+                <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700" title="Checa con huella o rostro en lugar del PIN">
+                  <Icono nombre="fingerprint" className="h-3 w-3" /> Huella/rostro
+                </span>
+              )}
             </p>
             <p className="text-xs text-slate-500">
               {c.estado === "pendiente"

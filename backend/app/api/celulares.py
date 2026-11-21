@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func, select
 
 from app.api.deps import DB, CurrentUser, empresa_scope, require_roles, sucursales_permitidas
-from app.models import AvisoAceptado, CelularVinculado, Empleado, Rol, Usuario
+from app.models import AvisoAceptado, CelularVinculado, Empleado, PasskeyCelular, Rol, Usuario
 from app.services import bitacora
 
 router = APIRouter(tags=["celulares"])
@@ -25,6 +25,7 @@ class CelularOut(BaseModel):
     created_at: datetime
     aprobado_en: datetime | None
     ultimo_uso: datetime | None
+    passkey: bool = False  # checa con huella o rostro
 
 
 def _alcance(q, user: Usuario):
@@ -43,14 +44,25 @@ def _alcance(q, user: Usuario):
 )
 async def listar(
     empleado_id: uuid.UUID, user: CurrentUser, db: DB, empresa_id: uuid.UUID | None = None
-) -> list[CelularVinculado]:
+) -> list[CelularOut]:
     emp = empresa_scope(user, empresa_id)
     q = select(CelularVinculado).where(
         CelularVinculado.empresa_id == emp,
         CelularVinculado.empleado_id == empleado_id,
         CelularVinculado.estado != "revocado",
     )
-    return list(await db.scalars(_alcance(q, user).order_by(CelularVinculado.created_at.desc())))
+    lista = list(await db.scalars(_alcance(q, user).order_by(CelularVinculado.created_at.desc())))
+    con_llave = set(
+        await db.scalars(
+            select(PasskeyCelular.celular_id).where(
+                PasskeyCelular.celular_id.in_([c.id for c in lista])
+            )
+        )
+    )
+    return [
+        CelularOut.model_validate(c).model_copy(update={"passkey": c.id in con_llave})
+        for c in lista
+    ]
 
 
 @router.get("/celulares/pendientes", dependencies=[Depends(require_roles(*_GESTION))])
