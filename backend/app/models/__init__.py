@@ -3,7 +3,7 @@ from app.models.actividad import Actividad
 from app.models.asistencia import Incidencia, PoliticaAsistencia
 from app.models.aviso import AvisoAceptado
 from app.models.categoria import Categoria, CategoriaRegistro
-from app.models.celular import CelularVinculado
+from app.models.celular import CelularVinculado, PasskeyCelular
 from app.models.checada import Checada, ConfigChecadas, Dispositivo
 from app.models.empleado import Empleado
 from app.models.empresa import Empresa
@@ -23,6 +23,7 @@ __all__ = [
     "Categoria",
     "AvisoAceptado",
     "CelularVinculado",
+    "PasskeyCelular",
     "CategoriaRegistro",
     "Checada",
     "ConfigCorreo",

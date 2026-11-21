@@ -390,17 +390,23 @@ class LoteBiometrico(BaseModel):
 
 @router.post("/biometrico/registros")
 async def registros_biometricos(lote: LoteBiometrico, d: DispositivoActual, db: DB) -> dict:
-    """Recibe marcas de un reloj (o de un puente que lee el reloj).
+    """Recibe marcas de un reloj (o del puente que lee el reloj en la red local).
 
     Idempotente: una marca con el mismo empleado y la misma hora no se duplica.
     El tipo (entrada/salida) se deduce de la checada anterior del empleado.
     """
     if d.tipo != "biometrico":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Este dispositivo no es un reloj biométrico")
+    return await procesar_marcas(db, d, lote.registros)
+
+
+async def procesar_marcas(db, d: Dispositivo, registros: list[RegistroBiometrico]) -> dict:
+    """Registra las marcas de un reloj (puente o envío directo ADMS)."""
     ahora = datetime.now(UTC)
+    d.ultima_conexion = ahora
     creadas = omitidas = 0
     errores: list[dict] = []
-    for r in sorted(lote.registros, key=lambda x: x.momento):
+    for r in sorted(registros, key=lambda x: x.momento):
         momento = r.momento if r.momento.tzinfo else r.momento.replace(tzinfo=svc.zona(d.sucursal))
         if momento > ahora + timedelta(minutes=5) or ahora - momento > timedelta(days=31):
             errores.append({"numero": r.numero, "error": "Hora fuera de rango"})

@@ -43,6 +43,8 @@ export interface Sucursal extends SucursalRef, DomicilioApi {
   latitud: number | null;
   longitud: number | null;
   radio_metros: number;
+  /** Precisión máxima aceptada del GPS del teléfono (m). */
+  precision_gps_m?: number;
   activa: boolean;
 }
 
@@ -485,6 +487,9 @@ export interface Dispositivo {
   nombre: string;
   tipo: "kiosco" | "biometrico";
   serie: string | null;
+  /** Reloj ZKTeco que envía directo a la nube (ADMS). */
+  adms?: boolean;
+  ips_permitidas?: string | null;
   sucursal: SucursalRef;
   activo: boolean;
   vinculado: boolean;

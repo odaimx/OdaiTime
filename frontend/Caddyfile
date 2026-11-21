@@ -22,6 +22,11 @@
 		reverse_proxy api:8000
 	}
 
+	# Relojes ZKTeco con HTTPS (envío directo ADMS).
+	handle /iclock/* {
+		reverse_proxy api:8000
+	}
+
 	handle {
 		root * /srv
 		try_files {path} /index.html
@@ -51,6 +56,17 @@
 		on_demand
 	}
 	import app
+}
+
+# Relojes ZKTeco sin HTTPS (ADMS): solo la ruta /iclock en el puerto 8081; todo lo demás se
+# rechaza. Las marcas solo llevan número de empleado y hora; se recomienda limitar por IP.
+http://:8081 {
+	handle /iclock/* {
+		reverse_proxy api:8000
+	}
+	handle {
+		abort
+	}
 }
 
 # Cualquier otra dirección (la IP del servidor o un dominio ajeno) se rechaza: solo se entra

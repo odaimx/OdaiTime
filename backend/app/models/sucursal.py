@@ -23,4 +23,6 @@ class Sucursal(DomicilioMixin, UUIDPkMixin, TimestampMixin, Base):
     latitud: Mapped[float | None] = mapped_column(Numeric(9, 6, asdecimal=False))
     longitud: Mapped[float | None] = mapped_column(Numeric(9, 6, asdecimal=False))
     radio_metros: Mapped[int] = mapped_column(default=150)
+    # Precisión máxima aceptada del GPS del teléfono (m): con señal peor no se checa.
+    precision_gps_m: Mapped[int] = mapped_column(default=100, server_default="100")
     activa: Mapped[bool] = mapped_column(default=True)

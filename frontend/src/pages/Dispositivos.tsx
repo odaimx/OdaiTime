@@ -6,9 +6,16 @@ import Vista, { useAbrirDesdeUrl, useVista, type ConfigVista } from "../componen
 import { Badge, Campos, ErrorBox, Fila, Modal, PageHeader, Plegable, useEmpresaScope, type ItemSubmenu } from "../components/ui";
 import { fechaHora, get, patch, post, type Dispositivo, type Sucursal } from "../lib/api";
 
-type Form = { nombre: string; sucursal_id: string; tipo: string; serie: string };
-const VACIO: Form = { nombre: "", sucursal_id: "", tipo: "kiosco", serie: "" };
-const aForm = (d: Dispositivo): Form => ({ nombre: d.nombre, sucursal_id: d.sucursal.id, tipo: d.tipo, serie: d.serie ?? "" });
+type Form = { nombre: string; sucursal_id: string; tipo: string; serie: string; adms: boolean; ips_permitidas: string };
+const VACIO: Form = { nombre: "", sucursal_id: "", tipo: "kiosco", serie: "", adms: false, ips_permitidas: "" };
+const aForm = (d: Dispositivo): Form => ({
+  nombre: d.nombre,
+  sucursal_id: d.sucursal.id,
+  tipo: d.tipo,
+  serie: d.serie ?? "",
+  adms: !!d.adms,
+  ips_permitidas: d.ips_permitidas ?? "",
+});
 const TIPO = { kiosco: "Kiosco (tablet)", biometrico: "Reloj biométrico" } as const;
 
 function estado(d: Dispositivo) {
@@ -42,7 +49,15 @@ export default function Dispositivos({ submenu }: { submenu?: ItemSubmenu[] }) {
 
   async function guardar(): Promise<boolean> {
     setError(null);
-    const datos = { nombre: form.nombre, sucursal_id: form.sucursal_id, tipo: form.tipo, serie: form.serie || null };
+    const bio = form.tipo === "biometrico";
+    const datos = {
+      nombre: form.nombre,
+      sucursal_id: form.sucursal_id,
+      tipo: form.tipo,
+      serie: form.serie || null,
+      adms: bio && form.adms,
+      ips_permitidas: bio ? form.ips_permitidas || null : null,
+    };
     try {
       if (editando === "nuevo") {
         const d = await post<Dispositivo>(`/dispositivos${query}`, datos);
@@ -165,9 +180,24 @@ export default function Dispositivos({ submenu }: { submenu?: ItemSubmenu[] }) {
                   ))}
                 </select>
               </Fila>
-              <Fila etiqueta="Número de serie" htmlFor="disp-serie">
-                <input id="disp-serie" className="input" maxLength={60} value={form.serie} onChange={(e) => setForm({ ...form, serie: e.target.value })} />
+              <Fila etiqueta="Número de serie" htmlFor="disp-serie" ayuda={form.tipo === "biometrico" ? "En la etiqueta del reloj o en Menú › Información del sistema." : undefined}>
+                <input id="disp-serie" className="input uppercase" maxLength={60} value={form.serie} onChange={(e) => setForm({ ...form, serie: e.target.value })} />
               </Fila>
+              {form.tipo === "biometrico" && (
+                <>
+                  <Fila etiqueta="Envío directo (ADMS)" ayuda="El reloj ZKTeco sube las marcas solo, sin una PC. Requiere el número de serie. Si el reloj no tiene esta opción, usa el puente en una PC.">
+                    <label className="flex items-center gap-2 text-sm text-tinta-900">
+                      <input type="checkbox" checked={form.adms} onChange={(e) => setForm({ ...form, adms: e.target.checked })} />
+                      El reloj envía directo a la nube
+                    </label>
+                  </Fila>
+                  {form.adms && (
+                    <Fila etiqueta="IPs permitidas" htmlFor="disp-ips" ayuda="Recomendado: la IP pública de la sucursal (p. ej. 201.150.10.20 o 10.0.0.0/24). Vacío = cualquier IP.">
+                      <input id="disp-ips" className="input font-mono" maxLength={300} placeholder="201.150.10.20" value={form.ips_permitidas} onChange={(e) => setForm({ ...form, ips_permitidas: e.target.value })} />
+                    </Fila>
+                  )}
+                </>
+              )}
               {editando !== "nuevo" && (
                 <>
                   <Fila etiqueta="Estado">{estado(editando)}</Fila>
@@ -177,6 +207,7 @@ export default function Dispositivos({ submenu }: { submenu?: ItemSubmenu[] }) {
                 </>
               )}
             </Campos>
+            {form.tipo === "biometrico" && <InstruccionesReloj adms={form.adms} />}
             {editando !== "nuevo" && (
               <Plegable titulo="Historial de cambios">
                 <Bitacora modelo="dispositivo" registroId={editando.id} query={query} />
@@ -200,7 +231,9 @@ export default function Dispositivos({ submenu }: { submenu?: ItemSubmenu[] }) {
                 <li>Escribe este código:</li>
               </ol>
             ) : (
-              <p className="text-sm text-slate-600">Usa este código al configurar el puente del reloj biométrico.</p>
+              <p className="text-sm text-slate-600">
+                {codigo.adms ? "Con envío directo (ADMS) no necesitas el código: configura el servidor en el reloj." : "Usa este código al vincular el puente del reloj (programa en una PC de la sucursal)."}
+              </p>
             )}
             <p className="font-mono text-5xl font-bold tracking-[0.3em] text-brand-600">{codigo.codigo_vinculacion}</p>
             {codigo.codigo_expira && <p className="text-xs text-slate-500">Vence a las {new Date(codigo.codigo_expira).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })} (15 minutos).</p>}
@@ -211,5 +244,50 @@ export default function Dispositivos({ submenu }: { submenu?: ItemSubmenu[] }) {
         </Modal>
       )}
     </>
+  );
+}
+
+
+/** Cómo conectar el reloj ZKTeco: envío directo (ADMS) o puente en una PC. */
+function InstruccionesReloj({ adms }: { adms: boolean }) {
+  const host = location.host;
+  const copiar = (t: string) => navigator.clipboard?.writeText(t);
+  return (
+    <div className="space-y-2 rounded-xl bg-slate-50 p-4 text-sm text-slate-700 ring-1 ring-slate-200">
+      {adms ? (
+        <>
+          <p className="font-semibold text-tinta-900">En el reloj: Menú › Comunicación › Servidor en la nube (ADMS)</p>
+          <ul className="space-y-1">
+            <li>
+              Dirección del servidor: <code className="rounded bg-white px-1.5 py-0.5 ring-1 ring-slate-200">{host}</code>{" "}
+              <button type="button" className="text-xs text-brand-600 hover:underline" onClick={() => copiar(host)}>
+                Copiar
+              </button>
+            </li>
+            <li>
+              Puerto: <strong>443</strong> con HTTPS activado; si el reloj no tiene HTTPS, <strong>8081</strong>.
+            </li>
+            <li>Los empleados se reconocen por su ID de usuario en el reloj = número de empleado en ODAITIME.</li>
+          </ul>
+          <p className="text-xs text-slate-500">Al guardar en el reloj, «Última conexión» se actualiza en unos segundos.</p>
+        </>
+      ) : (
+        <>
+          <p className="font-semibold text-tinta-900">Puente en una PC de la sucursal (relojes sin envío directo)</p>
+          <ol className="list-decimal space-y-1 pl-5">
+            <li>
+              En una PC en la misma red que el reloj, instala Python 3.10+ y ejecuta <code className="rounded bg-white px-1 ring-1 ring-slate-200">pip install pyzk</code>.
+            </li>
+            <li>
+              Descarga <code className="rounded bg-white px-1 ring-1 ring-slate-200">zkteco_puente.py</code> (te lo da soporte de Odai) y vincúlalo con el código de este reloj:
+              <pre className="mt-1 overflow-x-auto rounded bg-white p-2 text-xs ring-1 ring-slate-200">
+                python zkteco_puente.py vincular --servidor https://{host} --codigo 123456 --reloj 192.168.1.201
+              </pre>
+            </li>
+            <li>Déjalo corriendo como tarea al iniciar Windows. Si se cae el internet, sube las marcas cuando regresa.</li>
+          </ol>
+        </>
+      )}
+    </div>
   );
 }

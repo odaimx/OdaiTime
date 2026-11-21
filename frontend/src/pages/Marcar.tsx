@@ -6,6 +6,7 @@ import EscanerQR from "../components/EscanerQR";
 import Icono from "../components/Iconos";
 import PantallaChecado, { ACCIONES, AvisoChecado, distanciaM, EncabezadoEmpresa, Reloj, type Accion, type Bloque, type EstadoGps, type MarcaHoy } from "../components/PantallaChecado";
 import { comprimir, type EstadoHoy, type TenantInfo } from "../lib/api";
+import { crearPasskey, hayPasskey, usarPasskey } from "../lib/passkey";
 
 /**
  * Checado público (sin usuario ni contraseña), en una sola dirección: /marcar.
@@ -282,8 +283,12 @@ interface EstadoCelular {
   estado: "pendiente" | "aprobado" | "revocado";
   nombre: string;
   foto: string | null;
+  passkey?: boolean;
   hoy: EstadoHoy | null;
 }
+
+/** Para qué se pide el PIN: checar, activar la huella/rostro o quitarla. */
+type ModalPin = "checar" | "activar" | "quitar";
 
 function ConCelular({ slug, aviso, onAviso }: { slug: string | null; aviso: string | null; onAviso: () => void }) {
   const [token, setToken] = useState<string | null>(() => leer(TOKEN));
@@ -291,7 +296,10 @@ function ConCelular({ slug, aviso, onAviso }: { slug: string | null; aviso: stri
   const [identificador, setIdentificador] = useState("");
   const [pin, setPin] = useState("");
   const [accion, setAccion] = useState<Accion | null>(null);
-  const [pedirPin, setPedirPin] = useState(false);
+  const [modalPin, setModalPin] = useState<ModalPin | null>(null);
+  const [firma, setFirma] = useState<string | null>(null); // huella/rostro ya verificada para esta checada
+  const [listoSelfie, setListoSelfie] = useState(false); // PIN o huella listos: sigue la cámara
+  const [soporta, setSoporta] = useState(false);
   const [ocupado, setOcupado] = useState(false);
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [ahora, setAhora] = useState(new Date());
@@ -317,6 +325,10 @@ function ConCelular({ slug, aviso, onAviso }: { slug: string | null; aviso: stri
   useEffect(() => {
     void cargar();
   }, [cargar]);
+
+  useEffect(() => {
+    void hayPasskey().then(setSoporta);
+  }, []);
 
   useEffect(() => {
     const t = setInterval(() => setAhora(new Date()), 30_000);
@@ -366,21 +378,66 @@ function ConCelular({ slug, aviso, onAviso }: { slug: string | null; aviso: stri
     }
   }
 
-  function elegir(a: Accion) {
+  const conToken = (extra: Record<string, string> = {}) => ({ "X-Celular-Token": token ?? "", ...extra });
+
+  /** Con huella/rostro activado se verifica primero y luego la selfie; si no, PIN. */
+  async function elegir(a: Accion) {
     setAccion(a);
     setPin("");
-    setPedirPin(true);
+    setFirma(null);
+    setListoSelfie(false);
+    if (!(estado?.passkey && soporta)) return setModalPin("checar");
+    setOcupado(true);
+    try {
+      const op = await pedir<Parameters<typeof usarPasskey>[0]>("/publico/celular/passkey/opciones", { method: "POST", headers: conToken() });
+      setFirma(await usarPasskey(op));
+      setListoSelfie(true); // sigue la selfie
+    } catch (err) {
+      setResultado({ ok: false, texto: mensajeDe(err), detalle: "Puedes usar tu PIN." });
+      setModalPin("checar");
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  /** Activar o quitar la huella/rostro (se confirma con el PIN). */
+  async function confirmarPin(modo: ModalPin) {
+    setModalPin(null);
+    setOcupado(true);
+    try {
+      if (modo === "activar") {
+        const op = await pedir<Parameters<typeof crearPasskey>[0]>("/publico/celular/passkey/opciones-registro", {
+          method: "POST",
+          headers: conToken(),
+          body: JSON.stringify({ pin }),
+        });
+        const credencial = await crearPasskey(op);
+        await pedir("/publico/celular/passkey", { method: "POST", headers: conToken(), body: JSON.stringify({ credencial }) });
+        setResultado({ ok: true, texto: "Huella o rostro activado", detalle: "Desde ahora checas sin escribir tu PIN." });
+      } else {
+        await pedir("/publico/celular/passkey", { method: "DELETE", headers: conToken(), body: JSON.stringify({ pin }) });
+        setResultado({ ok: true, texto: "Volviste a checar con PIN" });
+      }
+      await cargar();
+    } catch (err) {
+      setResultado({ ok: false, texto: mensajeDe(err) });
+    } finally {
+      setPin("");
+      setOcupado(false);
+    }
   }
 
   async function enviar(foto: Blob) {
     if (!token || !accion) return;
     const a = accion;
     setAccion(null);
+    setListoSelfie(false);
     setOcupado(true);
     try {
       const p = await ubicar();
       const body = new FormData();
-      body.append("pin", pin);
+      if (firma) body.append("passkey", firma);
+      else body.append("pin", pin);
       body.append("accion", a);
       body.append("latitud", p.latitud);
       body.append("longitud", p.longitud);
@@ -398,11 +455,13 @@ function ConCelular({ slug, aviso, onAviso }: { slug: string | null; aviso: stri
       if (err instanceof ErrorPublico && err.status === 401 && err.codigo !== "credenciales" && err.codigo !== "bloqueado") olvidar();
     } finally {
       setPin("");
+      setFirma(null);
       setOcupado(false);
     }
   }
 
-  if (accion && !pedirPin) return <Camara titulo={`${ACCIONES[accion].titulo}: centra tu rostro`} onFoto={enviar} onCancelar={() => setAccion(null)} />;
+  if (accion && listoSelfie)
+    return <Camara titulo={`${ACCIONES[accion].titulo}: centra tu rostro`} onFoto={enviar} onCancelar={() => (setAccion(null), setListoSelfie(false), setFirma(null))} />;
 
   let cuerpo: ReactNode;
   if (!token) {
@@ -465,7 +524,32 @@ function ConCelular({ slug, aviso, onAviso }: { slug: string | null; aviso: stri
           onAccion={elegir}
         />
         {!hoy.permitir_movil && <p className="text-center text-sm text-amber-700">Tu empresa no tiene habilitado el checado por celular para ti.</p>}
-        <p className="text-center text-xs text-slate-500">Al checar se registra tu ubicación y una selfie.</p>
+        {soporta && !estado.passkey && (
+          <div className="card flex items-center gap-3 p-4">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
+              <Icono nombre="fingerprint" className="h-6 w-6" />
+            </span>
+            <div className="min-w-0 flex-1 text-sm">
+              <p className="font-semibold text-tinta-900">Checa con tu huella o rostro</p>
+              <p className="text-slate-500">Sin escribir el PIN cada vez. Tu huella no sale de tu teléfono.</p>
+            </div>
+            <button type="button" className="btn-primary px-3 py-2 text-sm" disabled={ocupado} onClick={() => (setPin(""), setModalPin("activar"))}>
+              Activar
+            </button>
+          </div>
+        )}
+        <p className="text-center text-xs text-slate-500">
+          Al checar se registra tu ubicación y una selfie.
+          {estado.passkey && (
+            <>
+              {" "}
+              Checas con huella o rostro ·{" "}
+              <button type="button" className="underline" onClick={() => (setPin(""), setModalPin("quitar"))}>
+                desactivar
+              </button>
+            </>
+          )}
+        </p>
       </>
     );
   }
@@ -474,18 +558,25 @@ function ConCelular({ slug, aviso, onAviso }: { slug: string | null; aviso: stri
     <div className="space-y-4">
       {resultado && !(estado?.estado === "aprobado" && estado.hoy) && <Aviso resultado={resultado} onCerrar={() => setResultado(null)} />}
       {cuerpo}
-      {pedirPin && accion && (
+      {modalPin && (modalPin !== "checar" || accion) && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" role="dialog" aria-modal="true">
           <form
             className="card w-full max-w-sm space-y-4 p-6"
             onSubmit={(e) => {
               e.preventDefault();
-              if (pin.length >= 4) setPedirPin(false); // sigue la selfie
+              if (pin.length < 4) return;
+              if (modalPin === "checar") {
+                setModalPin(null);
+                setListoSelfie(true); // sigue la selfie
+              }
+              else void confirmarPin(modalPin);
             }}
           >
-            <h2 className="text-lg font-semibold text-tinta-900">{ACCIONES[accion].titulo}</h2>
+            <h2 className="text-lg font-semibold text-tinta-900">
+              {modalPin === "checar" && accion ? ACCIONES[accion].titulo : modalPin === "activar" ? "Activar huella o rostro" : "Volver a checar con PIN"}
+            </h2>
             <label className="block space-y-1">
-              <span className="text-sm font-medium text-slate-700">Escribe tu PIN</span>
+              <span className="text-sm font-medium text-slate-700">{modalPin === "checar" ? "Escribe tu PIN" : "Confirma con tu PIN"}</span>
               <CampoPin valor={pin} onCambio={setPin} autoFocus />
             </label>
             <div className="flex gap-2">
@@ -493,14 +584,14 @@ function ConCelular({ slug, aviso, onAviso }: { slug: string | null; aviso: stri
                 type="button"
                 className="btn-secondary flex-1"
                 onClick={() => {
-                  setPedirPin(false);
+                  setModalPin(null);
                   setAccion(null);
                   setPin("");
                 }}
               >
                 Cancelar
               </button>
-              <button className="btn-primary flex-1">Tomar selfie</button>
+              <button className="btn-primary flex-1">{modalPin === "checar" ? "Tomar selfie" : modalPin === "activar" ? "Continuar" : "Usar PIN"}</button>
             </div>
           </form>
         </div>

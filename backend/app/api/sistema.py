@@ -14,7 +14,7 @@ from sqlalchemy import delete, func, select
 from app.api.deps import DB, require_roles
 from app.core.config import get_settings
 from app.models import ConfigSistema, Frase, Rol
-from app.services import fotos
+from app.services import fotos, retencion
 
 router = APIRouter(prefix="/sistema", tags=["sistema"])
 _SUPER = [Depends(require_roles(Rol.SUPERADMIN))]
@@ -364,3 +364,37 @@ async def borrar_frase(frase_id: uuid.UUID, db: DB) -> None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Frase no encontrada")
     await db.delete(frase)
     await db.commit()
+
+
+# --- Retención de fotos de checadas ---
+
+OPCIONES_RETENCION = (6, 12, 18, 24, 36, 48, 60)
+
+
+class RetencionIn(BaseModel):
+    meses: int | None = None  # None = no borrar
+
+
+def _retencion_out(meses: int | None, pendientes: int) -> dict:
+    return {
+        "meses": meses,
+        "opciones": list(OPCIONES_RETENCION),
+        "por_borrar": pendientes,
+    }
+
+
+@router.get("/retencion-fotos", dependencies=_SUPER)
+async def ver_retencion(db: DB) -> dict:
+    """Cuánto tiempo se guardan las fotos de las checadas (todas las empresas)."""
+    meses = await retencion.meses_configurados(db)
+    return _retencion_out(meses, await retencion.por_borrar(db, meses))
+
+
+@router.put("/retencion-fotos", dependencies=_SUPER)
+async def guardar_retencion(data: RetencionIn, db: DB) -> dict:
+    if data.meses is not None and data.meses not in OPCIONES_RETENCION:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Plazo no válido")
+    c = await _config(db)
+    c.retencion_fotos_meses = data.meses
+    await db.commit()
+    return _retencion_out(data.meses, await retencion.por_borrar(db, data.meses))
