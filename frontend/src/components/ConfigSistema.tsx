@@ -6,7 +6,7 @@ import PlantillasCorreo from "./PlantillasCorreo";
 import Icono from "./Iconos";
 import { Ayuda, BarraGuardar, Campos, ErrorBox, Fila, ImagenEditable } from "./ui";
 
-export type Pestana = "tema" | "acceso" | "frases" | "correo" | "plantillas" | "enlaces" | "whatsapp";
+export type Pestana = "tema" | "acceso" | "frases" | "correo" | "plantillas" | "enlaces" | "whatsapp" | "fotos";
 export const SECCIONES_SISTEMA: [Pestana, string][] = [
   ["tema", "Colores del tema"],
   ["acceso", "Pantalla de acceso"],
@@ -15,6 +15,7 @@ export const SECCIONES_SISTEMA: [Pestana, string][] = [
   ["plantillas", "Plantillas de correo"],
   ["enlaces", "Enlaces de Odai"],
   ["whatsapp", "WhatsApp (Meta)"],
+  ["fotos", "Fotos de checadas"],
 ];
 
 /** Configuración general de ODAITIME para todas las empresas (solo superadmin). */
@@ -33,6 +34,7 @@ export default function ConfigSistema({ seccion }: { seccion?: Pestana } = {}) {
             ["plantillas", "Plantillas de correo"],
             ["enlaces", "Enlaces de Odai"],
             ["whatsapp", "WhatsApp (Meta)"],
+            ["fotos", "Fotos de checadas"],
           ] as const
         ).map(([k, l]) => (
           <button
@@ -54,6 +56,7 @@ export default function ConfigSistema({ seccion }: { seccion?: Pestana } = {}) {
       {pestana === "plantillas" && <PlantillasCorreo />}
       {pestana === "enlaces" && <EnlacesOdai />}
       {pestana === "whatsapp" && <AppMeta />}
+      {pestana === "fotos" && <RetencionFotos />}
     </div>
   );
 }
@@ -555,6 +558,66 @@ function AppMeta() {
         </Fila>
         <Fila etiqueta="App secret" htmlFor="meta-secret" ayuda="Se guarda cifrado; nunca se envía al navegador. Sirve para cambiar el código por el token y validar la firma del webhook.">
           <input id="meta-secret" className="input font-mono" type="password" autoComplete="off" placeholder={d.tiene_secreto ? "•••••• (guardado; escribe para cambiarlo)" : ""} value={form.app_secret} onChange={(e) => setForm({ ...form, app_secret: e.target.value })} />
+        </Fila>
+      </Campos>
+      <ErrorBox message={error} />
+      {msg && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{msg}</p>}
+      <div className="flex justify-end">
+        <button className="btn-primary">Guardar</button>
+      </div>
+    </form>
+  );
+}
+
+
+/** Cuánto tiempo se guardan las fotos de las checadas (para todas las empresas). */
+function RetencionFotos() {
+  const [d, setD] = useState<{ meses: number | null; opciones: number[]; por_borrar: number } | null>(null);
+  const [valor, setValor] = useState<string>("24");
+  const [msg, setMsg] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const cargar = (x: NonNullable<typeof d>) => {
+    setD(x);
+    setValor(x.meses === null ? "" : String(x.meses));
+  };
+  useEffect(() => {
+    get<NonNullable<typeof d>>("/sistema/retencion-fotos").then(cargar).catch((e) => setError((e as Error).message));
+  }, []);
+  async function guardar(e: FormEvent) {
+    e.preventDefault();
+    setMsg(null);
+    setError(null);
+    const meses = valor === "" ? null : Number(valor);
+    if (meses !== null && d && meses < (d.meses ?? Infinity) && !confirm(`Las fotos de más de ${meses} meses se borrarán en la próxima revisión diaria. ¿Continuar?`)) return;
+    try {
+      cargar(await api<NonNullable<typeof d>>("/sistema/retencion-fotos", { method: "PUT", body: JSON.stringify({ meses }) }));
+      setMsg("Guardado.");
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+  if (!d) return <ErrorBox message={error} />;
+  const etiqueta = (m: number) => (m % 12 === 0 ? `${m / 12} año${m > 12 ? "s" : ""}` : `${m} meses`);
+  return (
+    <form onSubmit={guardar} className="space-y-4">
+      <p className="text-sm text-slate-600">
+        Las fotos (selfies) de las checadas ocupan espacio en el servidor. Pasado este plazo se <strong>borra solo la imagen</strong>; la checada (fecha, hora, tipo, ubicación y
+        dispositivo) se conserva siempre. La revisión corre una vez al día.
+      </p>
+      <Campos>
+        <Fila etiqueta="Guardar las fotos" htmlFor="ret-meses" ayuda="La LFT (art. 804) pide conservar los controles de asistencia del último año y hasta un año después de la baja; las checadas cumplen eso aunque se borre la foto.">
+          <select id="ret-meses" className="input" value={valor} onChange={(e) => setValor(e.target.value)}>
+            {d.opciones.map((m) => (
+              <option key={m} value={m}>
+                {etiqueta(m)}
+                {m === 24 ? " (recomendado)" : ""}
+              </option>
+            ))}
+            <option value="">No borrar nunca</option>
+          </select>
+        </Fila>
+        <Fila etiqueta="Fotos fuera de plazo">
+          <span className="text-sm text-tinta-900">{d.por_borrar ? `${d.por_borrar.toLocaleString("es-MX")} se borrarán en la próxima revisión` : "Ninguna"}</span>
         </Fila>
       </Campos>
       <ErrorBox message={error} />

@@ -42,6 +42,9 @@ class ConfigSistema(Base):
     login_tamano_titulo: Mapped[int | None] = mapped_column(Integer)
     login_tamano_subtitulo: Mapped[int | None] = mapped_column(Integer)
     login_tamano_texto: Mapped[int | None] = mapped_column(Integer)
+    # Meses que se guardan las fotos de las checadas (None = no se borran). Las checadas
+    # (fecha, hora, tipo, ubicación) se conservan siempre; solo se borra la imagen.
+    retencion_fotos_meses: Mapped[int | None] = mapped_column(Integer, default=24)
     # WhatsApp como Tech Provider de Meta (registro integrado / Embedded Signup): la app de Odai.
     meta_app_id: Mapped[str | None] = mapped_column(String(40))
     meta_config_id: Mapped[str | None] = mapped_column(String(40))

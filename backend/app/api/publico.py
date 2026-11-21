@@ -11,6 +11,7 @@ Seguridad: bloqueo de 15 min tras 5 PIN incorrectos (por número y por IP), sesi
 """
 
 import base64
+import json
 import uuid
 from datetime import UTC, datetime
 from typing import Annotated
@@ -24,11 +25,12 @@ from app.api.deps import DB
 from app.api.kiosco import _autenticar, _config_kiosco, _estado_empleado, _limite
 from app.core.security import verify_password
 from app.core.tenant import tenant_de
-from app.models import CelularVinculado, Dispositivo, Empleado, Empresa
+from app.models import CelularVinculado, Dispositivo, Empleado, Empresa, PasskeyCelular
 from app.schemas.checada import Accion, EstadoHoy
 from app.services import aviso as aviso_svc
+from app.services import bitacora, estado_empresa
 from app.services import checadas as svc
-from app.services import estado_empresa
+from app.services import passkey as passkey_svc
 
 router = APIRouter(prefix="/publico", tags=["publico"])
 
@@ -247,7 +249,33 @@ class CelularEstado(BaseModel):
     estado: str
     nombre: str
     foto: str | None = None  # data URL de la foto del expediente (128 px)
+    passkey: bool = False  # tiene huella o rostro registrado
     hoy: EstadoHoy | None = None
+
+
+async def _aprobado(db: DB, token: str | None) -> CelularVinculado:
+    c = await _celular(db, token)
+    if c.estado != "aprobado":
+        raise svc.error(
+            "pendiente",
+            "Tu celular aún no está aprobado. Pide a tu administrador que lo apruebe.",
+            http=403,
+        )
+    return c
+
+
+async def _llaves(db: DB, c: CelularVinculado) -> list[PasskeyCelular]:
+    return list(await db.scalars(select(PasskeyCelular).where(PasskeyCelular.celular_id == c.id)))
+
+
+def _json(texto: str) -> dict:
+    try:
+        d = json.loads(texto)
+    except ValueError:
+        d = None
+    if not isinstance(d, dict):
+        raise svc.error("passkey_invalida", "No se pudo verificar tu huella o rostro.", http=401)
+    return d
 
 
 @router.get("/celular/estado", response_model=CelularEstado)
@@ -262,6 +290,7 @@ async def celular_estado(
         estado="aprobado",
         nombre=c.empleado.nombre,
         foto=f"data:image/jpeg;base64,{base64.b64encode(foto).decode()}" if foto else None,
+        passkey=bool(await _llaves(db, c)),
         hoy=await estado_hoy(db, c.empleado),
     )
 
@@ -269,7 +298,6 @@ async def celular_estado(
 @router.post("/celular/checar", status_code=status.HTTP_201_CREATED)
 async def celular_checar(
     db: DB,
-    pin: Annotated[str, Form(min_length=4, max_length=6)],
     accion: Annotated[Accion, Form()],
     foto: Annotated[UploadFile, File()],
     latitud: Annotated[float | None, Form(ge=-90, le=90)] = None,
@@ -277,16 +305,16 @@ async def celular_checar(
     precision: Annotated[int | None, Form(ge=0)] = None,
     offline: Annotated[bool, Form()] = False,
     momento: Annotated[datetime | None, Form()] = None,
+    pin: Annotated[str | None, Form(min_length=4, max_length=6)] = None,
+    # Huella o rostro en lugar del PIN: respuesta de navigator.credentials.get() en JSON.
+    passkey: Annotated[str | None, Form(max_length=8000)] = None,
     token: Annotated[str | None, Header(alias="X-Celular-Token")] = None,
 ) -> dict:
-    c = await _celular(db, token)
-    if c.estado != "aprobado":
-        raise svc.error(
-            "pendiente",
-            "Tu celular aún no está aprobado. Pide a tu administrador que lo apruebe.",
-            http=403,
-        )
-    await _verificar_pin(c.empleado, pin, f"pub_pin:{c.empleado_id}")
+    c = await _aprobado(db, token)
+    if passkey:
+        await passkey_svc.verificar(c, _json(passkey), await _llaves(db, c))
+    else:
+        await _verificar_pin(c.empleado, pin, f"pub_pin:{c.empleado_id}")
     c.ultimo_uso = datetime.now(UTC)
     checada = await checar_movil(
         db,
@@ -308,3 +336,81 @@ async def celular_checar(
         "momento": checada.momento.isoformat(),
         "retardo_minutos": checada.retardo_minutos,
     }
+
+
+# --- Huella o rostro (passkey) del celular vinculado ---
+
+
+class PinIn(BaseModel):
+    pin: str = Field(min_length=4, max_length=6)
+
+
+@router.post("/celular/passkey/opciones-registro")
+async def passkey_opciones_registro(
+    data: PinIn,
+    request: Request,
+    db: DB,
+    token: Annotated[str | None, Header(alias="X-Celular-Token")] = None,
+) -> dict:
+    """Para activar la huella o el rostro se confirma una vez con el PIN."""
+    c = await _aprobado(db, token)
+    await _verificar_pin(c.empleado, data.pin, f"pub_pin:{c.empleado_id}")
+    return passkey_svc.opciones_registro(c, request, await _llaves(db, c))
+
+
+class CredencialIn(BaseModel):
+    credencial: dict
+
+
+@router.post("/celular/passkey", status_code=status.HTTP_201_CREATED)
+async def passkey_registrar(
+    data: CredencialIn,
+    request: Request,
+    db: DB,
+    token: Annotated[str | None, Header(alias="X-Celular-Token")] = None,
+) -> dict:
+    c = await _aprobado(db, token)
+    try:
+        llave = await passkey_svc.registrar(c, request, data.credencial)
+    except HTTPException:
+        raise
+    except Exception:  # noqa: BLE001 — respuesta del teléfono inválida
+        raise svc.error(
+            "passkey_invalida", "Tu teléfono no pudo registrar la huella o el rostro.", http=422
+        ) from None
+    db.add(llave)
+    await bitacora.registrar(
+        db,
+        empresa_id=c.empresa_id,
+        modelo="empleado",
+        registro_id=c.empleado_id,
+        usuario=None,
+        tipo="cambio",
+        mensaje="Activó huella o rostro en su celular vinculado",
+    )
+    await db.commit()
+    return {"passkey": True}
+
+
+@router.post("/celular/passkey/opciones")
+async def passkey_opciones(
+    db: DB, token: Annotated[str | None, Header(alias="X-Celular-Token")] = None
+) -> dict:
+    """Reto para checar con huella o rostro (vence en 3 minutos, de un solo uso)."""
+    c = await _aprobado(db, token)
+    llaves = await _llaves(db, c)
+    if not llaves:
+        raise svc.error("sin_passkey", "No tienes huella o rostro activado en este celular.")
+    return passkey_svc.opciones_checar(c, llaves)
+
+
+@router.delete("/celular/passkey", status_code=status.HTTP_204_NO_CONTENT)
+async def passkey_quitar(
+    data: PinIn, db: DB, token: Annotated[str | None, Header(alias="X-Celular-Token")] = None
+) -> None:
+    """Vuelve a checar con PIN (pide el PIN para confirmar)."""
+    c = await _aprobado(db, token)
+    await _verificar_pin(c.empleado, data.pin, f"pub_pin:{c.empleado_id}")
+    for p in await _llaves(db, c):
+        await db.delete(p)
+    await db.commit()
