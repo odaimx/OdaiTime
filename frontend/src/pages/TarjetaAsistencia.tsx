@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Avatar from "../components/Avatar";
+import FiltrosExportacion, { filtrosIniciales, paramsDe, type Filtros } from "../components/FiltrosExportacion";
 import Registro from "../components/Registro";
 import { useAuth } from "../lib/auth";
 import { useNavigate } from "react-router";
@@ -243,16 +244,8 @@ export default function TarjetaAsistencia() {
   };
   const vista = useVista(config, filas ?? []);
 
-  /** Reportes en Excel del periodo y sucursal elegidos. */
-  async function bajarReporte(ruta: "asistencia" | "detalle", nombre: string) {
-    const p = new URLSearchParams(rango);
-    if (sucursal) p.set("sucursal_id", sucursal);
-    try {
-      await descargar(`/reportes/${ruta}.xlsx${query}${sep}${p}`, `${nombre}_${rango.desde.replace(/-/g, "")}_${rango.hasta.replace(/-/g, "")}.xlsx`);
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }
+  /** Reportes en Excel: se eligen periodo y filtros (los mismos de Exportaciones). */
+  const [reporte, setReporte] = useState<"asistencia" | "detalle" | null>(null);
   const enOrden = vista.ordenados;
 
   return (
@@ -263,8 +256,8 @@ export default function TarjetaAsistencia() {
           {
             etiqueta: "Reportes",
             opciones: [
-              { etiqueta: "Resumen del periodo (Excel)", icono: "sheet", onClick: () => bajarReporte("asistencia", "asistencia") },
-              { etiqueta: "Detalle diario (Excel)", icono: "sheet", onClick: () => bajarReporte("detalle", "detalle_diario") },
+              { etiqueta: "Resumen del periodo (Excel)", icono: "sheet", onClick: () => setReporte("asistencia") },
+              { etiqueta: "Detalle diario (Excel)", icono: "sheet", onClick: () => setReporte("detalle") },
             ],
           },
         ]}
@@ -410,7 +403,70 @@ export default function TarjetaAsistencia() {
           </form>
         </Registro>
       )}
+      {reporte && <ReporteExcel tipo={reporte} query={query} rango={rango} preset={preset} sucursal={sucursal} onTipo={setReporte} onCerrar={() => setReporte(null)} />}
     </>
+  );
+}
+
+const REPORTES = { asistencia: ["Resumen del periodo", "asistencia"], detalle: ["Detalle diario", "detalle_diario"] } as const;
+
+/** Descarga del resumen o el detalle diario en Excel con los filtros de exportación. */
+function ReporteExcel({
+  tipo,
+  query,
+  rango,
+  preset,
+  sucursal,
+  onTipo,
+  onCerrar,
+}: {
+  tipo: "asistencia" | "detalle";
+  query: string;
+  rango: { desde: string; hasta: string };
+  preset: string;
+  sucursal: string;
+  onTipo: (t: "asistencia" | "detalle") => void;
+  onCerrar: () => void;
+}) {
+  const sep = query ? "&" : "?";
+  // Arranca con el periodo y la sucursal que se ven en la Tarjeta.
+  const [filtros, setFiltros] = useState<Filtros>(() => {
+    const f = filtrosIniciales();
+    return { ...f, preset, ...rango, sucursal_ids: sucursal ? [sucursal] : f.sucursal_ids };
+  });
+  const [bajando, setBajando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function bajar() {
+    setError(null);
+    setBajando(true);
+    try {
+      const [, archivo] = REPORTES[tipo];
+      await descargar(`/reportes/${tipo}.xlsx${query}${sep}${paramsDe(filtros)}`, `${archivo}_${filtros.desde.replace(/-/g, "")}_${filtros.hasta.replace(/-/g, "")}.xlsx`);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBajando(false);
+    }
+  }
+  return (
+    <Registro flotante titulo={`Reporte en Excel: ${REPORTES[tipo][0]}`} imprimir={false} autoguardar={false} onCerrar={onCerrar} nota="Los filtros son los mismos de Exportaciones y se recuerdan para la próxima vez.">
+      <div className="space-y-4">
+        <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
+          {(Object.keys(REPORTES) as (keyof typeof REPORTES)[]).map((k) => (
+            <button key={k} type="button" onClick={() => onTipo(k)} className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium ${tipo === k ? "bg-white text-tinta-900 shadow-sm" : "text-slate-600"}`}>
+              {REPORTES[k][0]}
+            </button>
+          ))}
+        </div>
+        <FiltrosExportacion query={query} valor={filtros} onCambio={setFiltros} />
+        <ErrorBox message={error} />
+        <div className="flex justify-end">
+          <button type="button" className="btn-primary" disabled={bajando} onClick={bajar}>
+            <Icono nombre="download" /> {bajando ? "Generando…" : "Descargar Excel"}
+          </button>
+        </div>
+      </div>
+    </Registro>
   );
 }
 
