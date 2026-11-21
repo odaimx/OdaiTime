@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, Integer, LargeBinary, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPkMixin
@@ -34,3 +34,26 @@ class CelularVinculado(UUIDPkMixin, TimestampMixin, Base):
     ultimo_uso: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     empleado: Mapped[Empleado] = relationship(lazy="joined")
+
+
+class PasskeyCelular(UUIDPkMixin, TimestampMixin, Base):
+    """Huella o rostro del celular vinculado (WebAuthn / passkey) para checar sin PIN.
+
+    La llave privada nunca sale del teléfono; aquí solo se guarda la llave pública, el contador
+    de firmas (detecta llaves clonadas) y el dominio (rp_id) y origen con que se registró.
+    """
+
+    __tablename__ = "passkeys_celular"
+
+    empresa_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("empresas.id", ondelete="CASCADE"), index=True
+    )
+    celular_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("celulares_vinculados.id", ondelete="CASCADE"), index=True
+    )
+    credencial_id: Mapped[bytes] = mapped_column(LargeBinary, unique=True)
+    llave_publica: Mapped[bytes] = mapped_column(LargeBinary)
+    contador: Mapped[int] = mapped_column(Integer, default=0)
+    rp_id: Mapped[str] = mapped_column(String(253))
+    origen: Mapped[str] = mapped_column(String(300))
+    ultimo_uso: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
